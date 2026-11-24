@@ -1,31 +1,57 @@
-import { createCellSpace, type CellSpace } from '../../domain/cell-space';
-import { storeysPerLevel, type CityColumn } from '../../domain/city-volume';
-import { createHouseCourt, type HouseCourt, type HouseInputs } from '../../domain/house-court';
+import { createCellSpace, parcelEdgeId, type CellSpace, type FineCell } from '../../domain/cell-space';
+import { columnRoof, levelHeight, storeysPerLevel, type CityColumn } from '../../domain/city-volume';
+import {
+	createHouseCourt,
+	houseStyles,
+	type HouseCourt,
+	type HouseInputs,
+	type HouseStyle
+} from '../../domain/house-court';
 
-/** A house rule placed on one city column: its cell space and occupancy, in world meters. */
-export type BayHouse = Readonly<{ space: CellSpace; house: HouseCourt }>;
+/** A house rule placed on one city column: its cell space, occupancy and the lattice level of the
+ * cell space's storey 0, in world meters. */
+export type BayHouse = Readonly<{ space: CellSpace; house: HouseCourt; baseLevel: number }>;
 
-/** Places the court-house rule on the ground bay of a city column. The column's plan corners
- * (counterclockwise, keyed by plan vertex ID) become the parcel, so the corner quads carry the
- * logical child addresses of `subdivideBay` and storey `2L + h` of corner quad `<cell>/child/["v"]`
- * is child bay `<cell>/level/L/child/["v",h]`. The house stands on the highest corner, may rise
- * through the column's levels, and fronts the given plan edges (edge i runs from corner i to
- * corner i + 1). Invalid columns or edges throw RangeError. */
+/** Lattice level of the column's lowest full bay: the first plane above its highest corner. */
+export function readBaseLevel(column: CityColumn, datumZ: number): number {
+	return Math.round((columnRoof(column, datumZ) - datumZ) / levelHeight) - column.levels;
+}
+
+/** Places a house rule on a city column. The column's plan corners (counterclockwise, keyed by
+ * plan vertex ID) become the parcel, its storeys stand on the lattice plane `readBaseLevel` above
+ * the datum and fill the column's levels, two storeys per level, and the house fronts the plan
+ * edges starting at the given corner indices (edge i runs from corner i to corner i + 1).
+ * Invalid columns or edges throw RangeError. */
 export function createBayHouse(
 	column: CityColumn,
+	datumZ: number,
 	frontage: readonly number[],
-	inputs: HouseInputs
+	inputs: HouseInputs,
+	style: HouseStyle = houseStyles.neutral
 ): BayHouse {
-	const corners = column.corners.map(({ id, position: [x, y] }) => ({
-		id,
-		position: [x, y] as const
-	}));
+	const { corners } = column;
+	const baseLevel = readBaseLevel(column, datumZ);
 	const space = createCellSpace({
 		id: column.planCellId,
-		corners,
-		frontage,
-		baseZ: Math.max(...column.corners.map(({ position }) => position[2])),
-		storeyCount: column.levels * storeysPerLevel
+		corners: corners.map(({ id, position: [x, y] }) => ({ id, position: [x, y] as const })),
+		frontage: frontage.map((i) => parcelEdgeId(corners[i]?.id ?? '', corners[(i + 1) % corners.length]?.id ?? '')),
+		baseZ: datumZ + baseLevel * levelHeight,
+		storeyCount: column.levels * storeysPerLevel,
+		storeyHeightM: levelHeight / storeysPerLevel
 	});
-	return Object.freeze({ space, house: createHouseCourt(space, inputs) });
+	return Object.freeze({ space, house: createHouseCourt(space, inputs, style), baseLevel });
+}
+
+/** The logical child bay of `subdivideBay` that holds one storey of a convex column's corner quad:
+ * `<plan cell>/level/<base level + floor(storey / 2)>/child/<JSON [corner key, storey mod 2]>`.
+ * Refined cells resolve to the child bay of their corner quad. */
+export function readChildBayAddress(
+	planCellId: string,
+	baseLevel: number,
+	cell: FineCell,
+	storey: number
+): string {
+	if (!Number.isInteger(storey) || storey < 0) throw new RangeError('Expected a storey index');
+	const level = baseLevel + Math.floor(storey / storeysPerLevel);
+	return `${planCellId}/level/${level}/child/${JSON.stringify([cell.corner, storey % storeysPerLevel])}`;
 }

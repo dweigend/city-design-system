@@ -1,33 +1,67 @@
 import type { Vec2, Vec3 } from '../../core/geometry';
 import { PlaceableObject, type Anchor, type Part } from '../../core/object';
 import { cellAreaM2, cellCentre, type CellSpace } from '../cell-space';
-import { courtSides, galleries, stair } from './access';
+import { Random } from '../../core/random';
+import { courtSides, galleries, stair, stairSide } from './access';
+import { faceMesh } from './boxes';
+import type { Context } from './context';
+import { caps, figureOpenings, patterns, trees } from './dress';
+import { cellSolids, type CellSolid } from './fills';
+import { structure } from './structure';
+import { houseStyles, type HouseStyle } from './styles';
 import { side } from './boxes';
 import type { HouseCourt } from './occupancy';
-import { edges, envelope, openings, plates, type Context } from './parts';
+import { edges, envelope, openings, plates } from './parts';
 
-/** Slots per drawing detail. `full` carries the skin parts, `block` one closed mass per built cell. */
-export const houseDetails = Object.freeze({
-	full: Object.freeze([
+/** A drawing detail of the house object: `full` carries every part of the style, `block` only the
+ * closed solids as one `mass` slot. */
+export type HouseDetail = 'full' | 'block';
+
+const unique = (slots: readonly (string | false)[]) => [...new Set(slots.filter((slot): slot is string => !!slot))];
+
+/** The ordered role slots a style declares at a detail, whether or not a given house uses them all. */
+export function houseSlots(style: HouseStyle, detail: HouseDetail): readonly string[] {
+	if (detail === 'block') return ['plot', 'court', 'mass'];
+	const { fill, opening, parts, slots } = style;
+	const envelopeFill = fill.kinds.includes('envelope');
+	return unique([
 		'plot',
 		'court',
-		'wall',
-		'floorEdge',
-		'roofEdge',
+		envelopeFill && 'wall',
+		parts.edges && 'floorEdge',
+		parts.edges && 'roofEdge',
+		...slots.body,
+		...slots.roof,
+		...slots.capsule,
+		parts.patternShareRatio > 0 && 'pattern',
+		opening.collar && 'collar',
 		'opening',
-		'gallery',
-		'stair'
-	]),
-	block: Object.freeze(['plot', 'court', 'mass'])
-});
+		parts.frame && 'frame',
+		parts.frame && 'deck',
+		parts.frame && 'tube',
+		parts.frame && 'mast',
+		parts.planters && 'planter',
+		parts.treeShareRatio > 0 && 'trunk',
+		parts.treeShareRatio > 0 && 'foliage',
+		parts.galleries && 'gallery',
+		parts.galleries && parts.stair && 'stair'
+	]);
+}
 
-/** A drawing detail of the house object. */
-export type HouseDetail = keyof typeof houseDetails;
-
-function context(space: CellSpace, house: HouseCourt): Context {
-	if (space.id !== house.spaceId || space.cells.length !== house.cells.length)
+function context(space: CellSpace, house: HouseCourt, style: HouseStyle): Context {
+	const ids = space.cells.map(({ id }) => id);
+	if (space.id !== house.spaceId || ids.length !== house.cellIds.length || ids.some((id, i) => id !== house.cellIds[i]))
 		throw new RangeError('House occupancy belongs to another cell space');
-	return { space, occupancy: new Map(house.cells.map((cell) => [cell.id, cell])) };
+	if (style.id !== house.styleId) throw new RangeError('House occupancy was made with another style');
+	if (style.fill.kinds.includes('envelope') && style.fill.kinds.length > 1)
+		throw new RangeError('An envelope fill must be the only fill kind of a style');
+	return {
+		space,
+		occupancy: new Map(house.cells.map((cell) => [cell.id, cell])),
+		style,
+		random: Random.create({ seed: house.inputs.seed }).derive('skin'),
+		complexity: house.inputs.complexity
+	};
 }
 
 function entrancePoint(ctx: Context, house: HouseCourt): { point: Vec2; normal: Vec2 } | undefined {
@@ -84,30 +118,60 @@ function footprint(space: CellSpace) {
 	return { width: Math.max(...xs) - Math.min(...xs), depth: Math.max(...ys) - Math.min(...ys) };
 }
 
-function bodyParts(ctx: Context, detail: HouseDetail): Part[] {
-	if (detail === 'block') return [...plates(ctx), ...envelope(ctx, 'mass')];
-	return [...plates(ctx), ...envelope(ctx, 'wall'), ...edges(ctx), ...openings(ctx)];
+function solidParts(solids: readonly CellSolid[], block: boolean): Part[] {
+	return solids.flatMap(({ key, slot, faces }) => {
+		const shape = faceMesh(faces);
+		return shape ? [{ id: key, slot: block ? 'mass' : slot, shape }] : [];
+	});
 }
 
-/** Builds the house as one placeable object in the space's meters: cell plates, then the closed
- * envelope of all built cell storeys (slot `mass` for `block`; `wall` plus floor-edge strips, roof
- * edge and openings for `full`), then court galleries and the stair. No colours; slots name roles (MAT-1).
- * Anchors: `entrance` on the frontage, `court` at the court's centre. A house of another space throws. */
+function envelopeParts(ctx: Context, detail: HouseDetail): Part[] {
+	if (!ctx.style.fill.kinds.includes('envelope')) return [];
+	if (detail === 'block') return envelope(ctx, 'mass');
+	return [...envelope(ctx, 'wall'), ...(ctx.style.parts.edges ? edges(ctx) : []), ...openings(ctx)];
+}
+
+function accessParts(ctx: Context, house: HouseCourt): Part[] {
+	if (!ctx.style.parts.galleries) return [];
+	const sides = courtSides(ctx, house.inputs.complexity);
+	const landing = ctx.style.parts.stair ? stairSide(ctx, sides, courtEntry(ctx, house)) : undefined;
+	return [...galleries(ctx, sides, landing), ...stair(ctx, landing)];
+}
+
+function allParts(ctx: Context, house: HouseCourt, detail: HouseDetail): Part[] {
+	const solids = cellSolids(ctx);
+	if (detail === 'block') return [...plates(ctx), ...envelopeParts(ctx, detail), ...solidParts(solids, true)];
+	return [
+		...plates(ctx),
+		...envelopeParts(ctx, detail),
+		...solidParts(solids, false),
+		...patterns(ctx, solids),
+		...figureOpenings(ctx, solids),
+		...caps(ctx, solids),
+		...structure(ctx),
+		...trees(ctx),
+		...accessParts(ctx, house)
+	];
+}
+
+/** Builds the house as one placeable object in the space's meters from its style row: cell
+ * plates; for an `envelope` fill the merged envelope shells with floor edges, roof edges and window
+ * rows; otherwise one closed solid per cell body, capsule or roof inside its own cell; then
+ * stripes, figure openings, planted caps, frame and services, court trees, galleries and the
+ * stair. `block` keeps plates and solids, as slot `mass`. No colours; slots name roles (MAT-1).
+ * Anchors: `entrance` on the frontage, `court` at the court's centre. Occupancy of another space
+ * (by cell identities) or another style throws RangeError. */
 export function createHouseObject(
 	space: CellSpace,
 	house: HouseCourt,
-	detail: HouseDetail
+	detail: HouseDetail,
+	style: HouseStyle = houseStyles.neutral
 ): PlaceableObject {
-	const ctx = context(space, house);
-	const access = detail === 'full' ? courtSides(ctx, house.inputs.complexity) : [];
+	const ctx = context(space, house, style);
 	return PlaceableObject.create({
 		id: `house/${space.id}`,
-		slots: houseDetails[detail],
-		parts: [
-			...bodyParts(ctx, detail),
-			...galleries(ctx, access),
-			...stair(ctx, access, courtEntry(ctx, house))
-		],
+		slots: houseSlots(style, detail),
+		parts: allParts(ctx, house, detail),
 		footprint: footprint(space),
 		anchors: anchors(ctx, house)
 	});
@@ -115,7 +179,9 @@ export function createHouseObject(
 
 /** Built and void cell counts, gross floor area and court area in m², and the tallest storey count. */
 export function houseFigures(space: CellSpace, house: HouseCourt) {
-	const ctx = context(space, house);
+	const ids = space.cells.map(({ id }) => id);
+	if (ids.length !== house.cellIds.length || ids.some((id, i) => id !== house.cellIds[i]))
+		throw new RangeError('House occupancy belongs to another cell space');
 	const area = new Map(space.cells.map((cell) => [cell.id, cellAreaM2(cell)]));
 	const built = house.cells.filter(({ toStorey, fromStorey }) => toStorey > fromStorey);
 	return Object.freeze({
@@ -129,6 +195,6 @@ export function houseFigures(space: CellSpace, house: HouseCourt) {
 			.filter(({ role }) => role === 'court')
 			.reduce((sum, { id }) => sum + (area.get(id) ?? 0), 0),
 		storeys: Math.max(0, ...built.map(({ toStorey }) => toStorey)),
-		cells: ctx.space.cells.length
+		cells: space.cells.length
 	});
 }

@@ -1,7 +1,6 @@
 import { distance } from '../../core/geometry';
 import { blockInputs, resolveParams } from '../../core/params';
 import { Random } from '../../core/random';
-import { defaults } from '../../../config/house-court';
 import { cellCentre, type CellSpace, type FineCell } from '../cell-space';
 import {
 	boundaryDepth,
@@ -11,15 +10,8 @@ import {
 	fronting,
 	hops
 } from './graph';
-import type { CellRole } from './roles';
-
-const {
-	rearDropRatio,
-	courtStepComplexityRatio,
-	courtStepStoreys,
-	jitterComplexityRatio,
-	jitterShareRatio
-} = defaults;
+import { cellRoles, type CellRole } from './roles';
+import { houseStyles, type HouseStyle } from './styles';
 
 /** Shared block inputs in meters and the unitless complexity, plus a uint32 seed. */
 export type HouseInputs = Readonly<{
@@ -40,6 +32,8 @@ export type HouseCell = Readonly<{
 /** The occupancy of a cell space, in cell order, with the resolved inputs it came from. */
 export type HouseCourt = Readonly<{
 	spaceId: string;
+	cellIds: readonly string[];
+	styleId: string;
 	inputs: Readonly<{ height: number; width: number; complexity: number; seed: number }>;
 	storeys: number;
 	cells: readonly HouseCell[];
@@ -48,22 +42,35 @@ export type HouseCourt = Readonly<{
 
 type Plan = Map<string, { role: CellRole; storeys: number }>;
 
+type Occupancy = HouseStyle['occupancy'];
+
+// Exact arithmetic: one storey is the smallest built run.
 function cellStoreys(
 	cell: FineCell,
 	top: number,
 	rear: number,
 	faceCourt: boolean,
 	random: Random,
-	complexity: number
+	complexity: number,
+	rule: Occupancy
 ) {
-	let storeys = top - Math.round(complexity * rearDropRatio * rear * (top - 1));
-	if (faceCourt && complexity >= courtStepComplexityRatio) storeys -= courtStepStoreys;
-	if (complexity >= jitterComplexityRatio) {
-		const draw = random.derive(cell.id).number();
-		const share = complexity * jitterShareRatio;
-		if (draw < share) storeys += draw < share / 2 ? -1 : 1;
+	let storeys = top - Math.round(complexity * rule.rearDropRatio * rear * (top - 1));
+	if (faceCourt && complexity >= rule.courtStepComplexityRatio) storeys -= rule.courtStepStoreys;
+	if (complexity >= rule.jitterComplexityRatio) {
+		const stream = random.derive(cell.id);
+		const draw = stream.number();
+		const step = 1 + Math.floor(stream.number() * rule.jitterStoreys);
+		const share = complexity * rule.jitterShareRatio;
+		if (draw < share) storeys += (draw < share / 2 ? -1 : 1) * step;
 	}
 	return Math.max(1, Math.min(top, storeys));
+}
+
+/** Wing cells of two or more storeys stand on an open ground storey with the style's share. */
+function raise(plan: Plan, random: Random, rule: Occupancy) {
+	for (const [id, cell] of plan)
+		if (cell.role === 'wing' && cell.storeys > 1 && random.derive(`${id}/ground`).number() < rule.groundOpenRatio)
+			plan.set(id, { role: 'raised', storeys: cell.storeys });
 }
 
 function entrancePath(space: CellSpace, court: readonly string[]): readonly string[] {
@@ -130,7 +137,7 @@ function components(space: CellSpace, court: ReadonlySet<string>): string[][] {
 function carve(plan: Plan, path: readonly string[]) {
 	for (const id of path) {
 		const cell = plan.get(id);
-		if (!cell || cell.role !== 'wing') continue;
+		if (!cell || !cellRoles[cell.role].built || cellRoles[cell.role].fromStorey > 0) continue;
 		plan.set(
 			id,
 			cell.storeys > 1 ? { role: 'gate', storeys: cell.storeys } : { role: 'passage', storeys: 0 }
@@ -142,11 +149,18 @@ function carve(plan: Plan, path: readonly string[]) {
  * boundary is the court, void to the sky. Other cells are built when they touch the frontage or
  * their centre lies within `width` meters of it; the rest stay garden. Storeys are
  * round(height / storey height), clamped to the space; complexity lowers cells toward the rear,
- * steps court-facing cells down and lets seeded cells rise or fall one storey. The shortest path
- * from the frontage to each connected part of the court opens a ground-storey gate. Built cells grow monotonically with
+ * steps court-facing cells down and lets seeded cells rise or fall, all by the style's occupancy
+ * row. The shortest path from the frontage to each connected part of the court opens a ground-storey
+ * gate; the style may then raise further wing cells on an open ground storey. Roles fix the storey
+ * runs (`cellRoles`). A space without inner cells (a convex parcel without refinement) has no court
+ * and no entrance. Built cells grow monotonically with
  * width and every cell's storeys with height. Deterministic for equal inputs. */
 // Exact arithmetic: structural counts, origins and unit axes, not tunables.
-export function createHouseCourt(space: CellSpace, inputs: HouseInputs): HouseCourt {
+export function createHouseCourt(
+	space: CellSpace,
+	inputs: HouseInputs,
+	style: HouseStyle = houseStyles.neutral
+): HouseCourt {
 	const random = Random.create({ seed: inputs.seed });
 	const { height, width, complexity } = resolveParams(blockInputs, shapeInputs(inputs));
 	const segments = frontageSegments(space);
@@ -171,21 +185,25 @@ export function createHouseCourt(space: CellSpace, inputs: HouseInputs): HouseCo
 			const rear = farthest > 0 ? span / farthest : 0;
 			plan.set(cell.id, {
 				role: 'wing',
-				storeys: cellStoreys(cell, top, rear, faceCourt, random, complexity)
+				storeys: cellStoreys(cell, top, rear, faceCourt, random, complexity, style.occupancy)
 			});
 		}
 	}
 	const entrances = components(space, courtIds).map((court) => entrancePath(space, court));
 	for (const path of entrances) carve(plan, path);
+	raise(plan, random, style.occupancy);
 	return Object.freeze({
 		spaceId: space.id,
+		cellIds: Object.freeze(space.cells.map(({ id }) => id)),
+		styleId: style.id,
 		inputs: Object.freeze({ height, width, complexity, seed: random.seed }),
 		storeys: top,
 		entrances: Object.freeze(entrances.map((path) => Object.freeze(path))),
 		cells: Object.freeze(
 			space.cells.map(({ id }) => {
 				const { role, storeys } = plan.get(id) ?? { role: 'garden', storeys: 0 };
-				return Object.freeze({ id, role, fromStorey: role === 'gate' ? 1 : 0, toStorey: storeys });
+				const { built, fromStorey } = cellRoles[role];
+				return Object.freeze({ id, role, fromStorey, toStorey: built ? storeys : 0 });
 			})
 		)
 	});

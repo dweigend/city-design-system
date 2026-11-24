@@ -1,4 +1,5 @@
-import { defineSettings, settingValues } from '../setting';
+import { defineSettings, joinSettings, settingValues } from '../setting';
+import { archigram, memphis, organic, shapes } from './styles';
 
 const occupancy = defineSettings({
 	rearDropRatio: {
@@ -178,7 +179,7 @@ const skin = defineSettings({
 });
 
 /** Numeric settings of the house-and-court rule and its skin. */
-export const settings = defineSettings({ ...occupancy, ...skin });
+export const settings = joinSettings(occupancy, skin, memphis, archigram, organic, shapes);
 
 /** Frozen defaults consumed by the owning module. */
 export const defaults = settingValues(settings);

@@ -1,9 +1,11 @@
 import type { Vec3 } from '../../core/geometry';
 import type { Part, Shape } from '../../core/object';
 import { defaults } from '../../../config/house-court';
-import type { CellSpace, FineCell } from '../cell-space';
+import type { FineCell } from '../cell-space';
 import { boxMesh, faceMesh, side, type Box } from './boxes';
+import { builtAt, type Context } from './context';
 import type { HouseCell } from './occupancy';
+import { shellFaces, shells } from './shells';
 
 const {
 	floorEdgeOutsetM,
@@ -19,18 +21,6 @@ const {
 	plotThicknessM,
 	courtRaiseM
 } = defaults;
-
-/** Reads occupancy and geometry of one cell in a fixed space and house. */
-export type Context = Readonly<{
-	space: CellSpace;
-	occupancy: ReadonlyMap<string, HouseCell>;
-}>;
-
-/** True when a cell holds closed volume in the given storey. */
-export function builtAt(context: Context, id: string | null, storey: number): boolean {
-	const cell = id === null ? undefined : context.occupancy.get(id);
-	return !!cell && storey >= cell.fromStorey && storey < cell.toStorey;
-}
 
 const exposed = (context: Context, cell: FineCell, i: number, storey: number) =>
 	!builtAt(context, cell.sides[i].neighbour, storey);
@@ -68,23 +58,15 @@ export function plates(context: Context): Part[] {
 	);
 }
 
-/** The closed envelope of all built cell storeys: exposed side faces per storey, the floor under
- * each built run and the roof over it, wound outward, as one mesh in the given slot. */
+/** The closed envelope of all built cell storeys in the given slot, one mesh per shell: storeys
+ * that touch only along an edge go to separate shells, so every shell is two-manifold. The first
+ * shell keeps the ID `<space>/envelope`, later ones append `/<index>`. */
 export function envelope(context: Context, slot: string): Part[] {
-	const faces: Vec3[][] = [];
-	eachBuilt(context, (cell, house) => {
-		const ring = (storey: number) =>
-			cell.quad.map(([x, y]): Vec3 => [x, y, level(context, storey)]);
-		faces.push([...ring(house.fromStorey)].reverse(), ring(house.toStorey));
-		for (let storey = house.fromStorey; storey < house.toStorey; storey += 1) {
-			const [low, high] = [ring(storey), ring(storey + 1)];
-			cell.quad.forEach((_, i) => {
-				const j = (i + 1) % cell.quad.length;
-				if (exposed(context, cell, i, storey)) faces.push([low[i], low[j], high[j], high[i]]);
-			});
-		}
+	return shells(context).flatMap((members, k) => {
+		const faces = shellFaces(context, members).map(({ points }) => points);
+		const id = k ? `${context.space.id}/envelope/${k}` : `${context.space.id}/envelope`;
+		return part(id, slot, faceMesh(faces));
 	});
-	return part(`${context.space.id}/envelope`, slot, faceMesh(faces));
 }
 
 function strip(cell: FineCell, i: number, z: number, across: number, height: number): Box {
@@ -149,3 +131,4 @@ export function openings(context: Context): Part[] {
 	});
 	return part(`${context.space.id}/openings`, 'opening', boxMesh(boxes));
 }
+
