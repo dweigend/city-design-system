@@ -1,47 +1,50 @@
 <script module lang="ts">
-	export const lead =
-		'Objects describe their parts by role and measure them in meters, and every engine building block has a working example.';
+	export const lead = 'Placeable objects and the library modules that build them.';
 </script>
 
 <script lang="ts">
-	import { goto } from '$app/navigation';
-	import { resolve } from '$app/paths';
-	import { page } from '$app/state';
-	import { SvelteURLSearchParams } from 'svelte/reactivity';
-	import { size } from '../../lib/core/geometry';
-	import { stageExample, type View } from '../../lib/scene/stage';
 	import { StageView } from '../../lib/scene/stage-view';
-	import { Switch } from '../../lib/ui/switch';
-	import { ToggleGroup } from '../../lib/ui/toggle-group';
+	import { Select } from '../../lib/ui/select';
+	import { listAssets } from '../../lib/world/asset-registry';
 	import ChapterHeader from '../ChapterHeader.svelte';
 	import { chapterAt } from '../chapters';
+	import { boardFocus, buildBoard, presentBoard } from './board';
+	import type { ModuleRow } from '../../../scripts/module-catalogue';
 
+	let { data }: { data: { catalogue: ModuleRow[] } } = $props();
 	const chapter = chapterAt('/blocks');
-	const { drawables, newDrawables, footprint, bounds } = stageExample();
-	const views = [
-		{ value: 'iso', label: 'Iso' },
-		{ value: 'plan', label: 'Plan' }
+	const allAssets = listAssets();
+	const kindLabels: Record<string, string> = { house: 'Houses' };
+	const kinds = [
+		{ value: 'all', label: 'All kinds' },
+		...[...new Set(allAssets.map(({ kind }) => kind))].map((kind) => ({
+			value: kind,
+			label: kindLabels[kind] ?? kind
+		}))
 	];
-	const surfaces = [
-		{ value: 'existing', label: 'Existing' },
-		{ value: 'new', label: 'New' }
-	];
-	const location = $derived(page.shallow?.url ?? page.url);
-	let view = $derived<View>(location.searchParams.get('view') === 'plan' ? 'plan' : 'iso');
-	const surface = $derived(location.searchParams.get('surface') === 'new' ? 'new' : 'existing');
-	let transparent = $derived(location.searchParams.get('display') === 'transparency');
-
-	function selectOption(name: 'view' | 'display' | 'surface', value: string | undefined) {
-		const params = new SvelteURLSearchParams(location.search);
-		if (value) params.set(name, value);
-		else params.delete(name);
-		void goto(resolve(params.size ? `/blocks?${params}${location.hash}` : '/blocks'), {
-			state: page.state,
-			shallow: true,
-			replace: true,
-			reset: false
-		});
-	}
+	const assetLabels: Record<string, string> = {
+		'house/court-neutral': 'Neutral',
+		'house/court-memphis': 'Memphis',
+		'house/court-archigram': 'Archigram',
+		'house/court-organic': 'Organic'
+	};
+	let kind = $state('all');
+	let display = $state('full');
+	const assets = $derived(kind === 'all' ? allAssets : listAssets({ kind }));
+	const board = $derived(buildBoard(assets));
+	const focus = $derived(
+		boardFocus.selectFocus(
+			['specimens'],
+			display === 'transparent' || display === 'pencil' ? display : 'full',
+			'full'
+		)
+	);
+	const presentation = $derived.by(() => {
+		const styled = presentBoard(board, focus.readLevel('specimens'));
+		return () => styled;
+	});
+	const labels = $derived(assets.map(({ id }) => assetLabels[id] ?? id));
+	const fit = { fill: 0.87, bearing: 0.23, elevation: 0.58 };
 </script>
 
 <svelte:head>
@@ -50,48 +53,66 @@
 
 <ChapterHeader number={chapter.number} title={chapter.title} {lead} />
 
-<section class="grid grid-aside" aria-label="House example">
-	<StageView
-		drawables={surface === 'new' ? newDrawables : drawables}
-		{view}
-		display={transparent ? 'transparency' : 'normal'}
-		label="House with a gable roof, central door and two upright windows"
-	/>
-	<div class="stack">
-		<p>
-			Every object has parts with named slots, a footprint and anchors. A shared surface assignment
-			gives each slot its color and finish. New buildings carry a flow color on the walls.
-		</p>
-		<div class="cluster">
-			<ToggleGroup
-				label="View"
-				items={views}
-				bind:value={
-					() => view, (next: string) => selectOption('view', next === 'plan' ? next : undefined)
-				}
-			/>
-			<ToggleGroup
-				label="Surface"
-				items={surfaces}
-				bind:value={
-					() => surface,
-					(next: string) => selectOption('surface', next === 'new' ? next : undefined)
-				}
-			/>
-			<Switch
-				label="Transparency"
-				bind:checked={
-					() => transparent,
-					(next: boolean) => selectOption('display', next ? 'transparency' : undefined)
-				}
-			/>
-		</div>
-		<p class="data">
-			Footprint {footprint.width} × {footprint.depth}&nbsp;m<br />Bounds {size(bounds).join(
-				' × '
-			)}&nbsp;m
-		</p>
+<section class="stack blocks-assets" aria-labelledby="assets">
+	<h2 id="assets">Assets</h2>
+	<div class="cluster">
+		<Select label="Asset kind" items={kinds} bind:value={kind} />
+		<Select label="Display level" items={focus.items} bind:value={display} />
 	</div>
+	{#if assets.length}
+		<StageView
+			drawables={board.drawables}
+			{presentation}
+			{fit}
+			view="iso"
+			display="normal"
+			label={`Placeable specimens on plinths: ${labels.join(', ')}`}
+		/>
+		<ol class="blocks-specimens" aria-label="Specimens">
+			{#each assets as asset, index (asset.id)}
+				<li>
+					<strong>{labels[index]}</strong>
+					<code>{asset.id}</code>
+				</li>
+			{/each}
+		</ol>
+	{:else}
+		<p role="status">No assets match this kind.</p>
+	{/if}
 </section>
 
-<p class="small"><a href={resolve('/architecture/structure')}>Structural member example</a></p>
+<section class="stack" aria-labelledby="catalogue">
+	<h2 id="catalogue">Module catalogue</h2>
+	<div class="blocks-table" role="region" aria-labelledby="catalogue" tabindex="0">
+		<table aria-labelledby="catalogue">
+			<thead>
+				<tr>
+					<th scope="col">Module</th>
+					<th scope="col">Purpose</th>
+					<th scope="col">Public exports</th>
+					<th scope="col">Fixed example</th>
+					<th scope="col">Config</th>
+					<th scope="col">Principles</th>
+				</tr>
+			</thead>
+			<tbody>
+				{#each data.catalogue as row (row.module)}
+					<tr>
+						<th scope="row"><code>{row.module}</code></th>
+						<td class="small">{row.purpose ?? 'Missing purpose'}</td>
+						<td><code>{row.exports.join(', ')}</code></td>
+						<td>
+							{#if row.exampleCall}
+								<code>{row.exampleCall}()</code>
+							{:else}
+								<span class="small">{row.example ? 'Missing caller' : 'Missing example'}</span>
+							{/if}
+						</td>
+						<td><code>{row.config.join(', ') || '—'}</code></td>
+						<td><code>{row.principles.join(', ') || '—'}</code></td>
+					</tr>
+				{/each}
+			</tbody>
+		</table>
+	</div>
+</section>

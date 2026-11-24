@@ -276,6 +276,24 @@
 		grid-template-columns: repeat(auto-fit, minmax(min(100%, 8rem), 1fr));
 		gap: var(--space-4);
 	}
+	.blocks-assets > .frame { aspect-ratio: 2 / 1; background: var(--paper-2); }
+	.blocks-specimens {
+		display: grid;
+		grid-template-columns: repeat(4, minmax(0, 1fr));
+		gap: var(--space-3);
+		padding-inline-start: var(--space-6);
+	}
+	.blocks-specimens > li > code { display: block; overflow-wrap: anywhere; color: var(--ink-2); }
+	.blocks-table { overflow-x: auto; }
+	.blocks-table table { min-inline-size: 52rem; }
+	.blocks-table :is(th, td) { overflow-wrap: anywhere; }
+	.blocks-table th[scope='row'] { inline-size: 12rem; }
+	.blocks-table td:nth-child(2) { inline-size: 15rem; }
+	.blocks-table td:nth-child(4) { inline-size: 11rem; }
+	@media (max-width: 720px) {
+		.blocks-assets > .frame { aspect-ratio: 1; }
+		.blocks-specimens { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+	}
 	.grid-aside { grid-template-columns: minmax(0, 2fr) minmax(0, 1fr); align-items: start; }
 	.city-stage { display: grid; justify-items: start; gap: var(--space-2); min-inline-size: 0; }
 	.city-stage > .frame { inline-size: 100%; }
