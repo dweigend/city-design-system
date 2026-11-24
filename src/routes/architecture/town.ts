@@ -113,6 +113,7 @@ export function townStage(relief?: number) {
 	const contexts = new Map<TownScope, ReturnType<typeof context>>();
 	return {
 		...plan,
+		terrain,
 		local,
 		placement,
 		toLocal,

@@ -18,7 +18,8 @@ const routes = [
 	['/blocks', 1],
 	['/content', 0],
 	['/story', 0],
-	['/sandbox', 1]
+	['/sandbox', 1],
+	['/town', 1]
 ] as const;
 
 // Each chapter must open and each stage must show a frame. This catches missing routes,
@@ -27,6 +28,9 @@ for (const [route, count] of routes) {
 	journeys(`opens ${route} and renders its stages`, async ({ page }) => {
 		await open(page, route);
 		if (!count) return;
+		// The town review builds every house on the main thread before its stage appears.
+		if (route === '/town')
+			await expect(page.getByRole('status')).toHaveCount(0, { timeout: 60_000 });
 		const stages = await readyStages(page, count);
 		for (const canvas of await stages.all()) {
 			expect(

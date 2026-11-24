@@ -25,4 +25,10 @@
 		aria-current={page.route.id === '/sandbox' ? 'page' : undefined}
 		onclick={onnavigate}>Sandbox</a
 	>
+	<a
+		class="label"
+		href={resolve('/town')}
+		aria-current={page.route.id === '/town' ? 'page' : undefined}
+		onclick={onnavigate}>Town</a
+	>
 </nav>
