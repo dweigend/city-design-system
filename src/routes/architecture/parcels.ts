@@ -1,4 +1,4 @@
-import type { Parcel } from '../../lib/domain/cell-space';
+import { parcelEdgeId, type Parcel } from '../../lib/domain/cell-space';
 
 const ring = (
 	id: string,
@@ -7,7 +7,7 @@ const ring = (
 ): Parcel => ({
 	id,
 	corners: points.map((position, i) => ({ id: `c${i}`, position })),
-	frontage,
+	frontage: frontage.map((i) => parcelEdgeId(`c${i}`, `c${(i + 1) % points.length}`)),
 	baseZ: 0,
 	storeyCount: 10
 });

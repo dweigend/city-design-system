@@ -96,7 +96,7 @@ describe('createCellSpace', () => {
 
 	test('is deterministic and addresses storeys by a fixed grammar', () => {
 		expect(createCellSpace(fixtures.ell)).toEqual(createCellSpace(fixtures.ell));
-		expect(defaultStoreyHeightM).toBe(levelHeight / storeysPerLevel);
+		expect(defaultStoreyHeightM as number).toBe(levelHeight / storeysPerLevel);
 		expect(storeyAddress('p/child/["a"]', 3)).toBe('p/child/["a"]/storey/3');
 		expect(() => storeyAddress('p', -1)).toThrow(RangeError);
 	});

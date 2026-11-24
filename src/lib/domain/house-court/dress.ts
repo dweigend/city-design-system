@@ -73,6 +73,11 @@ export function figureOpenings(ctx: Context, solids: readonly CellSolid[]): Part
 		for (let storey = s.fromStorey; storey < s.toStorey; storey += 1)
 			s.cell.sides.forEach(({ neighbour }, i) => {
 				if (builtAt(ctx, neighbour, storey)) return;
+				if (
+					ctx.random.derive(`${s.key}/opening/${i}/${storey}/share`).number() >=
+					ctx.style.opening.shareRatio
+				)
+					return;
 				const result = figuresOn(ctx, s, i, storey);
 				panes.push(...result.panes);
 				collars.push(...result.collars);

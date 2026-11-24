@@ -1,4 +1,4 @@
-import { createCellSpace } from '../../domain/cell-space';
+import { createCellSpace, parcelEdgeId } from '../../domain/cell-space';
 import { createHouseCourt, createHouseObject } from '../../domain/house-court';
 import { houseDetailOf, projectHouse } from './index';
 
@@ -11,7 +11,7 @@ export function example() {
 	const space = createCellSpace({
 		id: 'hex-plot',
 		corners,
-		frontage: [4],
+		frontage: [parcelEdgeId('h4', 'h5')],
 		baseZ: 0,
 		storeyCount: 6
 	});

@@ -1,5 +1,15 @@
-import { createCellSpace, parcelEdgeId, type CellSpace, type FineCell } from '../../domain/cell-space';
-import { columnRoof, levelHeight, storeysPerLevel, type CityColumn } from '../../domain/city-volume';
+import {
+	createCellSpace,
+	parcelEdgeId,
+	type CellSpace,
+	type FineCell
+} from '../../domain/cell-space';
+import {
+	columnRoof,
+	levelHeight,
+	storeysPerLevel,
+	type CityColumn
+} from '../../domain/city-volume';
 import {
 	createHouseCourt,
 	houseStyles,
@@ -34,7 +44,9 @@ export function createBayHouse(
 	const space = createCellSpace({
 		id: column.planCellId,
 		corners: corners.map(({ id, position: [x, y] }) => ({ id, position: [x, y] as const })),
-		frontage: frontage.map((i) => parcelEdgeId(corners[i]?.id ?? '', corners[(i + 1) % corners.length]?.id ?? '')),
+		frontage: frontage.map((i) =>
+			parcelEdgeId(corners[i]?.id ?? '', corners[(i + 1) % corners.length]?.id ?? '')
+		),
 		baseZ: datumZ + baseLevel * levelHeight,
 		storeyCount: column.levels * storeysPerLevel,
 		storeyHeightM: levelHeight / storeysPerLevel

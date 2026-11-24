@@ -1,10 +1,13 @@
 import type { PlaceableObject } from '../../core/object';
 import { defaults } from '../../../config/house-projection';
 import type { DisplayLevel } from '../focus';
-import { resolveSurfaces, type Drawable } from '../surface';
+import { resolveSurfaces, type Drawable, type SurfaceAssignment } from '../surface';
 import { blockSurfaces, fullSurfaces, pencilSurfaces, veilSurfaces } from './surfaces';
 
-const { pencilHatch, veilAlpha } = defaults;
+const { pencilHatch, veilAlpha, sheetGapM } = defaults;
+
+/** Gap in meters between houses laid side by side on one sheet. */
+export const houseSheetGapM = sheetGapM;
 
 /** The drawing of a house at each display level of COLOR-6: which object detail it reads and how
  * the slots look. `hidden` draws nothing. */
@@ -22,13 +25,15 @@ export function houseDetailOf(level: DisplayLevel) {
 	return houseLevels[level].detail;
 }
 
-/** Colours a house object for one display level through the single surface boundary. The object
- * must carry the slots of `houseDetailOf(level)`; a missing or extra slot throws RangeError. Any
- * object with these slots can be drawn, not only the court house. */
+/** Colours a house object for one display level through the single surface boundary, reading
+ * each declared slot from the level's role table. A slot the table lacks throws RangeError. Any
+ * object with these role slots can be drawn, not only the court house. */
 export function projectHouse(object: PlaceableObject, level: DisplayLevel): Drawable[] {
 	const { surfaces, hatch, fillAlpha } = houseLevels[level];
 	if (!surfaces) return [];
-	return resolveSurfaces(object, surfaces).map((drawable) => ({
+	const table: SurfaceAssignment = surfaces;
+	const assignment = Object.fromEntries(object.slots.map((slot) => [slot, table[slot]]));
+	return resolveSurfaces(object, assignment).map((drawable) => ({
 		...drawable,
 		...(hatch ? { hatch } : {}),
 		...(fillAlpha < 1 ? { fillAlpha, occlude: true } : {})

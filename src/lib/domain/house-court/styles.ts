@@ -36,6 +36,7 @@ export type HouseStyle = Readonly<{
 		kinds: readonly OpeningKind[];
 		pitchM: number;
 		sizeM: number;
+		shareRatio: number;
 		collar: boolean;
 	}>;
 	parts: Readonly<{
@@ -86,7 +87,13 @@ export const houseStyles = Object.freeze({
 		occupancy: neutralOccupancy,
 		fill: { ...solidFill, kinds: ['envelope'] },
 		roof: { kinds: ['flat'], riseRatio: 0 },
-		opening: { kinds: ['rect'], pitchM: d.windowPitchM, sizeM: d.windowWidthM, collar: false },
+		opening: {
+			kinds: ['rect'],
+			pitchM: d.windowPitchM,
+			sizeM: d.windowWidthM,
+			shareRatio: 1,
+			collar: false
+		},
 		parts: { ...none, edges: true, galleries: true, stair: true, frame: false, planters: false },
 		slots: { body: ['wall'], roof: [], capsule: [] }
 	},
@@ -113,6 +120,7 @@ export const houseStyles = Object.freeze({
 			kinds: ['round', 'triangle'],
 			pitchM: d.memphisOpeningPitchM,
 			sizeM: d.memphisOpeningSizeM,
+			shareRatio: d.memphisOpeningShareRatio,
 			collar: true
 		},
 		parts: {
@@ -153,6 +161,7 @@ export const houseStyles = Object.freeze({
 			kinds: ['round'],
 			pitchM: d.archigramOpeningPitchM,
 			sizeM: d.archigramOpeningSizeM,
+			shareRatio: d.archigramOpeningShareRatio,
 			collar: false
 		},
 		parts: {
@@ -187,6 +196,7 @@ export const houseStyles = Object.freeze({
 			kinds: ['round'],
 			pitchM: d.organicOpeningPitchM,
 			sizeM: d.organicOpeningSizeM,
+			shareRatio: d.organicOpeningShareRatio,
 			collar: true
 		},
 		parts: {

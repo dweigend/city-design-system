@@ -44,6 +44,13 @@ export const settings = defineSettings({
 		bounds: { min: 0, max: 1 },
 		principle: 'COLOR-5'
 	},
+	sheetGapM: {
+		value: 8,
+		unit: 'm',
+		meaning: 'Gap between houses laid side by side on a comparison sheet',
+		bounds: { min: 0 },
+		rationale: 'Two storeys of clear ground keep neighbouring houses apart at sheet zoom.'
+	},
 	veilAlpha: {
 		value: 0.35,
 		unit: 'ratio',

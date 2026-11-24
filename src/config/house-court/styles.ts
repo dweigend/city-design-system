@@ -39,6 +39,12 @@ export const memphis = defineSettings({
 		'FORM-2'
 	),
 	memphisOpeningPitchM: s(7, 'm', 'Wall length per Memphis figure opening', 'FORM-2'),
+	memphisOpeningShareRatio: s(
+		0.3,
+		'ratio',
+		'Share of exposed Memphis wall storeys that carry a figure',
+		'FORM-2'
+	),
 	memphisOpeningSizeM: s(0.95, 'm', 'Radius of a Memphis figure opening', 'FORM-2'),
 	memphisPatternShareRatio: s(
 		0.45,
@@ -96,6 +102,12 @@ export const archigram = defineSettings({
 		'FORM-3'
 	),
 	archigramOpeningPitchM: s(2.6, 'm', 'Capsule wall length per porthole', 'FORM-3'),
+	archigramOpeningShareRatio: s(
+		0.8,
+		'ratio',
+		'Share of exposed capsule sides that carry a porthole',
+		'FORM-3'
+	),
 	archigramOpeningSizeM: s(0.42, 'm', 'Porthole radius', 'FORM-3')
 });
 
@@ -122,6 +134,12 @@ export const organic = defineSettings({
 		'FORM-1'
 	),
 	organicOpeningPitchM: s(4.6, 'm', 'Wall length per round organic opening', 'FORM-2'),
+	organicOpeningShareRatio: s(
+		0.55,
+		'ratio',
+		'Share of exposed organic wall storeys that carry an opening',
+		'FORM-2'
+	),
 	organicOpeningSizeM: s(0.8, 'm', 'Radius of a round organic opening', 'FORM-2'),
 	organicTreeShareRatio: s(
 		0.75,

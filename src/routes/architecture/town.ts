@@ -1,6 +1,12 @@
 import { PlaceableObject, move } from '../../lib/core/object';
 import { levelHeight, readCityColumns, type CityColumn } from '../../lib/domain/city-volume';
-import { createHouseObject, type HouseInputs } from '../../lib/domain/house-court';
+import {
+	createHouseObject,
+	houseFigures,
+	houseStyles,
+	type HouseInputs,
+	type HouseStyleName
+} from '../../lib/domain/house-court';
 import { projectHouse } from '../../lib/scene/house-projection';
 import type { Drawable } from '../../lib/scene/surface';
 import {
@@ -16,30 +22,37 @@ const centre = (column: CityColumn) => {
 	return column.corners.reduce(([x, y], { position: [u, v] }) => [x + u / n, y + v / n], [0, 0]);
 };
 
-/** Picks the block-district column at the first selected crossing of the default town (else the
- * block column nearest it) and fronts the house on the edge that starts at the crossing node. */
-function chooseBay() {
+/** The default town, its datum and the block columns nearest its first selected crossing, each
+ * fronting the edge closest to that crossing. */
+function chooseBays(count: number) {
 	const city = createCitySite();
 	const plan = readCityGrid(city, citySiteParams.citySize.default);
 	const columns = readCityColumns(plan.grid, readCityDistricts(city, plan));
 	const node = plan.selectedCrossings[0]?.heads[0].nodeId;
 	const target = plan.grid.vertices.find(({ id }) => id === node)?.position ?? [0, 0];
+	const away = ([x, y]: readonly number[]) => Math.hypot(x - target[0], y - target[1]);
 	const blocks = columns.filter(({ kind }) => kind === 'block');
-	const pool = blocks.length ? blocks : columns;
-	const distanceTo = (column: CityColumn) =>
-		Math.hypot(centre(column)[0] - target[0], centre(column)[1] - target[1]);
-	const [bay] = [...pool].sort((a, b) => distanceTo(a) - distanceTo(b));
-	const edge = Math.max(
-		0,
-		bay.corners.findIndex(({ id }) => id === node)
-	);
-	return { bay, edge, columns };
+	const bays = [...(blocks.length ? blocks : columns)]
+		.sort((a, b) => away(centre(a)) - away(centre(b)))
+		.slice(0, count);
+	const frontage = (bay: CityColumn) => {
+		const n = bay.corners.length;
+		const mid = (i: number) =>
+			[0, 1].map((k) => (bay.corners[i].position[k] + bay.corners[(i + 1) % n].position[k]) / 2);
+		return bay.corners.map((_, i) => i).sort((a, b) => away(mid(a)) - away(mid(b)))[0];
+	};
+	return { bays: bays.map((bay) => ({ bay, edge: frontage(bay) })), columns, datumZ: plan.datumZ };
 }
 
-function context(bay: CityColumn, columns: readonly CityColumn[]) {
-	const near = new Set(bay.neighbors.filter((id): id is string => id !== null));
+function stock(chosen: readonly CityColumn[], columns: readonly CityColumn[]) {
+	const taken = new Set(chosen.map(({ planCellId }) => planCellId));
+	const near = new Set(
+		chosen.flatMap(({ neighbors }) =>
+			neighbors.filter((id): id is string => id !== null && !taken.has(id))
+		)
+	);
 	return PlaceableObject.create({
-		id: 'town-context',
+		id: 'town-stock',
 		slots: ['plot', 'court', 'mass'],
 		parts: columns
 			.filter(({ planCellId }) => near.has(planCellId))
@@ -61,21 +74,30 @@ function context(bay: CityColumn, columns: readonly CityColumn[]) {
 	});
 }
 
-/** The house rule on one bay of the default town, ringed by its neighbour columns as see-through stock. */
-export function townSheet(inputs: HouseInputs): { drawables: Drawable[]; bayId: string } {
-	const { bay, edge, columns } = chooseBay();
-	const { space, house } = createBayHouse(bay, [edge], inputs);
-	const [x, y] = centre(bay);
-	const z = space.baseZ;
-	const local = (object: PlaceableObject) => move(object, [-x, -y, -z], 0);
-	return {
-		bayId: bay.planCellId,
-		drawables: [
-			...projectHouse(local(context(bay, columns)), 'transparent').map((d) => ({
-				...d,
-				id: `context/${d.id}`
-			})),
-			...projectHouse(local(createHouseObject(space, house, 'full')), 'full')
-		]
-	};
+/** The house rule on bays of the default town, one style per bay, ringed by see-through stock.
+ * Figures are those of the first bay's house. */
+export function townSheet(inputs: HouseInputs, styles: readonly HouseStyleName[]) {
+	const { bays, columns, datumZ } = chooseBays(styles.length);
+	const placed = bays.map(({ bay, edge }, k) => ({
+		bay,
+		style: houseStyles[styles[k]],
+		...createBayHouse(bay, datumZ, [edge], inputs, houseStyles[styles[k]])
+	}));
+	const [x, y] = centre(bays[0].bay);
+	const local = (object: PlaceableObject) => move(object, [-x, -y, -datumZ], 0);
+	const drawables: Drawable[] = [
+		...projectHouse(
+			local(
+				stock(
+					bays.map(({ bay }) => bay),
+					columns
+				)
+			),
+			'transparent'
+		).map((d) => ({ ...d, id: `stock/${d.id}` })),
+		...placed.flatMap(({ space, house, style }) =>
+			projectHouse(local(createHouseObject(space, house, 'full', style)), 'full')
+		)
+	];
+	return { drawables, figures: houseFigures(placed[0].space, placed[0].house) };
 }
