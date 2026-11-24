@@ -350,10 +350,63 @@ test('uses the supplied district kinds and camera height profile', () => {
 	const projected = projectCityDistricts(columns, datumZ, frame, taper, 0, ['block']);
 	expect(projected.object.slots).toEqual(['block', 'shadow']);
 	expect(new Set(projected.drawables.map(({ kind }) => kind))).toEqual(new Set(['block']));
+	expect(() => projectCityDistricts(columns, datumZ, frame, taper, 0, ['block', 'block'])).toThrow(
+		RangeError
+	);
 	const camera = { ...cityCameraHeightPreset, quarterElevationDeg: 45, peakFrameShare: 0.05 };
 	const elevation = cityElevation(0, 2000, camera);
 	expect(elevation).toBe(Math.PI / 4);
 	expect(cityProfile(5000, 4, 91, elevation, false, Infinity, camera).factor).toBeLessThan(
 		cityProfile(5000, 4, 91, elevation, false).factor
 	);
+	expect(() =>
+		cityElevation(0, 2000, { ...cityCameraHeightPreset, cityElevationRangeM: [1000, 1000] })
+	).toThrow(RangeError);
+});
+
+test('keeps exposed walls against excluded neighbors when filtering district kinds', () => {
+	const { frame } = example();
+	const zeroTaper = () => [0, 0] as const;
+	const pair = [
+		{
+			planCellId: 'a',
+			districtId: 'd0',
+			densityRegionId: 'r0',
+			kind: 'block' as const,
+			levels: 2,
+			corners: [
+				{ id: '0', position: [0, 0, 0] as const },
+				{ id: '1', position: [20, 0, 0] as const },
+				{ id: '2', position: [20, 20, 0] as const },
+				{ id: '3', position: [0, 20, 0] as const }
+			],
+			neighbors: [null, 'b', null, null]
+		},
+		{
+			planCellId: 'b',
+			districtId: 'd1',
+			densityRegionId: 'r0',
+			kind: 'center' as const,
+			levels: 2,
+			corners: [
+				{ id: '1', position: [20, 0, 0] as const },
+				{ id: '4', position: [40, 0, 0] as const },
+				{ id: '5', position: [40, 20, 0] as const },
+				{ id: '2', position: [20, 20, 0] as const }
+			],
+			neighbors: [null, null, null, 'a']
+		}
+	];
+	const all = projectCityDistricts(pair, 0, frame, zeroTaper, 0);
+	const onlyBlock = projectCityDistricts(pair, 0, frame, zeroTaper, 0, ['block']);
+	const blockMesh = (res: typeof all) => {
+		const drawable = required(
+			res.drawables.find((d) => d.kind === 'block' && d.role === 'body'),
+			'block body'
+		);
+		if (drawable.shape.kind !== 'mesh') throw Error('Expected mesh');
+		return drawable.shape.indices.length;
+	};
+	// Filtering out the equal-height center neighbor exposes the shared 2-storey wall (+4 triangles = +12 indices).
+	expect(blockMesh(onlyBlock)).toBe(blockMesh(all) + 12);
 });

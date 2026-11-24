@@ -92,13 +92,15 @@ export function envelopeMeshes(
 	datumZ: number,
 	toLocal: Local,
 	taper: CityTaper,
-	seed: number
+	seed: number,
+	selectedKinds?: ReadonlySet<DistrictKind>
 ) {
 	const parts = new Map<string, EnvelopePart>();
 	const byId = new Map(columns.map((column) => [column.planCellId, column]));
 	const drawn = drawnInPencil(seed);
 	const local = localPoint(toLocal, taper);
 	for (const column of columns) {
+		if (selectedKinds && !selectedKinds.has(column.kind)) continue;
 		const { kind, levels } = column;
 		const pencil = drawn(column.planCellId);
 		const id = `${kind}/${levels}${pencil ? '/drawn' : ''}`;
@@ -124,7 +126,9 @@ export function envelopeMeshes(
 			const j = (i + 1) % roof.length;
 			const b = roof[j];
 			const id = column.neighbors[i];
-			const neighbor = id === null ? undefined : required(byId.get(id), 'envelope neighbor');
+			const resolved = id === null ? undefined : required(byId.get(id), 'envelope neighbor');
+			const neighbor =
+				resolved && (!selectedKinds || selectedKinds.has(resolved.kind)) ? resolved : undefined;
 			const lower = neighbor && columnRoof(neighbor, datumZ);
 			const edge = pencil || neighbor?.densityRegionId !== column.densityRegionId || lower !== topZ;
 			addWire(part, edge ? 'roof' : 'joints', local(a), local(b));

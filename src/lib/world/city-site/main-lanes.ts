@@ -29,7 +29,11 @@ function guideDistance(point: Vec2, guide: readonly Vec2[]) {
 
 /** Indexes one dry carrier. Routes a guide in XY meters from its addressed head, or from
  * the nearest dry node if a crossing is absent. Returns ordered edge IDs and physical length. */
-export function createMainLaneRouter(grid: TerrainGrid, gradeOf?: (edge: PlanEdge) => number) {
+export function createMainLaneRouter(
+	grid: TerrainGrid,
+	gradeOf?: (edge: PlanEdge) => number,
+	isWalkable?: (point: Vec2) => boolean
+) {
 	const graph = planEdgeGraph(grid);
 	const heights = new Map(grid.vertices.map(({ id, position }) => [id, position[2]]));
 	const roots = [...heights.keys()].sort();
@@ -38,14 +42,14 @@ export function createMainLaneRouter(grid: TerrainGrid, gradeOf?: (edge: PlanEdg
 		if (!target || guide.length <= 1) return undefined;
 		const root =
 			headId ??
-			roots.reduce<string | undefined>(
-				(nearest, node) =>
-					nearest === undefined ||
-					distance(guide[0], graph.point(node)) < distance(guide[0], graph.point(nearest))
-						? node
-						: nearest,
-				undefined
-			);
+			roots.reduce<string | undefined>((nearest, node) => {
+				const point = graph.point(node);
+				if (isWalkable && !isWalkable(point)) return nearest;
+				return nearest === undefined ||
+					distance(guide[0], point) < distance(guide[0], graph.point(nearest))
+					? node
+					: nearest;
+			}, undefined);
 		if (!root) return undefined;
 
 		const costs = new Map<string, number>();
@@ -54,7 +58,12 @@ export function createMainLaneRouter(grid: TerrainGrid, gradeOf?: (edge: PlanEdg
 			if (cached !== undefined) return cached;
 			const [from, to] = edge.nodeIds;
 			const [a, b] = [graph.point(from), graph.point(to)];
-			const offset = guideDistance([(a[0] + b[0]) / 2, (a[1] + b[1]) / 2], guide);
+			const midpoint: Vec2 = [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2];
+			if (isWalkable && (!isWalkable(a) || !isWalkable(b) || !isWalkable(midpoint))) {
+				costs.set(edge.id, Infinity);
+				return Infinity;
+			}
+			const offset = guideDistance(midpoint, guide);
 			const grade =
 				gradeOf?.(edge) ??
 				Math.abs(

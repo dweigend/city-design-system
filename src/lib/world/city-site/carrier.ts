@@ -74,7 +74,12 @@ export function prepareCarrier(
 	const dryEdges = dryPlanEdges(candidates, plan);
 	const mainLanes: MainLanePath[] = [];
 	const grade = laneGrades(candidates, sampleGround);
-	const route = createMainLaneRouter(candidates, grade);
+	const isWalkable = recipe.approach?.isWalkable;
+	const route = createMainLaneRouter(
+		candidates,
+		grade,
+		isWalkable && ((point) => isWalkable(sampleGround(...point)))
+	);
 	const access = cityAccessibility(
 		seed,
 		heads,

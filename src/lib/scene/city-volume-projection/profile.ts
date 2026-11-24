@@ -44,6 +44,8 @@ export const cityCameraHeightPreset: CityCameraHeightPreset = Object.freeze({
 });
 
 function fade(value: number, [start, end]: readonly [number, number]) {
+	if (!Number.isFinite(start) || !Number.isFinite(end) || end <= start)
+		throw new RangeError(`Expected finite increasing fade range, got [${start}, ${end}]`);
 	const t = Math.max(0, Math.min(1, (value - start) / (end - start)));
 	return t * t * (3 - 2 * t);
 }

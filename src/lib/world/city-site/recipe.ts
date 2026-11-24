@@ -53,7 +53,8 @@ function crossingCenter(
 	u: number,
 	v: number,
 	sample: CityTerrainSampler,
-	isPrimaryWater: CrossableWater
+	isPrimaryWater: CrossableWater,
+	isCrossable: CrossableWater
 ) {
 	let best: Vec2 | undefined;
 	let bestCost = Infinity;
@@ -82,7 +83,7 @@ function crossingCenter(
 				config.centerWidthWeightRatio * width +
 				Math.abs(along) +
 				config.centerAcrossWeightRatio * Math.abs(midpoint);
-			if (kind !== 'lake' && cost < bestCost) {
+			if ((kind === null || isCrossable(kind)) && cost < bestCost) {
 				bestCost = cost;
 				best = [x - midpoint * v, y + midpoint * u];
 			}
@@ -107,7 +108,14 @@ export function crossingApproaches(
 		min: -config.centerFallbackShiftM,
 		max: config.centerFallbackShiftM
 	});
-	const crossing = crossingCenter(center, u, v, sampleGround, recipe.isPrimaryWater);
+	const crossing = crossingCenter(
+		center,
+		u,
+		v,
+		sampleGround,
+		recipe.isPrimaryWater,
+		recipe.isCrossable
+	);
 	const core: Vec2 = crossing ?? [center[0] - shift * v, center[1] + shift * u];
 	const crossings = channelCrossings(plan, candidates, sampleGround, core, recipe.isCrossable);
 	const nodes = new Map(plan.vertices.map(({ id, position: [x, y] }) => [id, [x, y] as Vec2]));

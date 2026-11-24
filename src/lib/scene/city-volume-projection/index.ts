@@ -61,14 +61,25 @@ export function projectCityDistricts(
 	seed = 0,
 	kinds: readonly DistrictKind[] = cityDistrictKinds
 ) {
+	const selected = new Set(kinds);
+	if (selected.size !== kinds.length) throw new RangeError('Duplicate district kind');
 	const slots = [...kinds, 'shadow'] as const;
 	const surfaces = {
 		...Object.fromEntries(kinds.map((kind) => [kind, districtSurfaces[kind]])),
 		shadow: districtSurfaces.shadow
 	};
-	const patches = envelopeMeshes(columns, datumZ, frame.toLocal, taper, seed);
-	const blocks = blockMeshes(columns, datumZ, frame.toLocal, seed);
-	const cells = columns.map((column) => ({
+	const visibleColumns =
+		kinds === cityDistrictKinds ? columns : columns.filter(({ kind }) => selected.has(kind));
+	const patches = envelopeMeshes(
+		columns,
+		datumZ,
+		frame.toLocal,
+		taper,
+		seed,
+		kinds === cityDistrictKinds ? undefined : selected
+	);
+	const blocks = blockMeshes(visibleColumns, datumZ, frame.toLocal, seed);
+	const cells = visibleColumns.map((column) => ({
 		kind: column.kind,
 		ring: column.corners.map(({ position: [x, y, z] }): Vec3 => [...frame.toLocal(x, y), z]),
 		top: columnRoof(column, datumZ)

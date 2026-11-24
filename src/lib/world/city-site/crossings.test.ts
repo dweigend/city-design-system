@@ -166,3 +166,34 @@ test('accepts a crossing policy for a non-river channel', () => {
 		expect(graph.point(first.nodeId)[0] * graph.point(second.nodeId)[0]).toBeLessThan(0);
 	}
 }, 20_000);
+
+test('main-lane router refuses edges rejected by a custom walkability predicate', () => {
+	const grid: TerrainGrid = {
+		vertices: [
+			{ id: 'v0', position: [0, 0, 0] },
+			{ id: 'v1', position: [50, 0, 0] },
+			{ id: 'v2', position: [100, 0, 0] },
+			{ id: 'v3', position: [50, 40, 0] },
+			{ id: 'v4', position: [100, 40, 0] },
+			{ id: 'v5', position: [0, 40, 0] }
+		],
+		cells: [
+			{ id: 'c0', vertexIds: ['v0', 'v1', 'v3', 'v5'], neighbors: [null, 'c1', null, null] },
+			{ id: 'c1', vertexIds: ['v1', 'v2', 'v4', 'v3'], neighbors: [null, null, null, 'c0'] }
+		],
+		boundary: []
+	};
+	const guide: readonly Vec2[] = [
+		[0, 0],
+		[100, 0]
+	];
+	const direct = createMainLaneRouter(grid)(guide, 'a', 'v0');
+	expect(direct?.path.nodeIds).toEqual(['v0', 'v1', 'v2']);
+	const detour = createMainLaneRouter(grid, undefined, ([x, y]) => !(x === 50 && y === 0))(
+		guide,
+		'a',
+		'v0'
+	);
+	expect(detour).toBeDefined();
+	expect(detour?.path.nodeIds).not.toContain('v1');
+});

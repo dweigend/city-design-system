@@ -127,7 +127,12 @@ export function stageNavigation(
 		{ signal }
 	);
 
-	if (initialZoom !== 1) reset();
+	try {
+		if (initialZoom !== 1) reset();
+	} catch (error) {
+		listeners.abort();
+		throw error;
+	}
 
 	return {
 		reset,
