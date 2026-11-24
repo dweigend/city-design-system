@@ -20,6 +20,17 @@ export type AssetDefinition<Host extends AssetHost = AssetHost> = Readonly<{
 /** Geometry with optional non-geometric data owned by its builder. */
 export type AssetBuild<Metadata> = Readonly<{ object: PlaceableObject; metadata?: Metadata }>;
 
+const assetBuild = Symbol('asset-build');
+type AssetProduct<Metadata> = AssetBuild<Metadata> & Readonly<{ [assetBuild]: true }>;
+
+/** Wraps builder-owned metadata with its geometry. The registry freezes both on publication. */
+export function createAssetBuild<Metadata>(
+	object: PlaceableObject,
+	metadata: Metadata
+): AssetProduct<Metadata> {
+	return { [assetBuild]: true, object, metadata };
+}
+
 /** Definition plus its deterministic, world-meter object builder. */
 export type AssetEntry<
 	Host extends AssetHost = AssetHost,
@@ -27,7 +38,11 @@ export type AssetEntry<
 > = AssetDefinition<Host> &
 	Readonly<{
 		validateHost?: (host: Host) => void;
-		build: (host: Host, params: Parameters, seed: number) => PlaceableObject | AssetBuild<Metadata>;
+		build: (
+			host: Host,
+			params: Parameters,
+			seed: number
+		) => PlaceableObject | AssetProduct<Metadata>;
 	}>;
 
 /** Exact kind and all requested tags. An empty filter lists the registry in registration order. */
@@ -103,7 +118,7 @@ export function createAssetRegistry<Host extends AssetHost, Metadata = never>(
 		return entry;
 	}
 
-	/** Builds validated geometry, retaining optional metadata as supplied by the builder. */
+	/** Builds validated geometry, freezing the result and shallow-freezing any builder-owned metadata. */
 	function buildAssetResult(
 		id: string,
 		host: Host,
@@ -114,12 +129,12 @@ export function createAssetRegistry<Host extends AssetHost, Metadata = never>(
 		validateHost?.(host);
 		const inputs = readInputs(definition.params, overrides, seed);
 		const product = build(host, inputs.params, inputs.seed);
-		const result: AssetBuild<Metadata> = 'object' in product ? product : { object: product };
+		const result: AssetBuild<Metadata> = assetBuild in product ? product : { object: product };
 		const { object, metadata } = result;
-		return {
-			object: PlaceableObject.isValidated(object) ? object : PlaceableObject.create(object),
-			...(metadata === undefined ? {} : { metadata })
-		};
+		const geometry = PlaceableObject.isValidated(object) ? object : PlaceableObject.create(object);
+		if (metadata === undefined) return Object.freeze({ object: geometry });
+		Object.freeze(metadata);
+		return Object.freeze({ object: geometry, metadata });
 	}
 
 	return Object.freeze({

@@ -9,21 +9,25 @@ const darkBrass = '--cat-mobility-5';
 
 // Exact arithmetic: unity opacity keeps the stroke color opaque.
 function stroke(color: Surface['color'], width: number, hidden?: number): Surface {
-	return { color, finish: 'matte', stroke: { color, width, opacity: 1, hidden } };
+	return Object.freeze({
+		color,
+		finish: 'matte',
+		stroke: Object.freeze({ color, width, opacity: 1, hidden })
+	});
 }
 
 const accessDeck = stroke(pink, defaults.deckStrokePx);
 
-export const accessSurfaces = {
+export const accessSurfaces = Object.freeze({
 	deck: accessDeck,
 	stairs: accessDeck,
-	bearing: { color: pink, finish: 'matte' }
-} as const satisfies SurfaceAssignment;
+	bearing: Object.freeze({ color: pink, finish: 'matte' })
+} satisfies SurfaceAssignment);
 
-export const railSurfaces = {
-	bearing: { color: darkBrass, finish: 'matte' },
-	platform: { color: brass, finish: 'matte' }
-} as const satisfies SurfaceAssignment;
+export const railSurfaces = Object.freeze({
+	bearing: Object.freeze({ color: darkBrass, finish: 'matte' }),
+	platform: Object.freeze({ color: brass, finish: 'matte' })
+} satisfies SurfaceAssignment);
 
 export const pathSurfaces = {
 	lane: stroke(pink, defaults.groundStrokePx),

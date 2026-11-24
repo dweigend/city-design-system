@@ -1,7 +1,7 @@
 import { expect, test } from 'bun:test';
 import { bounds, PlaceableObject } from '../object';
 import { defineParams, resolveParams } from '../params';
-import { createAssetRegistry, type AssetEntry } from './index';
+import { createAssetBuild, createAssetRegistry, type AssetEntry } from './index';
 import { example } from './example';
 
 test('validates lowercase segmented IDs and rejects duplicates', () => {
@@ -99,4 +99,51 @@ test('registry reuses validated objects and detaches external builder output', (
 	position[0] = 9;
 	expect(detached.anchors[0].position).toEqual([1, 2, 3]);
 	expect(built).toBe(immutable);
+});
+
+test('an external builder may return bare geometry with an unrelated object property', () => {
+	const geometry = { ...example(), object: 'external builder metadata' };
+	const registry = createAssetRegistry([
+		{
+			id: 'marker/bare',
+			kind: 'marker',
+			tags: [],
+			params: {},
+			hostKinds: ['ground'],
+			build: () => geometry
+		}
+	]);
+	const result = registry.buildAssetResult(
+		'marker/bare',
+		{ kind: 'ground', point: [0, 0, 0] },
+		{},
+		1
+	);
+	expect(result.object).toEqual(example());
+	expect(Object.isFrozen(result)).toBe(true);
+});
+
+test('a wrapped build publishes frozen metadata and retains validated geometry', () => {
+	const geometry = example();
+	const metadata = { role: 'survey' };
+	const registry = createAssetRegistry([
+		{
+			id: 'marker/wrapped',
+			kind: 'marker',
+			tags: [],
+			params: {},
+			hostKinds: ['ground'],
+			build: () => createAssetBuild(geometry, metadata)
+		}
+	]);
+	const result = registry.buildAssetResult(
+		'marker/wrapped',
+		{ kind: 'ground', point: [0, 0, 0] },
+		{},
+		1
+	);
+	expect(result.object).toBe(geometry);
+	expect(result.metadata).toEqual({ role: 'survey' });
+	expect(Object.isFrozen(result)).toBe(true);
+	expect(Object.isFrozen(result.metadata)).toBe(true);
 });

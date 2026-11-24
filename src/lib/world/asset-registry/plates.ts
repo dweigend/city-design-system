@@ -1,4 +1,4 @@
-import type { AssetEntry } from '../../core/asset-registry';
+import { createAssetBuild, type AssetEntry } from '../../core/asset-registry';
 import {
 	createSamplePlateObject,
 	familyNames,
@@ -41,7 +41,7 @@ function samplePlate(family: Family): AssetEntry<CityAssetHost, SpecimenMaterial
 			const materials = groups.flatMap(({ family, slots }) =>
 				Array.from(slots, ([slot, role]) => [slot, Object.freeze({ family, role })] as const)
 			);
-			return { object, metadata: Object.freeze(Object.fromEntries(materials)) };
+			return createAssetBuild(object, Object.fromEntries(materials));
 		}
 	};
 }

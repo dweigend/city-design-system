@@ -1,5 +1,5 @@
 import { defaults } from '../../../config/movement-network';
-import type { Vec3 } from '../../core/geometry';
+import { isFiniteVector, type Vec3 } from '../../core/geometry';
 import { createMeshObject, drawBearing, mesh, type Mesh } from '../../core/mesh';
 import { defineParams } from '../../core/params';
 import type { Anchor } from '../../core/object';
@@ -50,15 +50,23 @@ function build(edge: AccessEdge, slot: string, draw: (mesh: Mesh) => void) {
 	return createMeshObject(edge.id, layers, anchors);
 }
 
+// Exact arithmetic: all access points are XYZ triples.
+function checkPoints(points: readonly Vec3[]): void {
+	for (let i = 0; i < points.length; i++) {
+		if (!isFiniteVector(points[i], 3))
+			throw new RangeError(`Access point ${i} requires finite XYZ coordinates`);
+	}
+}
+
 /** Builds one supported deck along its resolved edge, with an anchor at each end. */
 export function createWalkwayObject(edge: AccessEdge, widthM: number = accessWidths.walkway) {
 	if (!Number.isFinite(widthM) || widthM <= 0) throw new RangeError('Invalid walkway width');
+	checkPoints(edge.points);
 	return build(edge, 'deck', (body) => body.ribbon(edge.points, widthM, defaults.deckThicknessM));
 }
 
 function stairRun({ points }: AccessEdge) {
-	if (points.some((point) => !point.every(Number.isFinite)))
-		throw new RangeError('Expected finite stair points');
+	checkPoints(points);
 	const first = points.findIndex((end, i) => {
 		const start = points[i - 1];
 		return start && end[2] !== start[2];
@@ -75,7 +83,7 @@ function stairRun({ points }: AccessEdge) {
 	return run;
 }
 
-/** Rejects an edge without an inclined run of positive horizontal length. */
+/** Rejects malformed XYZ points and edges without an inclined run of positive horizontal length. */
 export function validateStairEdge(edge: AccessEdge): void {
 	stairRun(edge);
 }

@@ -26,6 +26,18 @@ function courseAt(xy: ArrayLike<number>, chain: Float64Array, target: number): P
 	return { x: a.x + t * (b.x - a.x), y: a.y + t * (b.y - a.y) };
 }
 
+// Exact arithmetic: the maximum representable JS array length and a bound on half an ULP.
+const maximumArrayLength = 2 ** 32 - 1;
+const relativeHalfUlpBound = Number.EPSILON / 2;
+
+/** Rejects offset ranges that can stall or exceed the length of an array. */
+export function checkOffsets(field: string, first: number, last: number, spacing: number): void {
+	const magnitude = Math.max(Math.abs(first), Math.abs(last));
+	const count = Math.floor((last - first) / spacing) + 1;
+	if (spacing <= magnitude * relativeHalfUlpBound || count > maximumArrayLength)
+		throw new RangeError(`${field} must produce advancing offsets with a representable count`);
+}
+
 /** Places normal profiles at fixed offsets along the clipped course. */
 export function crossSections(
 	xy: ArrayLike<number>,
@@ -36,6 +48,8 @@ export function crossSections(
 	const chain = chainage(xy);
 	const stations: Station[] = [];
 	const end = chain[chain.length - 1];
+	if (first >= end) return stations;
+	checkOffsets('profileSpacingM', first, end, spacing);
 	for (let along = first; along < end; along += spacing) {
 		const center = courseAt(xy, chain, along);
 		const a = courseAt(xy, chain, Math.max(0, along - tangentHalfLength));

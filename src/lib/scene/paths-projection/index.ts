@@ -12,5 +12,5 @@ export { pathsPresentation } from './presentation';
 /** The chapter's composed focus policy and selection. */
 export { pathsFocusPreset, type PathsFocusChoice } from './focus';
 
-/** Assigns Paths surfaces to registered movement and rail objects. */
-export { projectPathAsset } from './surfaces';
+/** Assigns the shared access and rail surfaces to registered objects. */
+export { accessSurfaces, projectPathAsset, railSurfaces } from './surfaces';

@@ -1,4 +1,5 @@
 import { expect, test } from 'bun:test';
+import { accessSurfaces, railSurfaces } from '../../lib/scene/paths-projection';
 import { buildAsset, listAssets, readAsset } from '../../lib/world/asset-registry';
 import { defaults } from '../../config/blocks-board';
 import { buildBoard } from './board';
@@ -72,12 +73,23 @@ test('material specimens paint the same face and printed marks when display tags
 	expect(buildBoard([{ ...asset, tags: ['display'] }]).specimens).toEqual(original);
 });
 
-test('access and rail specimens paint deck, support and platform roles in the Paths palette', () => {
-	const { specimens } = buildBoard(['access/walkway', 'rail/platform'].map(readAsset));
-	expect(specimens.map(({ id, color }) => [id, color])).toEqual([
-		['access/walkway/deck', '--path'],
-		['access/walkway/bearing', '--path'],
-		['rail/platform/platform', '--cat-mobility'],
-		['rail/platform/bearing', '--cat-mobility-5']
-	]);
+test('access and rail specimens use the full Paths role surfaces', () => {
+	const { specimens } = buildBoard(
+		['access/walkway', 'access/stair', 'rail/pier', 'rail/platform'].map(readAsset)
+	);
+	const roles = [
+		['access/walkway/deck', accessSurfaces.deck],
+		['access/walkway/bearing', accessSurfaces.bearing],
+		['access/stair/stairs', accessSurfaces.stairs],
+		['rail/pier/bearing', railSurfaces.bearing],
+		['rail/platform/platform', railSurfaces.platform],
+		['rail/platform/bearing', railSurfaces.bearing]
+	] as const;
+	expect(specimens).toEqual(
+		roles.map(([id, surface], index) => ({
+			id,
+			shape: specimens[index]?.shape,
+			...surface
+		}))
+	);
 });

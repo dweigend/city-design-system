@@ -1,6 +1,7 @@
 import { expect, test } from 'bun:test';
 import { example } from './example';
-import { createStairObject } from './index';
+import type { Vec3 } from '../../core/geometry';
+import { createStairObject, createWalkwayObject, validateStairEdge } from './index';
 
 test('records two attachment positions and separates deck, bearing and stair roles', () => {
 	const { deck, stair } = example();
@@ -42,3 +43,14 @@ test('rejects flat and vertical hosts and preserves the landings after a real ap
 	expect(approach.anchors[0].position).toEqual([-3, 0, 0]);
 	expect(createStairObject({ id, points: run.slice(0, 2) }).parts).not.toEqual(flight.parts);
 });
+
+test.each([validateStairEdge, createStairObject, createWalkwayObject])(
+	'rejects a malformed intermediate point in %p',
+	(read) => {
+		// An external edge can violate its declared tuple type.
+		const intermediate = [3, 0, 2, 1] as unknown as Vec3;
+		expect(() => read({ id: 'flight', points: [[0, 0, 0], intermediate, [6, 0, 4]] })).toThrow(
+			'finite XYZ'
+		);
+	}
+);

@@ -1,6 +1,7 @@
 import { isFiniteVector } from '../../core/geometry';
 import { clipPolylineToSquare } from '../../core/polyline';
 import {
+	checkOffsets,
 	crossSections,
 	floodplainWidths,
 	profileAt,
@@ -83,14 +84,8 @@ function checkSlopeLimits(limits: SurfaceProtocol['landSlopeClassLimits']): void
 }
 
 function checkProtocol(grid: SurfaceGrid, protocol: SurfaceProtocol): void {
-	const {
-		surfaceSpacingM,
-		profileHalfLengthM,
-		stationOffsetM,
-		stepMinimumSlope,
-		stepMinimumGainM,
-		landSlopeClassLimits: limits
-	} = protocol;
+	const { surfaceSpacingM, profileHalfLengthM, landSlopeClassLimits } = protocol;
+	const { stationOffsetM, stepMinimumSlope, stepMinimumGainM } = protocol;
 	const positive = {
 		surfaceSpacingM,
 		profileHalfLengthM,
@@ -103,18 +98,21 @@ function checkProtocol(grid: SurfaceGrid, protocol: SurfaceProtocol): void {
 	for (const [field, value] of Object.entries(positive))
 		if (!Number.isFinite(value) || value <= 0)
 			throw new RangeError(`${field} must be finite and positive`);
-	for (const [field, value] of Object.entries({
-		stationOffsetM,
-		stepMinimumSlope,
-		stepMinimumGainM
-	}))
+	const nonnegative = { stationOffsetM, stepMinimumSlope, stepMinimumGainM };
+	for (const [field, value] of Object.entries(nonnegative))
 		if (!Number.isFinite(value) || value < 0)
 			throw new RangeError(`${field} must be finite and nonnegative`);
 	if (surfaceSpacingM > grid.windowM / 2)
 		throw new RangeError('surfaceSpacingM must fit twice in windowM');
 	if (profileHalfLengthM % grid.spacingM !== 0)
 		throw new RangeError('profileHalfLengthM must be a multiple of grid.spacingM');
-	checkSlopeLimits(limits);
+	checkOffsets(
+		'profileHalfLengthM and spacingM',
+		-profileHalfLengthM,
+		profileHalfLengthM,
+		grid.spacingM
+	);
+	checkSlopeLimits(landSlopeClassLimits);
 }
 
 function checkSamples(field: string, values: ArrayLike<number>, length: number): void {

@@ -137,3 +137,23 @@ test('classifies a flat dry raster entirely in the lowest slope band', () => {
 		landSlopeShares: [1, 0, 0, 0]
 	});
 });
+
+test('rejects station offsets whose increment stalls or whose count is unrepresentable', () => {
+	for (const profileSpacingM of [Number.MIN_VALUE, 2 ** -40]) {
+		expect(() =>
+			measureRiverSurface(surfaceGrid, surfaceCourse, {
+				...surfaceProtocol,
+				stationOffsetM: 1,
+				profileSpacingM
+			})
+		).toThrow('profileSpacingM');
+	}
+});
+
+test('rejects profile offsets whose increment stalls or whose count is unrepresentable', () => {
+	for (const profileHalfLengthM of [2 ** 54, 2 ** 32]) {
+		expect(() =>
+			measureRiverSurface(surfaceGrid, surfaceCourse, { ...surfaceProtocol, profileHalfLengthM })
+		).toThrow('profileHalfLengthM');
+	}
+});

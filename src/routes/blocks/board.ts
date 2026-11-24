@@ -36,8 +36,10 @@ function paint(object: PlaceableObject, kind: string, materials?: SpecimenMateri
 	if (kind === 'house') return projectHouse(object, 'full');
 	const path = projectPathAsset(object, kind);
 	if (path) return path;
+	const materialAt = (slot: string) =>
+		materials && Object.hasOwn(materials, slot) ? materials[slot] : undefined;
 	const surface = (slot: string): Surface => {
-		const material = materials?.[slot];
+		const material = materialAt(slot);
 		if (material) return readMaterialSurface(material.family, material.role, 'normal');
 		if (kind === 'surface') throw new RangeError(`Missing specimen material for slot "${slot}"`);
 		if (slot === 'solid') return { ...existing.roof, color: '--stock-veil' };
@@ -50,7 +52,7 @@ function paint(object: PlaceableObject, kind: string, materials?: SpecimenMateri
 		if (kind === 'lattice' && part.id === 'solid')
 			return { ...part, fillAlpha: houseLevels.transparent.fillAlpha, occlude: true };
 		// Printed pattern marks draw no outline (MAT-8).
-		return materials?.[object.parts[index].slot]?.role === 'mark'
+		return materialAt(object.parts[index].slot)?.role === 'mark'
 			? { ...part, strokeSegments: [] }
 			: part;
 	});

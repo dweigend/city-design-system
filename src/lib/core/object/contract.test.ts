@@ -188,3 +188,11 @@ test('rejects a box center missing Z', () => {
 	const center = [2, 3] as unknown as typeof box.center;
 	expect(() => objectWith({ ...box, center })).toThrow(RangeError);
 });
+
+test('copies the validated tuple indices even when the box center has a custom iterator', () => {
+	const center: [number, number, number] = [2, 3, 1];
+	const iterated = [7, 8, 9, 10];
+	center[Symbol.iterator] = iterated[Symbol.iterator].bind(iterated);
+	const shape = objectWith({ ...box, center }).parts[0].shape;
+	expect(shape).toEqual(box);
+});

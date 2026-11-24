@@ -107,8 +107,10 @@ function validateVector(value: Vec2 | Vec3, arity: 2 | 3): void {
 
 function copyVector<T extends Vec2 | Vec3>(value: T, arity: T['length']): T {
 	validateVector(value, arity);
-	// Validation guarantees the copied array retains the tuple arity.
-	return copyCoordinates(value);
+	const copy: number[] = [];
+	for (let i = 0; i < arity; i++) copy.push(finite(value[i]));
+	// The indexed copy has the validated arity and contains only finite coordinates.
+	return Object.freeze(copy) as unknown as T;
 }
 
 // Exact arithmetic: An anchor position and normal both have three coordinates.
