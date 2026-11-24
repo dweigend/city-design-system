@@ -113,6 +113,7 @@ function prints(family: Family, params: PatternParams, level: SurfaceLevel) {
 
 /** Whether a level prints the marks of a family at a pattern scale: every pattern near and mid,
  * only a large graphic one (pitch at least `farMarkPitchM`) far, none in pencil. */
+// Exact arithmetic: a module scale of one keeps the configured pitch.
 export function printsMarks(
 	family: Family,
 	level: SurfaceLevel | SurfaceLevelAlias,
@@ -187,6 +188,7 @@ function buildAt(
 /** The pattern scale at which the marks of the family are expected to fit the patch's triangle
  * budget: the requested scale grown by coarsening steps, at most the step limit. Passing it as
  * `moduleScale` lets `buildSurface` succeed on its first layout. */
+// Exact arithmetic: a stripe band is one quad of two triangles, a dot n − 2.
 export function fitModuleScale(family: Family, patch: Patch, options: SurfaceOptions = {}): number {
 	const frame = readFrame(patch);
 	const { pattern, params } = readFamily(family);

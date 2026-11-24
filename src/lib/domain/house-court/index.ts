@@ -25,6 +25,9 @@ export {
 	type HouseDetail
 } from './object';
 
+/** What makes a house salient in a picture: storeys, a corner, a large house. */
+export { readHouseFeatures, type HouseFeatures } from './features';
+
 /** A planar house face that a surface family can clad. */
 export type { HouseFace } from './faces';
 export type { AdjoiningWall } from './wall-contact';

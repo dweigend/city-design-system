@@ -1,15 +1,15 @@
 import { surfaceLevelTable } from '../../../config/material';
 
-/** Drawing detail of a surface by distance (MAT-5): near adds grain, joints and accents to mid,
- * mid adds openings and fine patterns to far, far is the plain body in its tone with only large
- * graphic patterns, pencil is the face with its joints as pencil lines. */
+/** Drawing detail of a surface (MAT-5, MAT-15): plain is the default body in one tone, far adds
+ * the roof tone and large graphic patterns, mid openings and rims, near patterns, grain, joints
+ * and accents; pencil is the face with its joints as pencil lines. */
 export type SurfaceLevel = keyof typeof surfaceLevelTable;
-/** Older level names kept for callers: `relief` is near, `flat` is far. */
+/** Older level names kept for callers: `relief` is near, `flat` is the plain default. */
 export type SurfaceLevelAlias = 'relief' | 'flat';
 /** Surface levels from most to least detail. */
 export const surfaceLevels = Object.freeze(Object.keys(surfaceLevelTable) as SurfaceLevel[]);
 
-const aliases = Object.freeze({ relief: 'near', flat: 'far' } as const);
+const aliases = Object.freeze({ relief: 'near', flat: 'plain' } as const);
 
 /** Resolves a level or an alias. Throws RangeError for an unknown name. */
 export function readSurfaceLevelName(level: SurfaceLevel | SurfaceLevelAlias): SurfaceLevel {

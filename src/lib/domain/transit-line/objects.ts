@@ -74,7 +74,7 @@ export function createStationPlatformObject(
 	platform.ribbon([at(-half, 0), at(half, 0)], width, slab);
 	for (const side of [-1, 1]) {
 		const offset = (side * width) / 2;
-		const roof = defaults.canopyHeightM;
+		const roof = defaults.entranceCanopyHeightM;
 		const canopy = [
 			at(-half * defaults.stationCanopyLengthShare, offset / 2, roof),
 			at(half * defaults.stationCanopyLengthShare, offset / 2, roof)

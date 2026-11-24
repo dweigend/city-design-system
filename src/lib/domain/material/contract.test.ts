@@ -191,7 +191,7 @@ test('the pattern box of a body follows its longest level edge and spans all its
 	expect(frame.size).toEqual([8, 2, 3]);
 });
 
-test('levels: far is a plain face with only large graphic marks, near adds joints', () => {
+test('levels: plain and far draw a plain face, far only large graphic marks, near the rest', () => {
 	const patch: Patch = {
 		origin: [0, 0, 0],
 		across: [1, 0, 0],
@@ -201,17 +201,21 @@ test('levels: far is a plain face with only large graphic marks, near adds joint
 		openings: [[1, 1, 2, 2]]
 	};
 	expect(buildSurface('perforated', patch, { level: 'far' }).meshes.has('mark')).toBe(false);
-	expect(buildSurface('perforated', patch, { level: 'mid' }).meshes.has('mark')).toBe(true);
+	expect(buildSurface('perforated', patch, { level: 'mid' }).meshes.has('mark')).toBe(false);
+	expect(buildSurface('perforated', patch, { level: 'near' }).meshes.has('mark')).toBe(true);
+	expect(buildSurface('stripe', patch, { level: 'plain' }).meshes.has('mark')).toBe(false);
 	expect(buildSurface('stripe', patch, { level: 'far' }).meshes.has('mark')).toBe(true);
 	const far = buildSurface('board', patch, { level: 'far' });
 	expect([...far.meshes.keys()]).toEqual(['face']);
 	expect(far.triangles).toBeLessThan(buildSurface('board', patch, { level: 'mid' }).triangles);
-	expect(buildSurface('board', patch, { level: 'mid' }).lines).toEqual([]);
-	expect(buildSurface('board', patch, { level: 'near' }).lines.length).toBeGreaterThan(0);
+	expect(buildSurface('card', patch, { level: 'mid' }).lines).toEqual([]);
+	expect(buildSurface('card', patch, { level: 'near' }).lines.length).toBeGreaterThan(0);
 	expect(buildSurface('board', patch, { level: 'relief' })).toEqual(
 		buildSurface('board', patch, { level: 'near' })
 	);
-	expect(buildSurface('board', patch, { level: 'flat' })).toEqual(far);
+	expect(buildSurface('board', patch, { level: 'flat' })).toEqual(
+		buildSurface('board', patch, { level: 'plain' })
+	);
 });
 
 test('the same inputs rebuild the same arrays; invalid patches and names throw RangeError', () => {

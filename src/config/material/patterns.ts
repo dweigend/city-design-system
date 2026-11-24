@@ -56,9 +56,9 @@ export const patterns = defineSettings({
 		rationale: 'Eight corners read round at house distance and cost six triangles per dot.'
 	},
 	panelJointM: {
-		value: [3.6, 3],
+		value: [2.4, 2.4],
 		unit: 'm',
-		meaning: 'Panel module of painted board along the body and up, drawn as hairline joints',
+		meaning: 'Sheet module of grey board along the body and up, drawn as hairline joints',
 		bounds: positive,
 		principle: 'MAT-12'
 	},

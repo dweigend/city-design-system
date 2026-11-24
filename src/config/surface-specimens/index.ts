@@ -89,6 +89,13 @@ export const settings = defineSettings({
 		bounds: positive,
 		rationale: 'A visible eave line separates roof and wall.'
 	},
+	bodyRoofLiftM: {
+		value: 0.04,
+		unit: 'm',
+		meaning: 'Lift of the roof sheet above the gable walls along its normal',
+		bounds: positive,
+		rationale: 'Keeps the gable edges of the walls from showing through the flat roof tone.'
+	},
 	bodyDoorM: {
 		value: [1.2, 2.3, 1.6],
 		unit: 'm',

@@ -34,7 +34,7 @@ export const houseMaterials = Object.freeze({
 			accent: signal,
 			roof
 		},
-		slots: { wall: 'main', accent: 'accent' }
+		slots: { mass: 'main', wall: 'main', rim: 'main', accent: 'accent' }
 	},
 	memphis: {
 		roles: {
@@ -44,7 +44,9 @@ export const houseMaterials = Object.freeze({
 			roof
 		},
 		slots: {
+			mass: 'main',
 			wall: 'main',
+			rim: 'main',
 			'body-main': 'main',
 			'body-second': 'second',
 			roof: 'roof',
@@ -58,7 +60,7 @@ export const houseMaterials = Object.freeze({
 			accent: [],
 			roof
 		},
-		slots: { capsule: 'main', 'capsule-accent': 'second' }
+		slots: { mass: 'main', capsule: 'main', 'capsule-accent': 'second' }
 	},
 	organic: {
 		roles: {
@@ -67,12 +69,13 @@ export const houseMaterials = Object.freeze({
 			accent: signal,
 			roof
 		},
-		slots: { 'body-shell': 'main', accent: 'accent' }
+		slots: { mass: 'main', 'body-shell': 'main', accent: 'accent' }
 	}
 } as const satisfies Record<HouseStyleName, HouseMaterials>);
 
 /** One house's draw of materials: one per role that has choices, keyed by the house so the same
  * house always wears the same materials. The accent never repeats the main material. */
+// Exact arithmetic: seed zero is the default draw.
 export function planHouseMaterials(
 	materials: HouseMaterials,
 	house: string,

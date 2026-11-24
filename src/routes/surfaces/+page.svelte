@@ -37,6 +37,7 @@
 		near: 'Near',
 		mid: 'Mid',
 		far: 'Far',
+		plain: 'Plain',
 		pencil: 'Pencil'
 	};
 	const wallFamilies = familyNames.filter((family) => family !== groundFamily);

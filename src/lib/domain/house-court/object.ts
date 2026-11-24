@@ -39,6 +39,7 @@ export function houseSlots(
 		'plot',
 		'court',
 		envelopeFill && 'wall',
+		envelopeFill && parts.rims && 'rim',
 		...slots.body,
 		...slots.roof,
 		...slots.capsule,
@@ -157,7 +158,7 @@ function envelopeParts(ctx: Context, detail: HouseDetail): Part[] {
 	if (detail === 'block') return envelope(ctx, 'mass');
 	return [
 		...envelope(ctx, 'wall'),
-		...(ctx.style.parts.rims ? envelopeRims(ctx, 'wall') : []),
+		...(ctx.style.parts.rims ? envelopeRims(ctx, 'rim') : []),
 		...openings(ctx)
 	];
 }

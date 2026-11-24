@@ -5,7 +5,7 @@ import { cellCentre } from '../cell-space';
 import { faceMesh, side } from './boxes';
 import { pick, type CellSolid } from './fills';
 import { builtAt, type Context } from './context';
-import { bar, dome, extrusion, inradius, inset, rounded, wallFigure, type Faces } from './solids';
+import { bar, dome, inradius, rounded, wallFigure, type Faces } from './solids';
 import type { OpeningKind } from './styles';
 import { exposedWall, fitsOpening } from './wall-contact';
 

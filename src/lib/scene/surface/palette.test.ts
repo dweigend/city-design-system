@@ -141,8 +141,8 @@ test('grain shows only near; pencil hatching and joint lines survive beside anot
 			]
 		},
 		[
-			{ role: 'wall', family: 'board', patch: wide, level: 'pencil' },
-			{ role: 'wall', family: 'board', patch: { ...wide, origin: [8, 0, 0] } }
+			{ role: 'wall', family: 'card', patch: wide, level: 'pencil' },
+			{ role: 'wall', family: 'card', patch: { ...wide, origin: [8, 0, 0] } }
 		],
 		{ level: 'mid' }
 	);

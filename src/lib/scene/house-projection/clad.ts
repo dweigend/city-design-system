@@ -34,8 +34,8 @@ const { cladOffsetM, cladSkinM } = defaults;
 export type HousePlacement = Readonly<{ translation: Vec3; radians: number }>;
 
 /** Options of a clad house drawing: its cladding triangle budget, a placement, a seed for the
- * material draw and an optional surface level below the display level's own (aliases `relief`
- * and `flat` are near and far). `light` is accepted and unused: model surfaces cast no shade
+ * material draw and the surface level asked for, `plain` by default and at most the display
+ * level's own (aliases: `relief` is near, `flat` is plain); `readHouseSalience` grants more. `light` is accepted and unused: model surfaces cast no shade
  * onto themselves (MAT-2). */
 export type CladHouseOptions = Readonly<{
 	budget: number;
@@ -96,6 +96,7 @@ function skinOf(
 	level: SurfaceLevel,
 	recessed: boolean
 ): Skin | undefined {
+	if (!readLevelDetail(level).parts) return undefined;
 	if (face.place === 'wall' && readLevelDetail(level).openings && recessed) return 'deep';
 	if (printsMarks(material.family, level) || face.place === 'roof') return 'thin';
 	return undefined;
@@ -128,6 +129,7 @@ function patchOf(face: HouseFace, skin: Skin, budget: number): Patch {
 /** Claddings of the faces that need one at the level (see `projectCladHouse`), each in its
  * body's material from the house's material draw, faces of one body sharing one pattern box, given
  * its share of the budget by area. `house` and `seed` key the draw. */
+// Exact arithmetic: seed zero is the default draw.
 export function houseCladdings(
 	faces: readonly HouseFace[],
 	materials: HouseMaterials,
@@ -159,17 +161,29 @@ export function houseCladdings(
 	});
 }
 
-const hiddenAt = (level: SurfaceLevel) => {
-	const { openings, accents } = readLevelDetail(level);
-	return new Set([...(openings ? [] : ['opening', 'collar']), ...(accents ? [] : ['accent'])]);
-};
+/** Slots a plain house keeps besides its bodies: the ground and the frame that carries capsules. */
+const plainKeeps = new Set(['plot', 'court', 'mass', 'frame', 'deck']);
 
-function withoutHidden(object: PlaceableObject, level: SurfaceLevel) {
-	const hidden = hiddenAt(level);
-	if (!object.parts.some(({ slot }) => hidden.has(slot))) return object;
+/** Whether a part's slot is drawn at a level: a plain house keeps only its bodies (MAT-15);
+ * openings and accents follow the level table. */
+function shownAt(level: SurfaceLevel, materials: HouseMaterials) {
+	const { openings, accents, parts } = readLevelDetail(level);
+	return (slot: string) => {
+		if (!parts) {
+			const role = materials.slots[slot];
+			return plainKeeps.has(slot) || (role !== undefined && role !== 'accent' && slot !== 'rim');
+		}
+		if (!openings && (slot === 'opening' || slot === 'collar')) return false;
+		return accents || slot !== 'accent';
+	};
+}
+
+function withoutHidden(object: PlaceableObject, level: SurfaceLevel, materials: HouseMaterials) {
+	const shown = shownAt(level, materials);
+	if (object.parts.every(({ slot }) => shown(slot))) return object;
 	return PlaceableObject.create({
 		...object,
-		parts: object.parts.filter(({ slot }) => !hidden.has(slot))
+		parts: object.parts.filter(({ slot }) => shown(slot))
 	});
 }
 
@@ -195,7 +209,7 @@ function buildHouse(
 	const found = cache.get(key);
 	if (found) return found;
 	const placement = options.placement;
-	const shown = withoutHidden(object, level);
+	const shown = withoutHidden(object, level, materials);
 	const placed = placement ? move(shown, placement.translation, placement.radians) : shown;
 	const moved = placement ? faces.map((face) => place(face, placement)) : faces;
 	const seed = options.seed ?? 0;
@@ -217,24 +231,24 @@ function plainSurfaces(
 	{ plan, level }: Built,
 	table: SurfaceAssignment
 ): SurfaceAssignment {
-	const { grain } = readLevelDetail(level);
+	const { grain, parts } = readLevelDetail(level);
 	return Object.fromEntries(
 		object.slots.map((slot): [string, Surface | undefined] => {
 			const own = table[slot];
 			const role: MaterialRole | undefined = materials.slots[slot];
-			const material = role ? plan[role] : undefined;
+			// A plain house is one matte tone: every body takes the main material's tone.
+			const material = role ? (parts ? plan[role] : (plan.main ?? plan[role])) : undefined;
 			if (!own || !material) return [slot, own];
 			return [slot, { ...readModelSurface(material, 'normal', grain), stroke: own.stroke }];
 		})
 	);
 }
 
-/** Draws a house object as a model (MAT-3) at one display level: the bodies in the house's drawn
- * materials as flat matte tones, roof tops in the flat roof tone, printed patterns wrapping their
- * body, and a skin that recesses the openings, painted through `paintClad`. The surface level
- * (the display's own; `options.level` may lower it) decides what is drawn: far draws plain bodies
- * and roof tones with only large graphic patterns, mid adds openings, patterns and the accent,
- * near adds grain and joints. Builds are cached per house, faces, materials and options.
+/** Draws a house object as a model (MAT-3) at one display level. By default a house is plain: its
+ * bodies in the main material's matte tone, without parts, openings or patterns (MAT-15). A
+ * requested level (`options.level`, at most the display level's own) grants detail: far adds the
+ * roof tone, rims and large graphic patterns, mid openings, near patterns, grain, joints and the
+ * accent, each body in its drawn material, painted through `paintClad`. Builds are cached per house, faces, materials and options.
  * Cladding drawables get IDs under the object's ID. Returns the drawables and the cladding
  * triangle count; `hidden` draws nothing. */
 // Exact arithmetic: an empty drawing has no triangles.
@@ -248,8 +262,20 @@ export function projectCladHouse(
 	const { surfaces, hatch, fillAlpha } = houseLevels[display];
 	const own = readSurfaceLevel(display);
 	if (!surfaces || !own) return { drawables: [], triangles: 0 };
-	const house = buildHouse(object, faces, materials, lowerLevel(own, options.level), options);
-	const plain = plainSurfaces(object, materials, house, surfaces);
+	const house = buildHouse(
+		object,
+		faces,
+		materials,
+		lowerLevel(own, options.level ?? 'plain'),
+		options
+	);
+	// Only the full display paints model materials; the other displays keep their stock looks.
+	const plain =
+		display === 'full'
+			? plainSurfaces(object, materials, house, surfaces)
+			: Object.fromEntries(
+					object.slots.map((slot) => [slot, (surfaces as SurfaceAssignment)[slot]])
+				);
 	const ownParts = new Set(object.parts.map(({ id }) => id));
 	const drawables = paintClad(house.clad, 'normal', plain).map((drawable): Drawable => {
 		const mine = ownParts.has(drawable.id);

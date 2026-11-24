@@ -47,7 +47,7 @@ export const settings = defineSettings({
 		principle: 'MAT-11'
 	},
 	grainCellM: {
-		value: 0.06,
+		value: 0.022,
 		unit: 'm',
 		meaning: 'Size of one grain speck in world meters',
 		bounds: { exclusiveMin: 0 },

@@ -3,6 +3,7 @@ import type { Part, Shape } from '../../core/object';
 import { defaults } from '../../../config/house-court';
 import type { FineCell } from '../cell-space';
 import { boxMesh, faceMesh, side, type Box } from './boxes';
+import { extrusion, type Faces } from './solids';
 import { builtAt, type Context } from './context';
 import type { HouseCell } from './occupancy';
 import { shellFaces, shells } from './shells';
@@ -14,8 +15,8 @@ import { exposedWall, fitsOpening, type WallRect } from './wall-contact';
 const {
 	parapetHeightM,
 	rimWidthM,
-	canopySizeM,
-	canopyHeightM,
+	entranceCanopySizeM,
+	entranceCanopyHeightM,
 	windowPitchM,
 	windowWidthM,
 	windowHeightM,
@@ -92,29 +93,45 @@ export function envelope(context: Context, slot: string): Part[] {
 	});
 }
 
-/** A parapet rim along one side of a flat roof outline, inside the wall line, standing on the
- * roof at height z. */
-function rim(outline: readonly Vec2[], i: number, z: number): Box {
-	const wall = side(outline, i);
-	const [x, y] = wall.at(1 / 2, -rimWidthM / 2);
-	return {
-		center: [x, y, z + parapetHeightM / 2],
-		size: [wall.length, rimWidthM, parapetHeightM],
-		rotation: wall.rotation
-	};
+/** The inner corner k of a rim of `rimWidthM` along a counter-clockwise outline: the corner moved
+ * inward along the bisector, so neighbouring rim sides meet in a mitre inside the outline. */
+// Exact arithmetic: unit outward normals of the two sides meeting at the corner.
+function mitre(outline: readonly Vec2[], k: number): Vec2 {
+	const n = outline.length;
+	const [a, b] = [side(outline, (k + n - 1) % n).normal, side(outline, k).normal];
+	const scale = rimWidthM / Math.max(1 + a[0] * b[0] + a[1] * b[1], 1 / 2);
+	return [outline[k][0] - (a[0] + b[0]) * scale, outline[k][1] - (a[1] + b[1]) * scale];
+}
+
+/** A parapet rim along side i of a flat roof outline: the band between the side and its mitred
+ * inner line, standing on the roof at height z. */
+function rim(outline: readonly Vec2[], i: number, z: number): Faces {
+	const ring = signedArea(outline) < 0 ? [...outline].reverse() : outline;
+	const n = outline.length;
+	const k = signedArea(outline) < 0 ? (2 * n - 2 - i) % n : i;
+	const j = (k + 1) % ring.length;
+	return extrusion([ring[k], ring[j], mitre(ring, j), mitre(ring, k)], z, z + parapetHeightM);
+}
+
+// Exact arithmetic: the shoelace sum; positive for a counter-clockwise outline.
+function signedArea(outline: readonly Vec2[]) {
+	return outline.reduce((sum, [x0, y0], i) => {
+		const [x1, y1] = outline[(i + 1) % outline.length];
+		return sum + x0 * y1 - x1 * y0;
+	}, 0);
 }
 
 /** The parapet rim of the merged envelope (MAT-13): along every wall exposed at the top storey,
- * in the wall's own slot, as one mesh. */
+ * in the given slot, as one mesh. */
 export function envelopeRims(context: Context, slot: string): Part[] {
-	const rims: Box[] = [];
+	const rims: Faces = [];
 	eachBuilt(context, (cell, house) => {
 		cell.quad.forEach((_, i) => {
 			if (exposed(context, cell, i, house.toStorey - 1))
-				rims.push(rim(cell.quad, i, level(context, house.toStorey)));
+				rims.push(...rim(cell.quad, i, level(context, house.toStorey)));
 		});
 	});
-	return part(`${context.space.id}/rims`, slot, boxMesh(rims));
+	return part(`${context.space.id}/rims`, slot, faceMesh(rims));
 }
 
 /** The parapet rim of every flat-topped body without a roof solid, in the body's slot. */
@@ -127,7 +144,11 @@ export function solidRims(context: Context, solids: readonly CellSolid[]): Part[
 	return [...tops.values()].flatMap((s) => {
 		if (!s.flat || roofed.has(s.cell.id)) return [];
 		const z = level(context, s.toStorey);
-		return part(`${s.key}/rims`, s.slot, boxMesh(s.outline.map((_, i) => rim(s.outline, i, z))));
+		return part(
+			`${s.key}/rims`,
+			s.slot,
+			faceMesh(s.outline.flatMap((_, i) => rim(s.outline, i, z)))
+		);
 	});
 }
 
@@ -138,14 +159,14 @@ export function canopy(context: Context): Part[] {
 	const entry = entranceSide(context.space, context.house.entrances);
 	const house = entry && context.occupancy.get(entry.cell.id);
 	if (!entry || !house || house.fromStorey > 0 || house.toStorey <= 0) return [];
-	const [width, projection, thickness] = canopySizeM;
+	const [width, projection, thickness] = entranceCanopySizeM;
 	const solids = cellSolids(context).filter(
 		({ cell, fromStorey, key }) =>
 			cell.id === entry.cell.id && fromStorey === 0 && !key.endsWith('/roof')
 	);
 	const gap = solids.length ? Math.min(...solids.map(({ gapM }) => gapM)) : 0;
 	const [x, y] = entry.wall.at(1 / 2, projection / 2 - gap);
-	const z = context.space.baseZ + canopyHeightM + thickness / 2;
+	const z = context.space.baseZ + entranceCanopyHeightM + thickness / 2;
 	return part(
 		`${context.space.id}/canopy`,
 		'accent',

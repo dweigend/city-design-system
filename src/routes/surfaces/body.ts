@@ -49,16 +49,23 @@ function roofSlopes(width: number, depth: number, eaves: number, ridge: number):
 	const size = [width + 2 * overhang, slope + overhang] as const;
 	const front: Vec3 = [0, run / slope, rise / slope];
 	const back: Vec3 = [0, -run / slope, rise / slope];
+	const lift = m.bodyRoofLiftM;
 	return [
 		{
-			origin: sum([-width / 2 - overhang, -run, eaves], scaled(front, -overhang)),
+			origin: sum(
+				sum([-width / 2 - overhang, -run, eaves], scaled(front, -overhang)),
+				scaled([0, -front[2], front[1]], lift)
+			),
 			across: axes.east,
 			normal: [0, -front[2], front[1]],
 			size,
 			thickness: m.bodyWallM
 		},
 		{
-			origin: sum([width / 2 + overhang, run, eaves], scaled(back, -overhang)),
+			origin: sum(
+				sum([width / 2 + overhang, run, eaves], scaled(back, -overhang)),
+				scaled([0, back[2], -back[1]], lift)
+			),
 			across: axes.west,
 			normal: [0, back[2], -back[1]],
 			size,

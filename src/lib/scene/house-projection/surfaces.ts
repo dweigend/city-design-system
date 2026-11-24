@@ -34,6 +34,8 @@ const ground = {
 export const fullSurfaces = Object.freeze({
 	...ground,
 	wall: surface('--model-cream', '--ink', true),
+	mass: surface('--model-cream', '--ink', true),
+	rim: surface('--model-cream', '--ink', true),
 	opening: surface('--model-hole', '--ink-2', false),
 	gallery: surface('--path', '--ink', false),
 	stair: surface('--path', '--ink', false),

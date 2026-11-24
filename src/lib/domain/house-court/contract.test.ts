@@ -235,9 +235,9 @@ describe('createHouseCourt', () => {
 			'plot',
 			'court',
 			'wall',
-			'floorEdge',
-			'roofEdge',
+			'rim',
 			'opening',
+			'accent',
 			'gallery',
 			'stair'
 		]);
@@ -246,8 +246,7 @@ describe('createHouseCourt', () => {
 			'plot',
 			'court',
 			'wall',
-			'floorEdge',
-			'roofEdge',
+			'rim',
 			'opening',
 			'gallery',
 			'stair'
@@ -285,7 +284,7 @@ describe('createHouseCourt', () => {
 			);
 		expect(slots(houseStyles.archigram).has('frame')).toBe(true);
 		expect(slots(houseStyles.organic).has('planter')).toBe(true);
-		expect([...slots(houseStyles.memphis)].some((slot) => slot.startsWith('roof-'))).toBe(true);
+		expect(slots(houseStyles.memphis).has('body-second')).toBe(true);
 	});
 
 	test('R11-04: gallery and stair stay inside the court or are left out', () => {

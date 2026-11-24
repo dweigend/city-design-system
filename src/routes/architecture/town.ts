@@ -6,6 +6,7 @@ import {
 	houseFaces,
 	houseFigures,
 	houseStyles,
+	readHouseFeatures,
 	type HouseStyleName
 } from '../../lib/domain/house-court';
 import type { ParcelBlock } from '../../lib/domain/parcels';
@@ -16,9 +17,9 @@ import {
 	houseDetailOf,
 	houseLevels,
 	houseMaterials,
-	projectCladHouse
+	projectCladHouse,
+	readHouseSalience
 } from '../../lib/scene/house-projection';
-import { surfaceLight } from '../../lib/scene/stage';
 import { cityWindow } from '../../lib/world/city-site';
 import {
 	createTownBlockHouses,
@@ -26,10 +27,15 @@ import {
 	createTownHouseStudy,
 	type TownHouseBlock
 } from '../../lib/world/house-site';
+import type { SurfaceLevel } from '../../lib/scene/material';
 import type { HouseSetup } from './sheets';
 
-/** What the Town view shows: one of the study blocks, or all three together. */
-export type TownScope = TownHouseBlock | 'town';
+/** What the Town view shows: one of the study blocks, all three together, or every block of the
+ * town. */
+export type TownScope = TownHouseBlock | 'town' | 'all';
+
+/** How the Town view grants detail: by the salience rule, or every house plain (MAT-15). */
+export type TownDetail = 'salient' | 'plain';
 
 /** Style per block: the selected one everywhere, or one style each in menu order. */
 export type TownStyles = 'one' | 'mixed';
@@ -94,8 +100,16 @@ export function townStage(relief?: number) {
 		};
 	}
 
+	const built = () =>
+		plan.holdings.blocks.filter(({ id }) =>
+			plan.parcelsByBlock.get(id)?.some(({ publicUse }) => !publicUse)
+		);
 	const pick = (scope: TownScope) =>
-		scope === 'town' ? townBlocks.map((kind) => blocks[kind]) : [blocks[scope]];
+		scope === 'all'
+			? built()
+			: scope === 'town'
+				? townBlocks.map((kind) => blocks[kind])
+				: [blocks[scope]];
 	const contexts = new Map<TownScope, ReturnType<typeof context>>();
 	return {
 		...plan,
@@ -119,13 +133,15 @@ function styleOf(setup: HouseSetup, styles: TownStyles, index: number): HouseSty
 }
 
 /** Places one house per parcel of the chosen blocks, one style per block, alongside the lanes and
- * pale stock. Houses wear their row's surface families; each block shares the cladding budget by
- * face area, the first block in focus at the display level's surface detail and the others flat. */
+ * pale stock. Every house is a plain volume; with `salient` detail the salience rule grants detail
+ * to the houses that carry the picture (MAT-15). Each block shares the cladding budget by face
+ * area. */
 export function townSheet(
 	town: ReturnType<typeof townStage>,
 	scope: TownScope,
 	setup: HouseSetup,
-	styles: TownStyles = 'one'
+	styles: TownStyles = 'one',
+	grant: TownDetail = 'salient'
 ) {
 	const { groundAt, placement, toLocal } = town;
 	const { chosen, drawables } = town.context(scope);
@@ -135,31 +151,49 @@ export function townSheet(
 		return { style, ...createTownBlockHouses(town, block, setup, houseStyles[style]) };
 	});
 	const unbuildable = results.flatMap(({ unbuildable }) => unbuildable);
-	const placed = results.flatMap(({ style, placed }, index) => {
+	const levels =
+		grant === 'plain'
+			? new Map<string, SurfaceLevel>()
+			: readHouseSalience(
+					results.flatMap(({ placed }, index) =>
+						placed.map(({ space, house }) => ({
+							id: space.id,
+							block: chosen[index].id,
+							features: readHouseFeatures(space, house)
+						}))
+					),
+					setup.seed
+				);
+	// A plain house needs only its masses: build the block detail and no faces (MAT-15).
+	const detailOf = (id: string) =>
+		levels.has(id) && levels.get(id) !== 'plain' ? detail : 'block';
+	const placed = results.flatMap(({ style, placed }) => {
 		const houses = placed.map((house) => {
-			const faces = houseFaces(house.space, house.house, detail, house.style, house.adjoiningWalls);
-			return { ...house, faces, area: faces.reduce((sum, face) => sum + faceAreaM2(face), 0) };
+			const own = detailOf(house.space.id);
+			const faces =
+				own === 'block'
+					? []
+					: houseFaces(house.space, house.house, own, house.style, house.adjoiningWalls);
+			return { ...house, own, faces, area: faces.reduce((sum, face) => sum + faceAreaM2(face), 0) };
 		});
 		const area = houses.reduce((sum, house) => sum + house.area, 0);
 		return houses.map((house) => ({
 			...house,
 			materials: houseMaterials[style],
-			budget: area > 0 ? (blockTriangleBudget * house.area) / area : 0,
-			focus: index === 0
+			budget: area > 0 ? (blockTriangleBudget * house.area) / area : 0
 		}));
 	});
 	const projected = placed.map((house) =>
 		projectCladHouse(
-			createParcelHouseObject(house, detail, house.adjoiningWalls),
+			createParcelHouseObject(house, house.own, house.adjoiningWalls),
 			house.faces,
 			house.materials,
 			setup.level,
 			{
 				budget: house.budget,
-				light: surfaceLight,
 				placement,
 				seed: setup.seed,
-				...(house.focus ? {} : { level: 'flat' as const })
+				level: levels.get(house.space.id) ?? 'plain'
 			}
 		)
 	);

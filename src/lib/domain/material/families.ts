@@ -14,24 +14,26 @@ export type PatternParams = Readonly<{
 
 // Exact arithmetic: a plain face has no period and no joint.
 const plain = { pitch: 0, share: 0, joint: [0, 0] as const };
+// Exact arithmetic: no joint module along the body or up.
+const noJoint = [0, 0] as const;
 
 /** Every model material as data (MAT-3): the pattern it prints and its parameters. A family
  * knows nothing of houses, pages or colour; the palette paints its face and marks (MAT-1). */
 export const families = Object.freeze({
-	board: { pattern: 'plain', params: { ...plain, joint: m.panelJointM } },
-	card: { pattern: 'plain', params: plain },
+	board: { pattern: 'plain', params: plain },
+	card: { pattern: 'plain', params: { ...plain, joint: m.panelJointM } },
 	cork: { pattern: 'plain', params: plain },
 	stripe: {
 		pattern: 'stripe',
-		params: { pitch: m.stripePitchM, share: m.stripeShare, joint: [0, 0] }
+		params: { pitch: m.stripePitchM, share: m.stripeShare, joint: noJoint }
 	},
 	perforated: {
 		pattern: 'dots',
-		params: { pitch: m.perforationPitchM, share: m.perforationShare, joint: [0, 0] }
+		params: { pitch: m.perforationPitchM, share: m.perforationShare, joint: noJoint }
 	},
 	acrylic: {
 		pattern: 'dots',
-		params: { pitch: m.lightDotPitchM, share: m.lightDotShare, joint: [0, 0] }
+		params: { pitch: m.lightDotPitchM, share: m.lightDotShare, joint: noJoint }
 	},
 	ground: { pattern: 'plain', params: plain }
 } as const satisfies Record<string, { pattern: PatternKind; params: PatternParams }>);
@@ -49,5 +51,5 @@ export function readFamily(family: Family) {
 	if (!Object.hasOwn(families, family)) throw new RangeError(`Unknown surface family "${family}"`);
 	const { pattern, params } = families[family];
 	const slots: readonly FamilySlot[] = pattern === 'plain' ? ['face'] : ['face', 'mark'];
-	return { pattern: pattern as PatternKind, slots, params: params as PatternParams };
+	return { pattern, slots, params: params as PatternParams };
 }

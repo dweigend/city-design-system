@@ -155,14 +155,14 @@ const skin = defineSettings({
 		bounds: { exclusiveMin: 0 },
 		principle: 'MAT-13'
 	},
-	canopySizeM: {
+	entranceCanopySizeM: {
 		value: [2.6, 1.3, 0.22],
 		unit: 'm',
 		meaning: 'Width, projection and thickness of the entrance canopy, the accent of a house',
 		bounds: { exclusiveMin: 0 },
 		principle: 'MAT-10'
 	},
-	canopyHeightM: {
+	entranceCanopyHeightM: {
 		value: 2.8,
 		unit: 'm',
 		meaning: 'Height of the canopy underside above the entrance floor',
@@ -170,7 +170,7 @@ const skin = defineSettings({
 		principle: 'MAT-10'
 	},
 	windowPitchM: {
-		value: 4.2,
+		value: 5,
 		unit: 'm',
 		meaning: 'Wall length per opening along an exposed side',
 		bounds: { exclusiveMin: 0 },

@@ -61,7 +61,7 @@ export const settings = defineSettings({
 		meaning: 'Full station platform width',
 		rationale: 'Room for docking on either side'
 	},
-	canopyHeightM: {
+	entranceCanopyHeightM: {
 		value: 3.3,
 		unit: 'm',
 		meaning: 'Underside of the station shelter above the platform',

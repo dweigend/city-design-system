@@ -554,9 +554,9 @@ const material: DesignPrinciple[] = [
 		id: 'MAT-5',
 		page: 'material',
 		title: 'Simplification by distance',
-		rule: 'One system draws the same scene at every distance and device: far is a plain matte body in its tone with only a large graphic pattern, mid adds openings and patterns, near adds grain, joints and accents, and the steps are data that switch without popping the silhouette.',
+		rule: 'Distance may only lower the detail a house is granted, never raise it above its plain default: far is a plain matte body with its roof tone and only a large graphic pattern, mid adds openings and rims, near adds patterns, grain, joints and accents, and the steps are data that switch without popping the silhouette.',
 		reason:
-			'Deliberate simplification is a design goal, not only a saving: a far house drawn plainly is more stylised and lets a whole town be shown. The light level for phones uses the same steps; they are parameters, never a second code path.',
+			'Deliberate simplification is a design goal, not only a saving. The light level for phones uses the same steps; they are parameters, never a second code path.',
 		decided: '2026-11-24'
 	},
 	{
@@ -645,6 +645,16 @@ const material: DesignPrinciple[] = [
 		rule: 'A house may use light as material once: a translucent panel over a regular grid of glowing dots.',
 		reason:
 			'Lit acrylic is the one luminous element of the model workshop; used more than once it turns into decoration.',
+		decided: '2026-11-24',
+		demo: { route: '/surfaces', label: 'Model materials' }
+	},
+	{
+		id: 'MAT-15',
+		page: 'material',
+		title: 'Plain by default, detail by salience',
+		rule: 'Every house is by default a plain volume, its bodies in one matte tone with hairline edges and no openings, pattern or parts, and one deterministic salience rule grants detail in steps to the subject in focus, a selected house and a capped, seeded few that carry the picture and give orientation (corner houses, the tallest of a block, large merged houses).',
+		reason:
+			'Most elements read best as a box; some facades and selected buildings make the picture work. Drawing was the whole cost of the editor, so the default must be cheap and already look calm and homogeneous as a town.',
 		decided: '2026-11-24',
 		demo: { route: '/surfaces', label: 'Model materials' }
 	}

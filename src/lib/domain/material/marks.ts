@@ -47,6 +47,7 @@ export function stripeMarks(face: PrintFace, params: PatternParams): Vec2[][] {
 }
 
 /** The two body axes that lie most in the face, steepest first. */
+// Exact arithmetic: the indices of the three body axes.
 function faceAxes(map: FaceMap): [number, number] {
 	const [first, second] = [0, 1, 2].sort((a, b) => slope(map, b) - slope(map, a));
 	return [first, second];

@@ -23,6 +23,9 @@ export {
 	type MaterialRole
 } from './materials';
 
+/** The salience rule: which houses of a view are granted detail beyond the plain default. */
+export { readHouseSalience, type SalienceCandidate } from './salience';
+
 /** Cladding triangles of one block of houses at the near level. */
 export const blockTriangleBudget = defaults.blockTriangleBudget;
 

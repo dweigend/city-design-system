@@ -52,6 +52,7 @@ function draw(
 	return projectCladHouse(object, faces, houseMaterials[setup.style], setup.level, {
 		budget: blockTriangleBudget,
 		seed: setup.seed,
+		level: 'near',
 		...(placement ? { placement } : {})
 	}).drawables;
 }

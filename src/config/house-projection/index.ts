@@ -77,6 +77,27 @@ export const settings = defineSettings({
 		rationale:
 			'A fifth of the relief block (148,226), so a block of model houses costs a small fraction of the former picture.'
 	},
+	salientShareRatio: {
+		value: 0.12,
+		unit: 'ratio',
+		meaning: 'Seeded share of ordinary houses granted detail besides the salient kinds',
+		bounds: { min: 0, max: 1 },
+		principle: 'MAT-15'
+	},
+	salientBlockCap: {
+		value: 3,
+		unit: 'houses',
+		meaning: 'Most houses of one block granted detail, focus and selection aside',
+		bounds: { min: 0 },
+		principle: 'MAT-15'
+	},
+	salientViewCap: {
+		value: 48,
+		unit: 'houses',
+		meaning: 'Most houses of one view granted detail, focus and selection aside',
+		bounds: { min: 0 },
+		principle: 'MAT-15'
+	},
 	veilAlpha: {
 		value: 0.35,
 		unit: 'ratio',

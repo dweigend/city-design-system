@@ -9,8 +9,10 @@ export type { PatternFrame };
 /** Body coordinate k at patch point (u, v) is `at[k] + perU[k]·u + perV[k]·v`. */
 export type FaceMap = Readonly<{ at: Vec3; perU: Vec3; perV: Vec3 }>;
 
+// Exact arithmetic: world up.
 const up: Vec3 = [0, 0, 1];
 
+// Exact arithmetic: outline corners lie on the face plane.
 function corners(frame: Frame): Vec3[] {
 	return frame.outline.map(([u, v]) => frame.point(u, v, 0));
 }
@@ -37,6 +39,7 @@ function longAxis(points: readonly Vec3[][]): Vec3 {
 /** The body box of one or more patches of the same body: up is world Z, the long axis follows
  * the longest level edge of their outlines (world X when none is level). Throws RangeError for an
  * invalid patch or an empty list. */
+// Exact arithmetic: axis indices and the world origin.
 export function createPatternFrame(patches: readonly Patch[]): PatternFrame {
 	if (!patches.length) throw new RangeError('A pattern frame needs at least one patch');
 	const rings = patches.map((patch) => corners(readFrame(patch)));
@@ -51,6 +54,7 @@ export function createPatternFrame(patches: readonly Patch[]): PatternFrame {
 }
 
 /** The affine map from patch meters to body coordinates. */
+// Exact arithmetic: the patch origin and a negation.
 export function readFaceMap(frame: Frame, body: PatternFrame): FaceMap {
 	const start = sum(frame.point(0, 0, 0), scaled(body.origin, -1));
 	const project = (vector: Vec3) =>

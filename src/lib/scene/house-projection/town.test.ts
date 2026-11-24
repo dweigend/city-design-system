@@ -5,6 +5,7 @@ import {
 	createHouseObject,
 	houseFaces,
 	houseStyles,
+	readHouseFeatures,
 	type HouseStyleName
 } from '../../domain/house-court';
 import {
@@ -19,7 +20,8 @@ import {
 	houseCladdings,
 	houseMaterials,
 	planHouseMaterials,
-	projectCladHouse
+	projectCladHouse,
+	readHouseSalience
 } from './index';
 
 const town = createTownHouseStudy();
@@ -90,22 +92,46 @@ test('every house of every style wears at most three materials, one per body', (
 	}
 }, 60000);
 
-test('far draws plain bodies without openings and costs less than near; builds are cached', () => {
+test('a house is plain by default; a granted level adds openings; builds are cached', () => {
 	const [{ object, faces }] = block('neutral');
 	const options = { budget: blockTriangleBudget, seed: setup.seed };
-	const near = projectCladHouse(object, faces, houseMaterials.neutral, 'full', options);
-	const far = projectCladHouse(object, faces, houseMaterials.neutral, 'full', {
+	const plain = projectCladHouse(object, faces, houseMaterials.neutral, 'full', options);
+	const near = projectCladHouse(object, faces, houseMaterials.neutral, 'full', {
+		...options,
+		level: 'near'
+	});
+	expect(plain.triangles).toBe(0);
+	expect(plain.drawables.some(({ id }) => id.endsWith('/openings'))).toBe(false);
+	expect(
+		new Set(plain.drawables.filter(({ id }) => id.includes('envelope')).map(({ color }) => color))
+			.size
+	).toBe(1);
+	expect(near.drawables.some(({ id }) => id.endsWith('/openings'))).toBe(true);
+	expect(near.triangles).toBeGreaterThan(0);
+	const flat = projectCladHouse(object, faces, houseMaterials.neutral, 'full', {
 		...options,
 		level: 'flat'
 	});
-	expect(far.triangles).toBeLessThan(near.triangles);
-	expect(far.drawables.some(({ id }) => id.endsWith('/openings'))).toBe(false);
-	expect(near.drawables.some(({ id }) => id.endsWith('/openings'))).toBe(true);
-	const again = projectCladHouse(object, faces, houseMaterials.neutral, 'full', options);
-	expect(again.drawables.map(({ shape }) => shape)).toEqual(
-		near.drawables.map(({ shape }) => shape)
-	);
+	expect(flat.drawables.map(({ id }) => id)).toEqual(plain.drawables.map(({ id }) => id));
+	const again = projectCladHouse(object, faces, houseMaterials.neutral, 'full', {
+		...options,
+		level: 'near'
+	});
 	expect(again.drawables[0].shape).toBe(near.drawables[0].shape);
+});
+
+test('salience grants detail to few houses: capped per block, deterministic, focus first', () => {
+	const houses = block('memphis').map(({ house, object }) => ({
+		id: object.id,
+		block: 'b',
+		features: readHouseFeatures(house.space, house.house)
+	}));
+	const levels = readHouseSalience([...houses, { ...houses[0], id: 'focus', focus: true }], 3);
+	const granted = [...levels].filter(([id, level]) => id !== 'focus' && level !== 'plain');
+	expect(granted.length).toBeGreaterThan(0);
+	expect(granted.length).toBeLessThanOrEqual(3);
+	expect(levels.get('focus')).toBe('near');
+	expect(readHouseSalience(houses, 3)).toEqual(readHouseSalience(houses, 3));
 });
 
 test('a 6 × 16 m parcel with a shallow rear notch can be clad', () => {
