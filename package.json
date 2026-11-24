@@ -16,6 +16,7 @@
 		"test": "bun test",
 		"check:boundaries": "bun scripts/check-boundaries.ts",
 		"check:config": "bun scripts/config-catalogue.ts --check",
+		"modules:catalogue": "bun scripts/read-module-catalogue.ts",
 		"config:catalogue": "bun scripts/config-catalogue.ts",
 		"check:skills": "bun scripts/check-private-skills.ts",
 		"bootstrap": "bun scripts/bootstrap-worktree.ts",

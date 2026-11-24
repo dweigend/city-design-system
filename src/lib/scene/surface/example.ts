@@ -1,7 +1,7 @@
-import type { PlaceableObject } from '../../core/object';
+import { houseExample, type PlaceableObject } from '../../core/object';
 import { existing, resolveSurfaces, type Drawable } from './index';
 
-// Pass in the fixed object from core/object/example.ts to run both examples together.
-export function example(house: PlaceableObject): Drawable[] {
+/** Applies the stock surface assignment to the fixed core object. */
+export function example(house: PlaceableObject = houseExample()): Drawable[] {
 	return resolveSurfaces(house, existing);
 }

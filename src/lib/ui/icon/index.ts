@@ -1,3 +1,4 @@
+/** Module: Renders a named Lucide icon from the kit. */
 /** Draw a decorative symbol, for example <Icon name="chevron-down" />. */
 export { default as Icon } from './Icon.svelte';
 /** Name a UI symbol, for example "locate-fixed". */

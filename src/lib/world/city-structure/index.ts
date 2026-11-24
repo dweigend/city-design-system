@@ -1,3 +1,4 @@
+/** Module: Adapts city lattices to structural graphs and gravity loads. */
 import { defaults } from '../../../config/city-structure';
 import type { Vec3 } from '../../core/geometry';
 import { defineParams } from '../../core/params';

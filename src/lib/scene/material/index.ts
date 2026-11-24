@@ -1,3 +1,4 @@
+/** Module: Builds procedural surface families on metric patches. */
 import { materialSettings } from '../../../config/material';
 
 /** An axis-aligned opening or region in patch meters, and a planar patch to clad. */

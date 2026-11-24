@@ -1,3 +1,4 @@
+/** Module: Renders drawables with WebGPU in shared camera views. */
 import { OrthographicCamera, Scene } from 'three/webgpu';
 import type { Drawable } from '../surface';
 import { cameraFrame, fitCamera, type View, type ViewFit } from './camera';

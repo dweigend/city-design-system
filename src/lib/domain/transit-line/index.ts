@@ -1,3 +1,4 @@
+/** Module: Builds a level transit line with bearings and stations. */
 import { defaults } from '../../../config/transit-line';
 import { surveyCorridor } from './corridor';
 import { railPiers } from './piers';

@@ -1,3 +1,4 @@
+/** Module: Builds member graphs and checks nominal gravity load paths. */
 export { createMemberGraph, memberSections } from './graph';
 export type { MemberGraph, StructuralJoint, StructuralMember } from './graph';
 export { runGravity, gravityBalanceTolerance } from './gravity';

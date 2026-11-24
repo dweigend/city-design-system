@@ -1,3 +1,4 @@
+/** Module: Reads, measures and clips interleaved XY polylines. */
 import { clipSegment, onBorder } from './clip-segment';
 import { distance, pointAt, polylineLength } from './polyline';
 

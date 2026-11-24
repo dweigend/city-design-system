@@ -1,3 +1,4 @@
+/** Module: Generates a seeded catchment, solves drainage and samples terrain. */
 import { defaults } from './settings';
 import type { Vec2, Vec3 } from '../../core/geometry';
 import { Random } from '../../core/random';

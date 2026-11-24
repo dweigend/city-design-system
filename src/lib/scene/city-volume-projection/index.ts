@@ -1,3 +1,4 @@
+/** Module: Projects city terrain, building stock and lattice members with focus policies. */
 import type { Vec2, Vec3 } from '../../core/geometry';
 import { required } from '../../core/invariant';
 import { bounds, PlaceableObject, type Footprint } from '../../core/object';

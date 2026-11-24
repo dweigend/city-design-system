@@ -1,3 +1,4 @@
+/** Module: Composes city lanes, crossings, walkways and transit access into a graph. */
 import { required } from '../../core/invariant';
 import { levelHeight, type CityColumn } from '../../domain/city-volume';
 import { createMovementNetwork, type MovementNode } from '../../domain/movement-network';

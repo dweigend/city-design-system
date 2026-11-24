@@ -1,3 +1,4 @@
+/** Module: Defines the frozen valley measurement protocol and reference bands. */
 import { defaults } from '../../../config/valley-measurement';
 import { VALLEY_EXPECTED_BORDER_HITS } from './reference.evidence';
 

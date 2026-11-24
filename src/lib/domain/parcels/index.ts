@@ -1,3 +1,4 @@
+/** Module: Reserves movement lanes and fixes addressed holdings on a plan. */
 import { required } from '../../core/invariant';
 import { prepareBlocks } from './blocks';
 import { laneAddress } from './reserve';

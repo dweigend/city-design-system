@@ -1,3 +1,4 @@
+/** Module: Measures river courses, wet widths and sampled banks. */
 /** Clips interleaved XY meters to the longest reach in a centered square (first on ties).
  * Returns a detached reach and count of distinct border contacts, or null. Border overlap
  * counts as infinity. Sinuosity is channel length / endpoint chord. Invalid input throws RangeError.

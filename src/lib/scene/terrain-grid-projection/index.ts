@@ -1,3 +1,4 @@
+/** Module: Drapes plan geometry onto the rendered ground mesh. */
 import type { Vec2, Vec3 } from '../../core/geometry';
 import { required } from '../../core/invariant';
 import { PlaceableObject, type Shape } from '../../core/object';

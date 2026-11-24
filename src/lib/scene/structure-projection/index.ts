@@ -1,3 +1,4 @@
+/** Module: Draws structural graphs and gravity results. */
 export { projectStructure } from './projection';
 /** Member display and analysis choices for the structural study. */
 export { structureFocusPreset, type StructureView } from './focus';

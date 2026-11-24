@@ -1,3 +1,4 @@
+/** Module: Creates, bounds and moves objects with role slots, metric footprints and anchors. */
 export { PlaceableObject, bounds, move } from './object';
 export type { Anchor, Footprint, Part, Shape } from './object';
 

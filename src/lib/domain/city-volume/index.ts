@@ -1,3 +1,4 @@
+/** Module: Ranks plan cells, sets district heights and builds compatible lattices. */
 import type { Column } from './bay-addresses';
 import { required } from '../../core/invariant';
 import { blockInputs, defineParams, resolveParams } from '../../core/params';

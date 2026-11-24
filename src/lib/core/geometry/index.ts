@@ -1,3 +1,4 @@
+/** Module: Provides metric vectors, bounds and polygon measurements. */
 /** World coordinates are in meters. X and Y span the ground plane. Z is height. */
 export type Vec2 = readonly [x: number, y: number];
 

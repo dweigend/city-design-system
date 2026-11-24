@@ -1,3 +1,4 @@
+/** Module: Builds city growth selections on a valley or caller-supplied terrain. */
 import type { Vec2 } from '../../core/geometry';
 import { required } from '../../core/invariant';
 import { defineParams, resolveParams } from '../../core/params';

@@ -1,3 +1,4 @@
+/** Module: Creates continuing seeded streams with keyed child streams. */
 const algorithm = 'mulberry32';
 const revision = 'agent-loom-random/1';
 const wordCount = 0x100000000;

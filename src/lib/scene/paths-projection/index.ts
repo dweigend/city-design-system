@@ -1,3 +1,4 @@
+/** Module: Projects movement routes, walkways and transit lines through shared surfaces. */
 /** Projects movement centerlines into ground traces, decks, bearing columns and stairs. */
 export { paths as projectMovement } from './walking';
 /** Projects a route and its two endpoints in the same local frame as the movement network. */

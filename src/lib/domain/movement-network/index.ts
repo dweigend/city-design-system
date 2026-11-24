@@ -1,3 +1,4 @@
+/** Module: Indexes a weighted movement graph for route queries. */
 import type { Vec3 } from '../../core/geometry';
 import { required } from '../../core/invariant';
 import { shortest } from './route';

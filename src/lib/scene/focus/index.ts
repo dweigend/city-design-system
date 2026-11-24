@@ -1,3 +1,4 @@
+/** Module: Resolves the display level of each subsystem from a focus choice. */
 import type { SurfaceLevel } from '../material';
 
 /** The five display levels of COLOR-6, from the subject to the omitted context. */

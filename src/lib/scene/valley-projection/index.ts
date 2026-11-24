@@ -1,3 +1,4 @@
+/** Module: Projects terrain and water for a metric valley window. */
 import { required } from '../../core/invariant';
 import { PlaceableObject, type Shape } from '../../core/object';
 import type { Valley } from '../../domain/valley';

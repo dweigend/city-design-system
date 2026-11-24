@@ -1,3 +1,4 @@
+/** Module: Creates addressed plan grids from a sampled site. */
 import { distance, measurePolygon, type Vec2, type Vec3 } from '../../core/geometry';
 import { required } from '../../core/invariant';
 import { defineParams, resolveParams } from '../../core/params';
