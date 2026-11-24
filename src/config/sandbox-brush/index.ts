@@ -29,6 +29,27 @@ export const settings = defineSettings({
 		meaning: 'Fraction of the opening view used by the subject block',
 		bounds: { min: 0, max: 1 },
 		rationale: 'Keeps adjacent parcels visible for a multi-parcel stroke.'
+	},
+	sandboxClickSlopPx: {
+		value: 6,
+		unit: 'px',
+		meaning: 'Pointer travel below which a press and release count as a click, not a drag',
+		bounds: { min: 0 },
+		rationale: 'Absorbs hand tremor on touch and trackpads without eating short drags.'
+	},
+	sandboxSpecimenSeed: {
+		value: 7,
+		unit: 'seed',
+		meaning: 'Seed of the house drawn as a style specimen',
+		bounds: { min: 0 },
+		rationale: 'A fixed seed keeps the specimens identical between visits.'
+	},
+	sandboxSpecimenMarginRatio: {
+		value: 0.06,
+		unit: 'ratio',
+		meaning: 'Margin around a style specimen as a share of its larger side',
+		bounds: { min: 0 },
+		rationale: 'Keeps the drawing clear of the swatch border.'
 	}
 });
 

@@ -58,7 +58,7 @@ describe('sandbox interaction', () => {
 	test('queue keeps order within the budget, reuses keys and cancels cleanly', () => {
 		let clock = 0;
 		const runs: string[] = [];
-		const queue = createBuildQueue<string>(2, () => clock);
+		const queue = createBuildQueue<string>(() => clock, 2);
 		const job = (id: string, key = id) => ({
 			id,
 			key,
@@ -85,7 +85,7 @@ describe('sandbox interaction', () => {
 		const run = () => {
 			const built: string[][] = [];
 			let clock = 0;
-			const queue = createBuildQueue<number>(3, () => clock);
+			const queue = createBuildQueue<number>(() => clock, 3);
 			for (const [index, id] of ['x', 'y', 'z', 'w'].entries())
 				queue.submit({ id, key: id, run: () => ((clock += index + 1), index) });
 			while (queue.readWaiting()) built.push(queue.advance());

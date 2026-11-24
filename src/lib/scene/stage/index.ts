@@ -71,11 +71,23 @@ async function create({
 	let displayedFrame: CameraFrame | undefined;
 	let frameCount = 0;
 	let closing: Promise<void> | undefined;
+	let work: (() => boolean) | undefined;
+	let stale = false;
 
 	function draw() {
+		stale = true;
+		schedule();
+	}
+
+	function schedule() {
 		if (closing || frame !== undefined) return;
 		frame = requestAnimationFrame(() => {
 			frame = undefined;
+			if (work && !work()) work = undefined;
+			if (work) schedule();
+			// A frame that only ran work, with nothing shown or moved, keeps the last image.
+			if (!stale) return;
+			stale = false;
 			const { view, display, geometryBatchCount, geometryBuildCount } = state.read();
 			const start = performance.now();
 			const bounds = content.bounds;
@@ -153,6 +165,13 @@ async function create({
 			if (builds) canvas.dataset.stageMeshMs = (performance.now() - start).toFixed(2);
 			state.show(drawables, builds);
 			draw();
+		},
+		/** Runs `task` once at the start of each frame while it returns true, so budgeted work can
+		 * share the stage's frame loop. A new task replaces the previous one. */
+		setWork(task: (() => boolean) | undefined) {
+			if (closing) return;
+			work = task;
+			if (task) schedule();
 		},
 		/** Sets the fitted view. Throws RangeError for an unknown view. */
 		setView(view: View) {

@@ -1,3 +1,5 @@
+import { defaults } from '../../../config/sandbox-interaction';
+
 /** One requested product: a stable owner ID, a key naming its exact inputs and a pure build. */
 export type BuildJob<T> = Readonly<{ id: string; key: string; run: () => T }>;
 
@@ -6,8 +8,9 @@ const productsPerOwner = 2;
 
 /** Creates a time-budgeted build queue. Jobs run first in, first out; resubmitting an owner moves
  * it to the back and replaces its waiting job. A product already built for the same key is reused
- * at once. Each `advance` runs at least one job, then stops when `budgetMs` has passed on `now`. */
-export function createBuildQueue<T>(budgetMs: number, now: () => number) {
+ * at once. Each `advance` runs at least one job, then stops when `budgetMs` (by default the
+ * configured frame build budget) has passed on `now`. */
+export function createBuildQueue<T>(now: () => number, budgetMs: number = defaults.buildBudgetMs) {
 	const waiting = new Map<string, BuildJob<T>>();
 	const products = new Map<string, Map<string, T>>();
 	const current = new Map<string, string>();

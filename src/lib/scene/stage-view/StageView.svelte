@@ -24,6 +24,9 @@
 		onViewport?: (viewport: Viewport) => void;
 		onGroundPointer?: (pointer: GroundPointer) => void;
 		panOnDrag?: boolean;
+		/** Budgeted work run at the start of each frame while `run` returns true. Pass a new object
+		 * to restart it after it finished. */
+		frameWork?: Readonly<{ run: () => boolean }>;
 	}
 
 	let {
@@ -37,7 +40,8 @@
 		presentation,
 		onViewport,
 		onGroundPointer,
-		panOnDrag = true
+		panOnDrag = true,
+		frameWork
 	}: Props = $props();
 	let canvas = $state<HTMLCanvasElement>();
 	let stage = $state.raw<Awaited<ReturnType<typeof Stage.create>>>();
@@ -117,6 +121,7 @@
 		if (fit || view) untrack(() => navigation?.reset());
 	});
 	$effect(() => stage?.show(drawables, presentation));
+	$effect(() => stage?.setWork(frameWork?.run));
 	$effect(() => stage?.setView(view));
 	$effect(() => stage?.setDisplay(display));
 	$effect(() => stage?.setFit(cameraFit));

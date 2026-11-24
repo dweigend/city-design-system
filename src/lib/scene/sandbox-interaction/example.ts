@@ -10,7 +10,7 @@ export function example() {
 		...stroke.read({ type: 'up', pointer: 1, hits: [{ id: 'c' }], tool })
 	];
 	let clock = 0;
-	const queue = createBuildQueue<string>(2, () => clock);
+	const queue = createBuildQueue<string>(() => clock, 2);
 	for (const id of ['a', 'b', 'c'])
 		queue.submit({ id, key: id + '/flat', run: () => ((clock += 1), id.toUpperCase()) });
 	const frames = [queue.advance(), queue.advance()];

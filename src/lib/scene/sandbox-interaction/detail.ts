@@ -36,3 +36,8 @@ export function shareBlockBudget(subjects: readonly Pick<DetailSubject, 'id' | '
 		])
 	);
 }
+
+/** The height of the plain body that stands in for a house while it is built: about its eaves. */
+export function readPreviewHeight(houseHeightM: number) {
+	return houseHeightM * defaults.previewEavesRatio;
+}

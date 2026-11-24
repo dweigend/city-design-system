@@ -316,17 +316,58 @@
 	.stage-interactive:active { cursor: grabbing; }
 	.stage-paint, .stage-paint:active { cursor: crosshair; }
 	.page > .sandbox { display: grid; gap: var(--space-3); margin-block-start: 0; }
-	.sandbox > .frame { inline-size: 100%; max-block-size: max(26rem, 65svh); }
-	.sandbox-status { overflow-wrap: anywhere; }
-	.sandbox h1, .sandbox-status { margin: 0; }
-	.sandbox-tools, .sandbox-status {
-		display: flex;
-		flex-wrap: wrap;
-		align-items: end;
-		gap: var(--space-2);
+	.sandbox h1 { margin: 0; }
+	.sandbox-stage { display: grid; }
+	.sandbox-stage > * { grid-area: 1 / 1; min-inline-size: 0; }
+	.sandbox-stage > .frame { inline-size: 100%; block-size: max(26rem, 72svh); aspect-ratio: auto; }
+	.sandbox-hud {
+		display: grid;
+		grid-template: 'tools view' auto 'tools panel' 1fr 'status file' auto / 1fr auto;
+		gap: var(--space-3);
+		padding: var(--space-3);
+		pointer-events: none;
 	}
+	.sandbox-hud > * { pointer-events: auto; }
+	.sandbox-hud-tools { grid-area: tools; justify-self: start; align-self: start; }
+	.sandbox-hud-view { grid-area: view; justify-self: end; }
+	.sandbox-hud-panel {
+		grid-area: panel;
+		align-self: start;
+		display: grid;
+		gap: var(--space-3);
+		inline-size: 15rem;
+		padding: var(--space-3);
+		background: var(--paper);
+	}
+	.sandbox-hud-panel > p { margin: 0; }
+	.sandbox-hud-panel .control-slider-field { inline-size: 100%; }
+	.sandbox-hud-status {
+		grid-area: status;
+		align-self: end;
+		justify-self: start;
+		display: grid;
+		gap: var(--space-1);
+		margin: 0;
+		padding: var(--space-2) var(--space-3);
+		max-inline-size: 36rem;
+		background: var(--paper);
+		border: var(--hair) solid var(--line);
+		pointer-events: none;
+	}
+	.sandbox-hint { color: var(--ink-2); }
+	.sandbox-hud-file { grid-area: file; align-self: end; gap: 0; }
+	.sandbox-hud-file > .control + .control { margin-inline-start: calc(-1 * var(--hair)); }
 	@media (max-width: 720px) {
-		.sandbox > .frame { aspect-ratio: 4 / 5; }
+		.sandbox-stage > .frame { block-size: auto; aspect-ratio: 4 / 5; }
+		.sandbox-stage > .sandbox-hud { grid-area: auto; }
+		.sandbox-hud {
+			grid-template: 'tools view' auto 'status status' auto 'panel panel' auto 'file file' auto / 1fr auto;
+			padding: var(--space-3) 0 0;
+		}
+		.sandbox-hud-panel { inline-size: auto; }
+		.sandbox-hud-status { max-inline-size: none; justify-self: stretch; }
+		.sandbox-stage { grid-template-rows: auto auto; }
+		.sandbox-stage > .sandbox-hud { grid-row: 2; }
 	}
 	.frame > [role='status'] { margin: var(--space-4); }
 	.panel {
@@ -461,6 +502,41 @@
 	.control-segments { display: inline-flex; max-inline-size: 100%; }
 	.control-segments > .control { min-inline-size: 44px; }
 	.control-segments > .control + .control { margin-inline-start: calc(-1 * var(--hair)); }
+
+	.control-tool-bar { display: inline-flex; flex-direction: column; background: var(--paper); }
+	.control-tool-bar[data-orientation='horizontal'] { flex-direction: row; }
+	.control-tool-group { display: contents; }
+	.control-tool { inline-size: var(--ctl-m); padding: 0; }
+	.control-tool + .control-tool { margin-block-start: calc(-1 * var(--hair)); }
+	.control-tool-label { position: absolute; inline-size: 1px; block-size: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+	.control-tool-key {
+		position: absolute;
+		inset: auto 3px 1px auto;
+		font: 500 9px / 1 var(--font-mono);
+		color: var(--ink-3);
+	}
+	.control-tool[data-state='on'] .control-tool-key { color: var(--paper-3); }
+	.control-tool-rule { block-size: var(--space-2); }
+	.control-tool-rule + .control-tool { margin-block-start: 0; }
+	.control-specimens { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-2); }
+	.control-specimen {
+		display: grid;
+		justify-items: center;
+		gap: var(--space-1);
+		padding: var(--space-2);
+		border-color: var(--line);
+	}
+	.control-specimen > svg { inline-size: 100%; block-size: 3.5rem; overflow: visible; }
+	.control-specimen[data-state='checked'] { border-color: var(--ink); background: var(--paper-2); color: var(--ink); box-shadow: inset 0 0 0 var(--hair) var(--ink); }
+	@media (hover: hover) {
+		.control.control-specimen:not([data-disabled]):not(:disabled):hover { background: var(--paper-2); color: var(--ink); }
+	}
+	.control-specimen-shade { fill: var(--ink); fill-opacity: 0; }
+	.control-specimen-shade[data-shade='lit'] { fill-opacity: 0.08; }
+	.control-specimen-shade[data-shade='shadow'] { fill-opacity: 0.24; }
+	@media (pointer: coarse) {
+		.control-tool { inline-size: 44px; min-block-size: 44px; }
+	}
 
 	.control-switch-field { display: inline-flex; align-items: center; gap: var(--space-2); }
 	.control-switch-field > label { cursor: pointer; }

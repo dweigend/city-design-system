@@ -2,10 +2,11 @@ import { defaults } from '../../config/sandbox-brush';
 import { measurePolygon, type Vec2, type Vec3 } from '../../lib/core/geometry';
 import type { Parcel } from '../../lib/domain/parcels';
 import type { createSandboxDocument, SandboxPlacement } from '../../lib/domain/sandbox-document';
-import { blockTriangleBudget } from '../../lib/scene/house-projection';
+import { blockTriangleBudget, projectHouse } from '../../lib/scene/house-projection';
+import { projectSketch } from '../../lib/scene/sketch';
 import { createSandboxProjection, styleTones } from '../../lib/scene/sandbox-projection';
 import type { Drawable } from '../../lib/scene/surface';
-import { createTownHouseStudy } from '../../lib/world/house-site';
+import { createParcelHouseObject, createTownHouseStudy } from '../../lib/world/house-site';
 import { createPlacementCache, createSandboxWorld } from '../../lib/world/sandbox-world';
 
 const brushParams = {
@@ -50,7 +51,43 @@ export function createTownSandbox() {
 		styleTones[assetId.replace('house/court-', '') as keyof typeof styleTones] ?? '--ink-3';
 	const centerOf = (parcel: Parcel) =>
 		projection.toLocal(...(measurePolygon(parcel.outline).centroid ?? parcel.outline[0]));
+	/** Draws each house style on the first parcel every style can build, as a small sketch. */
+	function createSpecimens() {
+		const host = (id: string) => ({ kind: 'parcel', id }) as const;
+		const resolve = (assetId: string, parcel: Parcel) =>
+			world.resolveHouse({
+				id: 'specimen',
+				assetId,
+				host: host(parcel.id),
+				params: world.place(assetId, host(parcel.id), brushParams).params,
+				seed: defaults.sandboxSpecimenSeed
+			});
+		for (const parcel of world.holdings.parcels) {
+			if (parcel.publicUse) continue;
+			let houses;
+			try {
+				houses = assets.map(({ id }) => resolve(id, parcel));
+			} catch {
+				continue;
+			}
+			if (!houses.every((house) => house?.status === 'placed')) continue;
+			return new Map(
+				houses.map((house, index) => [
+					assets[index].id,
+					projectSketch(
+						house?.status === 'placed'
+							? projectHouse(createParcelHouseObject(house, 'full'), 'full')
+							: [],
+						defaults.sandboxSpecimenMarginRatio
+					)
+				])
+			);
+		}
+		return new Map<string, ReturnType<typeof projectSketch>>();
+	}
 	return {
+		createSpecimens,
+		clickSlopPx: defaults.sandboxClickSlopPx,
 		world,
 		projection,
 		points,

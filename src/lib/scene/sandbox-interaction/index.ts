@@ -7,6 +7,7 @@ export { createBuildQueue, type BuildJob } from './queue';
 export { createStrokeState, type StrokeEffect, type StrokeInput } from './stroke';
 /** The thin level-of-detail policy and the block budget share. */
 export {
+	readPreviewHeight,
 	selectHouseDetail,
 	shareBlockBudget,
 	type DetailSubject,
