@@ -1,3 +1,4 @@
+import { encodeKey } from '../../core/ref';
 import { measurePolygon, type Vec2 } from '../../core/geometry';
 import { required } from '../../core/invariant';
 import { planEdgeId } from '../terrain-grid';
@@ -69,7 +70,7 @@ export function prepareBlocks(input: ParcelPlanInput, lanes: ReadonlyMap<string,
 			return lane ? [frontageFrame(lane, point(from), point(to), sideIndex)] : [];
 		});
 		return {
-			id: JSON.stringify(members),
+			id: encodeKey(members),
 			memberCellIds: Object.freeze(members),
 			plannedKind,
 			nodeIds,

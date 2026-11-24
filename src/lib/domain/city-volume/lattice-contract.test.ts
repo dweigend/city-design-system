@@ -436,21 +436,20 @@ test('keeps an exactly reconstructed fractional-datum contact on its plane', () 
 	expect(closedSolids(lattice)).toBe(true);
 });
 
-test('delimiter-bearing corner IDs retain every plane lattice member', () => {
+test.each(spatial)('%s retains every member with delimiter-bearing corner IDs', (variant) => {
 	const ids = ['a', 'b/level/0\nvertex/z', 'a/level/0\nvertex/b', 'z'];
 	const [column] = squares([[6]]);
 	const corners = column.corners.map((corner, i) => ({ ...corner, id: ids[i] }));
-	for (const variant of spatial) {
-		const lattice = createCityLattice([{ ...column, corners }], 0, 'square', variant);
-		const expected = new Set(
-			lattice.solids.flatMap(({ faces }) =>
-				faces.flatMap((face) =>
-					face.map((from, i) => JSON.stringify([from, face[(i + 1) % face.length]].sort()))
-				)
+	const { edges, solids } = createCityLattice([{ ...column, corners }], 0, 'square', variant);
+	const expected = new Set(
+		solids.flatMap(({ faces }) =>
+			faces.flatMap((face) =>
+				face.map((from, i) => JSON.stringify([from, face[(i + 1) % face.length]].sort()))
 			)
-		);
-		expect(new Set(lattice.edges.map(({ id }) => id))).toEqual(expected);
-	}
+		)
+	);
+	expect(edges).toHaveLength(expected.size);
+	expect(new Set(edges.map(({ from, to }) => JSON.stringify([from, to].sort())))).toEqual(expected);
 });
 
 test('cell-array order cannot change the settlement class at the town threshold', () => {

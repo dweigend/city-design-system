@@ -1,3 +1,4 @@
+import { encodeKey } from '../../core/ref';
 import { distance, measurePolygon, type Vec2 } from '../../core/geometry';
 import { edgeFrame, lineHits } from './geometry';
 import { frontageContacts, type Frontage } from './reserve';
@@ -121,20 +122,17 @@ export function partitionFrontage(
 				return;
 			}
 		}
+		// The published parcel address stores its split path as a nested array.
 		const id = JSON.stringify([block.id, splitPath]);
 		const { laneId, points, lengthM: frontageM, edgeIndex } = accessible[0];
-		const portalId = JSON.stringify([id, laneId, 'frontage']);
+		const portalId = encodeKey([id, laneId, 'frontage']);
 		// Relative to the addressed frontage, independent of the ring's starting vertex.
 		const corners = Object.freeze(
 			ring.map((position, index) =>
 				Object.freeze({
 					id:
 						'corner/' +
-						JSON.stringify([
-							portalId,
-							ring.length,
-							(index - edgeIndex + ring.length) % ring.length
-						]),
+						encodeKey([portalId, ring.length, (index - edgeIndex + ring.length) % ring.length]),
 					position
 				})
 			)

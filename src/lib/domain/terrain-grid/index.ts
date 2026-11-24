@@ -4,7 +4,7 @@ import { required } from '../../core/invariant';
 import { defineParams, resolveParams } from '../../core/params';
 import { Random } from '../../core/random';
 import { carrier, freeQuad, ringMean, type Candidate, type Carrier, type Node } from './carrier';
-import { planEdgeId } from './edge-path';
+import { encodePair } from '../../core/ref';
 import { meetsQuality, quality } from './metrics';
 import { insideOutline } from './outline';
 import { bands, contour, hex, polar, square, triangle } from './regular';
@@ -217,7 +217,7 @@ function samples(
 			return z;
 		}) satisfies HeightAt,
 		validEdge(a: Node, b: Node) {
-			const key = planEdgeId(a.id, b.id);
+			const key = encodePair(a.id, b.id);
 			if (!edges.has(key)) edges.set(key, a.id < b.id ? validSegment(a, b) : validSegment(b, a));
 			return edges.get(key);
 		}
@@ -251,7 +251,7 @@ function topology(
 			}
 			const from = node.id;
 			const to = vertexIds[(index + 1) % vertexIds.length];
-			const key = planEdgeId(from, to);
+			const key = encodePair(from, to);
 			const opposite = open.get(key);
 			if (opposite) {
 				neighbors[index] = opposite.id;

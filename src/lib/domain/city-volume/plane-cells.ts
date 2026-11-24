@@ -1,3 +1,4 @@
+import { encodePair } from '../../core/ref';
 import { cityVolumeConfig } from './config';
 import { required } from '../../core/invariant';
 import type { Column } from './bay-addresses';
@@ -132,13 +133,17 @@ function addPlanBay(c: Context, column: Column, foot?: Joint) {
 	}
 }
 
+const planPair = encodePair('plan', 'plan');
+const centrePlan = encodePair('centre', 'plan');
+const medialPlan = encodePair('medial', 'plan');
+
 /** The one cell solid of each plane pair, keyed by the sorted plane kinds. */
 const cellSolids: Record<string, (context: Context, column: Column) => Faces> = {
-	'centre/plan': (c, column) =>
+	[centrePlan]: (c, column) =>
 		pyramid(polygon(c, column, c.at('plan')), c.joints.centre(column.planCellId, c.at('centre'))),
-	'medial/plan': (c, column) =>
+	[medialPlan]: (c, column) =>
 		frustum(polygon(c, column, c.at('plan')), medial(c, column, c.at('medial'))),
-	'foot/medial': (c, column) =>
+	[encodePair('foot', 'medial')]: (c, column) =>
 		pyramid(medial(c, column, c.at('medial')), c.joints.centre(column.planCellId, c.at('foot')))
 };
 
@@ -196,24 +201,24 @@ export function addLayer(
 		at: (kind) => (low === kind ? level : level + 1),
 		bay: (cell) => `${cell}/level/${level}`
 	};
-	const kinds = [layer.low, layer.high].sort().join('/');
+	const kinds = encodePair(layer.low, layer.high);
 	const cellSolid = cellSolids[kinds];
 	for (const id of layer.cells) {
 		const column = required(topology.columns.get(id), 'lattice column');
-		if (kinds === 'plan/plan') {
+		if (kinds === planPair) {
 			const at = footLevel(id, level);
 			addPlanBay(c, column, at === undefined ? undefined : joints.centre(id, at));
 			continue;
 		}
-		if (!cellSolid) throw new RangeError(`No lattice layer joins ${kinds} planes`);
+		if (!cellSolid)
+			throw new RangeError(`No lattice layer joins ${layer.low} and ${layer.high} planes`);
 		const faces = cellSolid(c, column);
-		const splitCap = triangulated.has(id) && kinds.endsWith('/plan');
+		const splitCap = triangulated.has(id) && (layer.low === 'plan' || layer.high === 'plan');
 		const loops = splitCap ? [...fanTriangles(faces[0]), ...faces.slice(1)] : faces;
 		c.add(`${c.bay(id)}/cell`, c.bay(id), loops);
 	}
-	if (kinds === 'centre/plan') addEdgeTetrahedra(c);
-	if (kinds === 'centre/plan' || kinds === 'medial/plan')
-		addCornerPyramids(c, kinds === 'centre/plan');
+	if (kinds === centrePlan) addEdgeTetrahedra(c);
+	if (kinds === centrePlan || kinds === medialPlan) addCornerPyramids(c, kinds === centrePlan);
 }
 
 export type Add = (id: string, bay: string, faces: readonly (readonly Joint[])[]) => void;

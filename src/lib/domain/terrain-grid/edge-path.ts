@@ -1,5 +1,6 @@
 import { distance, type Vec2, type Vec3 } from '../../core/geometry';
 import { required } from '../../core/invariant';
+import { encodePair } from '../../core/ref';
 import { MinHeap } from './edge-queue';
 
 type AddressedPlan = Readonly<{
@@ -48,31 +49,36 @@ function pathTo(end: Visit): PlanEdgePath {
 
 /** Returns an unambiguous edge ID for an unordered pair of plan nodes. */
 export function planEdgeId(a: string, b: string) {
-	const pair = a < b ? [a, b] : [b, a];
-	// The ordinary encoding has one separator. The prefixed encoding is disjoint
-	// and preserves any separator already present inside either node ID.
-	return a.includes('|') || b.includes('|') ? '||' + JSON.stringify(pair) : pair.join('|');
+	// The published address is also part of carrier RNG keys and saved topology.
+	if (a.includes('|') || b.includes('|')) return '||' + encodePair(a, b);
+	return a < b ? `${a}|${b}` : `${b}|${a}`;
 }
 
 /** Reads unique plan edges in first-incidence order. The ID is independent of direction. */
 export function planEdges(grid: AddressedPlan): readonly PlanEdge[] {
 	const points = new Map(grid.vertices.map(({ id, position: [x, y] }) => [id, [x, y] as Vec2]));
 	const point = (id: string) => required(points.get(id), 'edge node');
-	const byId = new Map<string, Omit<PlanEdge, 'cellIds'> & { cellIds: string[] }>();
+	const byPair = new Map<string, Omit<PlanEdge, 'cellIds'> & { cellIds: string[] }>();
 	for (const { id: cellId, vertexIds } of grid.cells) {
 		for (const [i, from] of vertexIds.entries()) {
 			const to = vertexIds[(i + 1) % vertexIds.length];
-			const id = planEdgeId(from, to);
-			const edge = byId.get(id);
+			const key = encodePair(from, to);
+			const edge = byPair.get(key);
 			if (edge) edge.cellIds.push(cellId);
 			else {
 				const nodeIds = Object.freeze(from < to ? ([from, to] as const) : ([to, from] as const));
-				byId.set(id, { id, nodeIds, cellIds: [cellId], lengthM: distance(point(from), point(to)) });
+				const id = planEdgeId(from, to);
+				byPair.set(key, {
+					id,
+					nodeIds,
+					cellIds: [cellId],
+					lengthM: distance(point(from), point(to))
+				});
 			}
 		}
 	}
 	return Object.freeze(
-		[...byId.values()].map((edge): PlanEdge =>
+		[...byPair.values()].map((edge): PlanEdge =>
 			Object.freeze({ ...edge, cellIds: Object.freeze(edge.cellIds) })
 		)
 	);

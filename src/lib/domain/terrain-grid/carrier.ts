@@ -1,5 +1,6 @@
 import { distance, type Vec2 } from '../../core/geometry';
 import type { Random } from '../../core/random';
+import { encodeKey } from '../../core/ref';
 import { planEdgeId } from './edge-path';
 import { axes, type Site } from './site';
 
@@ -83,10 +84,10 @@ function baseNodes(
 	const offsets = new Map<string, Vec2>();
 	const nodes = new Map<string, Node>();
 	function offset(column: number, row: number) {
-		const key = `${column},${row}`;
+		const key = encodeKey([column, row]);
 		const cached = offsets.get(key);
 		if (cached) return cached;
-		const local = random.derive(`offset/${key}`);
+		const local = random.derive(`offset/${column},${row}`);
 		const bounds = { min: -0.13, max: 0.13 };
 		const result: Vec2 = [local.number(bounds), local.number(bounds)];
 		offsets.set(key, result);

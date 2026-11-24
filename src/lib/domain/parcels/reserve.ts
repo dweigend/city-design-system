@@ -9,6 +9,7 @@ export type Frontage = Readonly<{
 	sideIndex: number;
 }>;
 
+/** Published lane address that stores the support and node pair as nested JSON. */
 export function laneAddress({ edge }: LaneInput) {
 	const support =
 		edge.provenance.kind === 'plan'

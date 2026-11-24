@@ -21,7 +21,7 @@ export type AssetHost<
 
 type AddressKind = Exclude<AssetHost['kind'], 'ground'>;
 
-/** Local host address. Scope it with a WorldReference before storing it outside its topology. */
+/** Local host address. Scope it with a Ref before storing it outside its topology. */
 export type HostAddress =
 	| Extract<AssetHost, { kind: 'ground' }>
 	| { [Kind in AddressKind]: Readonly<{ kind: Kind; id: string }> }[AddressKind];

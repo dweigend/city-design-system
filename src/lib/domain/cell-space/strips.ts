@@ -1,4 +1,5 @@
 import { isConvexCounterclockwise, type Vec2 } from '../../core/geometry';
+import { encodeKey } from '../../core/ref';
 import { defaults } from '../../../config/cell-space';
 import { doubleArea, type KeyedRing } from './split';
 import type { Parcel } from './types';
@@ -83,7 +84,7 @@ function frame(parcel: Parcel, edge: (from: number) => string): Frame | undefine
 	const range = (from: number, to: number) =>
 		Array.from({ length: to - from + 1 }, (_, k) => at(from + k));
 	return {
-		keys: parcel.corners.map(({ id }) => id),
+		keys: parcel.corners.map(({ id }) => encodeKey(['orig', id])),
 		points,
 		edge,
 		front: chain(points, [at(0), at(1)], true),
@@ -180,7 +181,7 @@ function columnBreaks(
 /** A ring point, its symbolic key and the parcel edge of the side that starts at it. */
 type Point = Readonly<{ key: string; at: Vec2; edge: string | null }>;
 
-/** Grid points, keyed by their parcel corner where they meet one, else by `<grid id>(i,j)`. */
+/** Grid points use the original corner key where they meet one and a strip tuple elsewhere. */
 // Exact arithmetic: structural counts and unit parameters, not tunables.
 function gridKey(f: Frame, grid: Grid, i: number, j: number): { key: string; at: Vec2 } {
 	const last = grid.breaks.length - 1;
@@ -193,7 +194,10 @@ function gridKey(f: Frame, grid: Grid, i: number, j: number): { key: string; at:
 	if (j === grid.rows && f.rear.corners.length === 1) return corner(f.rear.corners[0]);
 	const snapped = j === grid.rows ? grid.snapped.get(grid.breaks[i]) : undefined;
 	if (snapped !== undefined) return corner(snapped);
-	return { key: `${grid.id}(${i},${j})`, at: patchPoint(f, grid.breaks[i], j / grid.rows) };
+	return {
+		key: encodeKey(['grid', grid.id, i, j]),
+		at: patchPoint(f, grid.breaks[i], j / grid.rows)
+	};
 }
 
 /** Points along one cell side from parameter t0 to t1 of a chain: the start point and every
@@ -242,8 +246,8 @@ function cellRing(f: Frame, grid: Grid, id: string, i: number, j: number): Keyed
 		...run(f, f.left, p(i, j + 1), v1, v0, i === 0)
 	]);
 	return {
-		id: `${id}/strip/${JSON.stringify([i, j])}`,
-		corner: `${id}/strip/${JSON.stringify([i])}`,
+		id: `${id}/strip/${encodeKey([i, j])}`,
+		corner: `${id}/strip/${encodeKey([i])}`,
 		ear: null,
 		keys: ring.map(({ key }) => key),
 		points: ring.map(({ at }) => at),

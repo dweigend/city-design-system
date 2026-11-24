@@ -1,12 +1,13 @@
 /** Module: Splits metric parcels into addressed fine cells. */
 
 import type { Vec2 } from '../../core/geometry';
+import { encodeKey } from '../../core/ref';
 import { defaults } from '../../../config/cell-space';
 import { resolveSides } from './sides';
 import { convexParts, cornerQuads, doubleArea, mergedParts, type KeyedRing } from './split';
 import { cellWidth, stripRings } from './strips';
 import type { CellSpace, FineCell, Parcel } from './types';
-import { validate } from './validate';
+import { parcelEdgeId, validate } from './validate';
 
 /** What lies across one side of a fine cell. */
 export type { CellSide } from './sides';
@@ -24,9 +25,7 @@ export const defaultStoreyHeightM = defaults.storeyHeightM;
 export const minimumParcelEdgeM = defaults.minimumEdgeM;
 
 /** Identity of the parcel edge from one corner key to the next. */
-export function parcelEdgeId(from: string, to: string): string {
-	return JSON.stringify([from, to]);
-}
+export { parcelEdgeId } from './validate';
 
 /** Parcel, fine cell and cell space shapes. */
 export type { CellSpace, FineCell, Parcel, ParcelCorner } from './types';
@@ -143,7 +142,7 @@ export function createStripSpace(parcel: Parcel): CellSpace {
 
 /** Identity of an inner seam between two convex parts of a parcel, from one corner key to the next. */
 export function seamEdgeId(from: string, to: string): string {
-	return JSON.stringify(['seam', from, to]);
+	return encodeKey(['seam', from, to]);
 }
 
 /** The side of a convex part a strip split fronts: the part's side on the parcel frontage, else its
@@ -177,7 +176,9 @@ function partStrips(parcel: Parcel, ring: KeyedRing): readonly KeyedRing[] {
 			id,
 			(i) => edges[i]
 		);
-		return strips ?? [{ ...part, id, corner: id, edges }];
+		if (strips) return strips;
+		const keys = part.keys.map((corner) => encodeKey(['orig', corner]));
+		return [{ ...part, id, corner: id, edges, keys }];
 	});
 }
 

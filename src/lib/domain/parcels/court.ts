@@ -1,3 +1,4 @@
+import { encodeKey } from '../../core/ref';
 import { areaTolerance, eligibleContacts } from './frontage';
 import { edgeFrame, intersect, lineHits, polygonArea, rectangle, subtract } from './geometry';
 import { frontageContacts, type Frontage } from './reserve';
@@ -82,7 +83,7 @@ export function reserveCourt(
 		)
 			continue;
 		const entrance: CourtEntrance = Object.freeze({
-			id: JSON.stringify([blockId, laneId, 'court']),
+			id: encodeKey([blockId, laneId, 'court']),
 			blockId,
 			laneId,
 			points: Object.freeze([

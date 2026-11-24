@@ -1,10 +1,6 @@
 import type { HostAddress, Placement } from '../../core/asset-registry';
 import { Random } from '../../core/random';
-import {
-	createWorldReference,
-	readWorldReference,
-	type WorldReference
-} from '../../core/world-reference';
+import { createWorldReference, encodeKey, readWorldReference, type Ref } from '../../core/ref';
 import { defaults } from '../../../config/sandbox-document';
 
 export type WorldIdentity = Readonly<{
@@ -17,7 +13,7 @@ export type WorldIdentity = Readonly<{
 export type SandboxPlacement = Placement &
 	Readonly<{
 		id: string;
-		hostReference: WorldReference<HostAddress['kind']>;
+		hostReference: Ref<HostAddress['kind']>;
 		registryRevision: string;
 	}>;
 export type SandboxEdit =
@@ -152,7 +148,7 @@ export function readHostReference(world: WorldIdentity, host: HostAddress) {
 	return createWorldReference(
 		world.id,
 		host.kind,
-		host.kind === 'ground' ? JSON.stringify(host.point.map(groundIndex)) : host.id
+		host.kind === 'ground' ? encodeKey(host.point.map(groundIndex)) : host.id
 	);
 }
 
@@ -190,8 +186,8 @@ export function readPlacementId(world: WorldIdentity, host: HostAddress): string
 	return placementId(readHostReference(world, host));
 }
 
-function placementId({ world, kind, key }: WorldReference) {
-	return JSON.stringify([world, kind, key]);
+function placementId({ world, kind, key }: Ref) {
+	return encodeKey([world, kind, key]);
 }
 
 // Exact arithmetic: deterministic initial seed for worlds that omit a seed.
@@ -209,10 +205,13 @@ export function placement(
 		registryRevision: world.registryRevision,
 		host,
 		params,
+		// Ground placements retain the nested coordinate tuple in the seed input.
 		seed:
 			seed ??
 			Random.create({ seed: world.seed ?? defaultPlacementSeed }).derive(
-				JSON.stringify([host.kind, host.kind === 'ground' ? host.point : host.id])
+				host.kind === 'ground'
+					? JSON.stringify([host.kind, host.point])
+					: encodeKey([host.kind, host.id])
 			).seed
 	});
 }

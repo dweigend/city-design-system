@@ -2,7 +2,7 @@ import { expect, test } from 'bun:test';
 import type { ParcelLane, ParcelPortal } from '../../domain/parcels';
 import { createMovementNetwork, type MovementNode } from '../../domain/movement-network';
 import { required } from '../../core/invariant';
-import { createWorldReference, readWorldReference } from '../../core/world-reference';
+import { createWorldReference, readWorldReference } from '../../core/ref';
 import { createCitySite } from '../city-site';
 import { connectLane } from './lane-links';
 

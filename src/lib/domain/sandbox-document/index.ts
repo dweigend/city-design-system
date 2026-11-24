@@ -1,6 +1,6 @@
 /** Module: Records reversible, world-scoped edits to addressed asset placements. */
 import type { HostAddress, Placement } from '../../core/asset-registry';
-import { readWorldReference, type ReferenceResolution } from '../../core/world-reference';
+import { readWorldReference, type ReferenceResolution } from '../../core/ref';
 import {
 	edit,
 	replace,

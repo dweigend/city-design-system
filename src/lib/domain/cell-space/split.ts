@@ -1,4 +1,5 @@
 import { isConvexCounterclockwise, type Vec2 } from '../../core/geometry';
+import { encodeKey, encodePair } from '../../core/ref';
 
 /** A convex or simple plan ring, counterclockwise. `keys` name its points symbolically, so two rings
  * that share a side name it alike without comparing coordinates. `edges[i]` is the parcel edge
@@ -13,7 +14,6 @@ export type KeyedRing = Readonly<{
 }>;
 
 const midpoint = ([ax, ay]: Vec2, [bx, by]: Vec2): Vec2 => [(ax + bx) / 2, (ay + by) / 2];
-const midpointKey = (a: string, b: string) => `m/${JSON.stringify([a, b].sort())}`;
 
 // Exact arithmetic: vertex average of a ring.
 function vertexAverage(points: readonly Vec2[]): Vec2 {
@@ -63,10 +63,11 @@ function clipEar(ring: KeyedRing, order: number[], at: number): KeyedRing {
 	const [p, q, r] = [order[(at + n - 1) % n], order[at], order[(at + 1) % n]];
 	const consecutive = (a: number, b: number) => (a + 1) % ring.keys.length === b;
 	const keys = [p, q, r].map((k) => ring.keys[k]);
+	const ear = encodeKey(keys);
 	return {
-		id: `${ring.id}/ear/${JSON.stringify(keys)}`,
+		id: `${ring.id}/ear/${ear}`,
 		corner: ring.corner,
-		ear: JSON.stringify(keys),
+		ear,
 		keys,
 		points: [p, q, r].map((k) => ring.points[k]),
 		edges: [
@@ -98,21 +99,18 @@ export function convexParts(ring: KeyedRing): readonly KeyedRing[] {
  * the corner key as label at the first split and its role (corner, next, centre, previous) after. */
 export function cornerQuads(ring: KeyedRing, first: boolean): readonly KeyedRing[] {
 	const centre = vertexAverage(ring.points);
-	const centreKey = `c(${ring.id})`;
+	const centreKey = encodeKey(['center', ring.id]);
+	const keys = first ? ring.keys.map((id) => encodeKey(['orig', id])) : ring.keys;
 	const n = ring.points.length;
+	const midKeys = keys.map((key, i) => encodeKey(['mid', encodePair(key, keys[(i + 1) % n])]));
 	return ring.points.map((corner, i) => {
 		const [j, h] = [(i + 1) % n, (i + n - 1) % n];
 		const label = first ? ring.keys[i] : ['corner', 'next', 'centre', 'previous'][i];
 		return {
-			id: `${ring.id}/child/${JSON.stringify([label])}`,
+			id: `${ring.id}/child/${encodeKey([label])}`,
 			corner: first ? ring.keys[i] : ring.corner,
 			ear: ring.ear,
-			keys: [
-				ring.keys[i],
-				midpointKey(ring.keys[i], ring.keys[j]),
-				centreKey,
-				midpointKey(ring.keys[h], ring.keys[i])
-			],
+			keys: [keys[i], midKeys[i], centreKey, midKeys[h]],
 			points: [corner, midpoint(corner, ring.points[j]), centre, midpoint(ring.points[h], corner)],
 			edges: [ring.edges[i], null, null, ring.edges[h]]
 		};

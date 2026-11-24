@@ -1,4 +1,5 @@
 import type { Vec3 } from '../../core/geometry';
+import { encodePair } from '../../core/ref';
 import {
 	bayAddresses,
 	type BayFace,
@@ -117,7 +118,7 @@ export function createFrame(
 		if (!nodes.has(a.id)) nodes.set(a.id, a);
 		if (!nodes.has(b.id)) nodes.set(b.id, b);
 		const [from, to] = a.id < b.id ? [a.id, b.id] : [b.id, a.id];
-		const id = JSON.stringify([from, to]);
+		const id = encodePair(from, to);
 		if (!edges.has(id)) edges.set(id, Object.freeze({ id, from, to }));
 	}
 	let triangulate = false;

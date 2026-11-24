@@ -1,7 +1,7 @@
 /** Module: Resolves sandbox addresses against a fixed city and builds registry placements. */
 import type { Placement } from '../../core/asset-registry';
 import { resolveParams } from '../../core/params';
-import { readWorldReference, type ReferenceResolution } from '../../core/world-reference';
+import { readWorldReference, type ReferenceResolution } from '../../core/ref';
 import { createPolygonIndex } from '../../core/polygon-index';
 import type { CityColumn } from '../../domain/city-volume';
 import { planEdges, type PlanEdge } from '../../domain/terrain-grid';

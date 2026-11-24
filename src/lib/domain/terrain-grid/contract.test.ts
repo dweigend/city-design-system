@@ -4,6 +4,7 @@ import { distance, type Vec2, type Vec3 } from '../../core/geometry';
 import {
 	TerrainGrid,
 	planEdgeId,
+	planEdgeGraph,
 	planCellSide,
 	planVariants,
 	terrainGridQuality,
@@ -332,6 +333,30 @@ test('rejects a spacing whose subdivision count cannot be sampled', () => {
 test('encodes undirected plan edges without delimiter collisions', () => {
 	expect(planEdgeId('a', 'b|c')).toBe(planEdgeId('b|c', 'a'));
 	expect(planEdgeId('a', 'b|c')).not.toBe(planEdgeId('a|b', 'c'));
+});
+
+test('looks up both carrier edges when pipe-delimited endpoint pairs would coincide', () => {
+	const ids = ['a', 'b|c', 'a|b', 'c'];
+	const points = [
+		[0, 0, 0],
+		[12, 0, 0],
+		[12, 8, 0],
+		[0, 8, 0]
+	] as const;
+	const graph = planEdgeGraph({
+		vertices: ids.map((id, i) => ({ id, position: points[i] })),
+		cells: [{ id: 'carrier', vertexIds: ids }]
+	});
+	expect(graph.edges).toHaveLength(4);
+	expect(new Set(graph.edges.map(({ id }) => id)).size).toBe(4);
+	for (const [from, to] of [
+		['a', 'b|c'],
+		['a|b', 'c']
+	]) {
+		const [path] = graph.pathsFrom(from, (id) => id === to, 12);
+		expect(path?.nodeIds).toEqual([from, to]);
+		expect(path?.lengthM).toBe(12);
+	}
 });
 
 test('rejects a retained square edge with a shallow setback dip between probes', () => {

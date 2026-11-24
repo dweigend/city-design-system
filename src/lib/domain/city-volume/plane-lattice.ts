@@ -1,4 +1,5 @@
 import { required } from '../../core/invariant';
+import { encodeKey, encodePair } from '../../core/ref';
 import { bayAddresses, type Column } from './bay-addresses';
 import { columnPlanes, cornerReader } from './foundation';
 import { hasCollapsedDiagonal } from './foundation-prism';
@@ -90,7 +91,7 @@ export function createPlaneLattice(
 					used.set(id, Object.freeze({ id, position, ...(groundContact && { groundContact }) }));
 				}
 				const [from, to] = a.id < b.id ? [a, b] : [b, a];
-				const id = JSON.stringify([from.id, to.id]);
+				const id = encodePair(from.id, to.id);
 				if (edges.has(id)) continue;
 				const rank = a.level === b.level ? 'chord' : 'strut';
 				edges.set(id, Object.freeze({ id, from: from.id, to: to.id, rank }));
@@ -104,7 +105,7 @@ export function createPlaneLattice(
 			let groups = layers.get(level);
 			if (!groups) layers.set(level, (groups = new Map<string, PlanePair>()));
 			const [low, high] = pair(id, level);
-			const key = `${low}/${high}`;
+			const key = encodeKey([low, high]);
 			let group = groups.get(key);
 			if (!group) groups.set(key, (group = { low, high, cells: new Set() }));
 			group.cells.add(id);

@@ -1,3 +1,4 @@
+import { encodeKey, encodePair } from '../../core/ref';
 import { planEdgeId } from '../terrain-grid';
 import { cityVolumeConfig } from './config';
 import type { LatticeBay } from './bay-addresses';
@@ -19,11 +20,9 @@ export type ChildBayFace = Readonly<{
 
 function face(points: string[]): ChildBayFace {
 	return Object.freeze({
-		id: JSON.stringify([...points].sort()),
+		id: encodeKey([...points].sort()),
 		corners: Object.freeze(points),
-		edges: Object.freeze(
-			points.map((a, i) => JSON.stringify([a, points[(i + 1) % points.length]].sort()))
-		)
+		edges: Object.freeze(points.map((a, i) => encodePair(a, points[(i + 1) % points.length])))
 	});
 }
 
@@ -49,7 +48,7 @@ export function subdivideBay(bay: LatticeBay): readonly ChildBay[] {
 			return rings.slice(0, -1).map((low, half) => {
 				const high = rings[half + 1];
 				return Object.freeze({
-					id: `${id}/child/${JSON.stringify([corner, half])}`,
+					id: `${id}/child/${encodeKey([corner, half])}`,
 					floorFace: face(low),
 					ceilingFace: face(high),
 					sideFaces: Object.freeze(

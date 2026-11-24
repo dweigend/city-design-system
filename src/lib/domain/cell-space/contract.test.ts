@@ -81,6 +81,44 @@ function checkTiling(fixture: Parcel, rounds?: number) {
 	return space;
 }
 
+test.each([[['a,b', 'c,a', 'b,c', 'd']], [['a,b', 'c,a', 'b,c', 'c(p)']]])(
+	'tiles a 12 by 8 m parcel with delimiter-bearing corners %j',
+	(ids) => {
+		const fixture = parcel('p', [
+			[0, 0],
+			[12, 0],
+			[12, 8],
+			[0, 8]
+		]);
+		const corners = fixture.corners.map((corner, i) => ({ ...corner, id: ids[i] }));
+		const input = { ...fixture, corners, frontage: [parcelEdgeId(ids[0], ids[1])] };
+		expect(
+			checkTiling(input, 0)
+				.cells.map(({ corner }) => corner)
+				.sort()
+		).toEqual(ids.toSorted());
+		expect(checkTiling(input, 1).cells).toHaveLength(16);
+	}
+);
+
+test('keeps both frontage strips when a corner resembles a generated grid point', () => {
+	const fixture = parcel('p', [
+		[0, 0],
+		[12, 0],
+		[12, 8],
+		[0, 8]
+	]);
+	const ids = ['p(1,0)', 'right/a', 'right|b', 'left\n'];
+	const corners = fixture.corners.map((corner, i) => ({ ...corner, id: ids[i] }));
+	const { cells } = createStripSpace({
+		...fixture,
+		corners,
+		frontage: [parcelEdgeId(ids[0], ids[1])]
+	});
+	expect(cells.map(({ id }) => id)).toEqual(['p/strip/[0,0]', 'p/strip/[1,0]']);
+	expect(cells.map(cellAreaM2)).toEqual([48, 48]);
+});
+
 describe('createCellSpace', () => {
 	test.each(Object.entries(fixtures))(
 		'%s: cells tile the parcel and agree on every side',

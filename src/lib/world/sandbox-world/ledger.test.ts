@@ -1,6 +1,6 @@
 import { expect, test } from 'bun:test';
 import { required } from '../../core/invariant';
-import { createWorldReference } from '../../core/world-reference';
+import { createWorldReference } from '../../core/ref';
 import { readCityColumns } from '../../domain/city-volume';
 import { createParcelPlan } from '../../domain/parcels';
 import { dryPlanEdges, TerrainGrid } from '../../domain/terrain-grid';

@@ -1,5 +1,6 @@
 import { defaults } from '../../../config/cell-space';
 import { isFiniteVector } from '../../core/geometry';
+import { encodeKey } from '../../core/ref';
 import { doubleArea } from './split';
 import type { Parcel } from './types';
 
@@ -29,13 +30,18 @@ function validateRing({ corners }: Parcel) {
 	if (area < 0) throw new RangeError('Parcel corners must run counterclockwise');
 }
 
+/** Identity of the parcel edge from one corner key to the next. */
+export function parcelEdgeId(from: string, to: string): string {
+	return encodeKey([from, to]);
+}
+
 /** Checks corners, frontage edge identities, base elevation, storeys and refinement rounds. */
 export function validate(parcel: Parcel, rounds: number) {
 	if (!Number.isFinite(parcel.baseZ)) throw new RangeError('baseZ must be finite');
 	validateRing(parcel);
 	const { corners, frontage, storeyCount, storeyHeightM } = parcel;
 	const edges = new Set(
-		corners.map(({ id }, i) => JSON.stringify([id, corners[(i + 1) % corners.length].id]))
+		corners.map(({ id }, i) => parcelEdgeId(id, corners[(i + 1) % corners.length].id))
 	);
 	if (!frontage.every((edge) => edges.has(edge)))
 		throw new RangeError('Frontage must name parcel edges from one corner to the next');

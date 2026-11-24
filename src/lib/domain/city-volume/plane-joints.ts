@@ -1,5 +1,6 @@
 import type { Vec3 } from '../../core/geometry';
 import { required } from '../../core/invariant';
+import { encodeKey, type Key } from '../../core/ref';
 import { planeElevation, planeIndex, type columnPlanes, type CornerReader } from './foundation';
 import type { Column, LatticePoint } from './bay-addresses';
 import type { PlanTopology } from './plan-topology';
@@ -26,13 +27,15 @@ type Corner = Column['corners'][number];
 export function jointsOf(topology: PlanTopology, datumZ: number, readCorner: CornerReader['read']) {
 	const joints = new Map<string, Joint>();
 	const at = (
+		address: Key,
 		id: string,
 		level: number,
 		position: () => Vec3,
 		corner?: Corner,
 		groundContact?: true
 	) => {
-		let joint = joints.get(id);
+		const key = encodeKey(address);
+		let joint = joints.get(key);
 		if (!joint) {
 			const point = Object.freeze(position());
 			const index = corner && level === 0 ? planeIndex(datumZ, point[2]) : level;
@@ -44,7 +47,7 @@ export function jointsOf(topology: PlanTopology, datumZ: number, readCorner: Cor
 				...(groundContact && { groundContact }),
 				position: point
 			});
-			joints.set(id, joint);
+			joints.set(key, joint);
 		}
 		return joint;
 	};
@@ -52,16 +55,23 @@ export function jointsOf(topology: PlanTopology, datumZ: number, readCorner: Cor
 	return {
 		corner(corner: Corner, level: number) {
 			const { point, level: index } = readCorner(corner, level);
-			return at(point.id, index, () => point.position, corner, point.groundContact);
+			return at(
+				['vertex', corner.id, index],
+				point.id,
+				index,
+				() => point.position,
+				corner,
+				point.groundContact
+			);
 		},
 		centre(cell: string, level: number) {
-			return at(`cell/${cell}/level/${level}`, level, () => {
+			return at(['cell', cell, level], `cell/${cell}/level/${level}`, level, () => {
 				const [x, y] = required(topology.centres.get(cell), 'cell centre');
 				return [x, y, z(level)];
 			});
 		},
 		middle(key: string, level: number) {
-			return at(`edge/${key}/level/${level}`, level, () => {
+			return at(['edge', key, level], `edge/${key}/level/${level}`, level, () => {
 				const { ends } = required(topology.edges.get(key), 'plan edge');
 				const [[ax, ay], [bx, by]] = ends.map(({ position }) => position);
 				return [(ax + bx) / 2, (ay + by) / 2, z(level)];

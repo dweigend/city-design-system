@@ -1,7 +1,7 @@
 # Sandbox world
 
 The city adapter resolves parcel, portal, lane, crossing, bridge, graph-node, graph-edge, block,
-plan-cell, plan-edge, plan-node and shore-node [world references](../../core/world-reference/CONTRACT.md). The
+plan-cell, plan-edge, plan-node and shore-node [world references](../../core/ref/CONTRACT.md). The
 [document](../../domain/sandbox-document/CONTRACT.md) resolves the placement kind. The adapter's
 placement host resolvers handle private parcels and ground movement edges. Asset offerings come
 from those installed resolvers. A valid parcel with no room for a house keeps its address and
