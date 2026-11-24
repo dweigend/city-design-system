@@ -27,7 +27,7 @@ import {
 	createTownHouseStudy,
 	type TownHouseBlock
 } from '../../lib/world/house-site';
-import type { SurfaceLevel } from '../../lib/scene/material';
+import type { SurfaceLevel } from '../../lib/domain/material';
 import type { HouseSetup } from './sheets';
 
 /** What the Town view shows: one of the study blocks, all three together, or every block of the

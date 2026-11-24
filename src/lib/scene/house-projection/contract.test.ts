@@ -7,7 +7,7 @@ import {
 	houseStyles,
 	type HouseStyle
 } from '../../domain/house-court';
-import { createClad } from '../material';
+import { createClad } from '../../domain/material';
 import { paintClad } from '../surface';
 import { example } from './example';
 import { fullSurfaces } from './surfaces';

@@ -88,5 +88,6 @@ export {
 	createRailPierObject,
 	createStationPlatformObject,
 	railDeckThicknessM,
+	trackDirectionLength,
 	transitObjectParams
 } from './objects';

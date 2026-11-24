@@ -1,5 +1,5 @@
 import { defaults } from '../../../config/transit-line';
-import type { Vec2, Vec3 } from '../../core/geometry';
+import { isFiniteVector, type Vec2, type Vec3 } from '../../core/geometry';
 import { defineParams } from '../../core/params';
 import { createMeshObject, drawBearing, mesh } from '../../core/mesh';
 
@@ -49,6 +49,15 @@ export function createRailPierObject(
 	]);
 }
 
+/** Returns the length of a finite, nonzero XY track direction in meters. Throws RangeError otherwise. */
+// Exact arithmetic: a track direction has two horizontal components.
+export function trackDirectionLength(direction: Vec2): number {
+	if (!isFiniteVector(direction, 2)) throw new RangeError('Invalid track direction');
+	const length = Math.hypot(...direction);
+	if (!Number.isFinite(length) || length === 0) throw new RangeError('Invalid track direction');
+	return length;
+}
+
 /** Builds a platform, paired shelters and their posts along a horizontal track direction. */
 // Exact arithmetic: the platform and its two shelters are paired symmetrically about the axis.
 export function createStationPlatformObject(
@@ -58,8 +67,7 @@ export function createStationPlatformObject(
 	width: number = defaults.platformWidthM
 ) {
 	if (!Number.isFinite(width) || width <= 0) throw new RangeError('Invalid platform width');
-	const length = Math.hypot(...direction);
-	if (!Number.isFinite(length) || length === 0) throw new RangeError('Invalid track direction');
+	const length = trackDirectionLength(direction);
 	const [u, v] = [direction[0] / length, direction[1] / length];
 	const [x, y, z] = position;
 	const at = (along: number, across: number, lift = 0): Vec3 => [

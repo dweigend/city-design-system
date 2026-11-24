@@ -1,11 +1,7 @@
 import { expect, test } from 'bun:test';
-import {
-	createClad,
-	familyNames,
-	functionColourDistance,
-	readFamily,
-	type Patch
-} from '../material';
+import * as appearance from '../material';
+import { createClad, familyNames, readFamily, type Patch } from '../../domain/material';
+import { functionColourDistance } from '../material';
 import { existing, modelTones, paintClad, readMaterialSurface, readModelSurface } from './index';
 
 const css = await Bun.file(new URL('../../../app.css', import.meta.url)).text();
@@ -163,4 +159,12 @@ test('grain shows only near; pencil hatching and joint lines survive beside anot
 			strokeSegments: clad.groups[0].lines
 		});
 	}
+});
+
+test('the scene material entry exposes only appearance settings', () => {
+	expect(Object.keys(appearance).sort()).toEqual([
+		'functionColourDistance',
+		'modelGrain',
+		'pencilStroke'
+	]);
 });

@@ -17,11 +17,17 @@ export type AssetDefinition<Host extends AssetHost = AssetHost> = Readonly<{
 	hostKinds: readonly Host['kind'][];
 }>;
 
+/** Geometry with optional non-geometric data owned by its builder. */
+export type AssetBuild<Metadata> = Readonly<{ object: PlaceableObject; metadata?: Metadata }>;
+
 /** Definition plus its deterministic, world-meter object builder. */
-export type AssetEntry<Host extends AssetHost = AssetHost> = AssetDefinition<Host> &
+export type AssetEntry<
+	Host extends AssetHost = AssetHost,
+	Metadata = never
+> = AssetDefinition<Host> &
 	Readonly<{
 		validateHost?: (host: Host) => void;
-		build: (host: Host, params: Parameters, seed: number) => PlaceableObject;
+		build: (host: Host, params: Parameters, seed: number) => PlaceableObject | AssetBuild<Metadata>;
 	}>;
 
 /** Exact kind and all requested tags. An empty filter lists the registry in registration order. */
@@ -63,10 +69,14 @@ function readInputs(schema: ParameterSchema, params: Parameters, seed: number) {
 
 /** Indexes immutable definitions, rejecting malformed or duplicate IDs. Builders receive validated
  * inputs and must only use the resolved host, parameters and seed. LIB-2, LIB-7, LIB-11. */
-export function createAssetRegistry<Host extends AssetHost>(entries: readonly AssetEntry<Host>[]) {
+export function createAssetRegistry<Host extends AssetHost, Metadata = never>(
+	entries: readonly AssetEntry<Host, Metadata>[]
+) {
 	const byId = new Map<
 		string,
-		Pick<AssetEntry<Host>, 'build' | 'validateHost'> & { definition: AssetDefinition<Host> }
+		Pick<AssetEntry<Host, Metadata>, 'build' | 'validateHost'> & {
+			definition: AssetDefinition<Host>;
+		}
 	>();
 	for (const { id, kind, tags, params, hostKinds, build, validateHost } of entries) {
 		if (!assetId.test(id) || byId.has(id))
@@ -93,6 +103,25 @@ export function createAssetRegistry<Host extends AssetHost>(entries: readonly As
 		return entry;
 	}
 
+	/** Builds validated geometry, retaining optional metadata as supplied by the builder. */
+	function buildAssetResult(
+		id: string,
+		host: Host,
+		overrides: Parameters,
+		seed: number
+	): AssetBuild<Metadata> {
+		const { definition, build, validateHost } = requireHost(id, host);
+		validateHost?.(host);
+		const inputs = readInputs(definition.params, overrides, seed);
+		const product = build(host, inputs.params, inputs.seed);
+		const result: AssetBuild<Metadata> = 'object' in product ? product : { object: product };
+		const { object, metadata } = result;
+		return {
+			object: PlaceableObject.isValidated(object) ? object : PlaceableObject.create(object),
+			...(metadata === undefined ? {} : { metadata })
+		};
+	}
+
 	return Object.freeze({
 		/** Returns definitions matching the kind and all requested tags in registration order. */
 		listAssets({ kind, tags = [] }: AssetFilter = {}): readonly AssetDefinition<Host>[] {
@@ -110,12 +139,10 @@ export function createAssetRegistry<Host extends AssetHost>(entries: readonly As
 		validateHost(id: string, host: Host): void {
 			requireHost(id, host).validateHost?.(host);
 		},
-		/** Checks ID, host kind, parameter record and seed in order, then builds a detached object. */
+		/** Builds a validated, detached object. Reuses geometry already frozen by the object factory. */
 		buildAsset(id: string, host: Host, overrides: Parameters, seed: number): PlaceableObject {
-			const { definition, build, validateHost } = requireHost(id, host);
-			validateHost?.(host);
-			const inputs = readInputs(definition.params, overrides, seed);
-			return PlaceableObject.create(build(host, inputs.params, inputs.seed));
-		}
+			return buildAssetResult(id, host, overrides, seed).object;
+		},
+		buildAssetResult
 	});
 }

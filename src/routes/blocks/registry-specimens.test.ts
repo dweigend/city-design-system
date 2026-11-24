@@ -63,3 +63,21 @@ test('spaces the 23 specimen plinths on the configured metric grid', () => {
 		});
 	}
 });
+
+test('material specimens paint the same face and printed marks when display tags change', () => {
+	const asset = readAsset('surface/stripe');
+	const original = buildBoard([asset]).specimens;
+	expect(original.length).toBeGreaterThan(1);
+	expect(original.find(({ id }) => id.endsWith('/mark'))?.strokeSegments).toEqual([]);
+	expect(buildBoard([{ ...asset, tags: ['display'] }]).specimens).toEqual(original);
+});
+
+test('access and rail specimens paint deck, support and platform roles in the Paths palette', () => {
+	const { specimens } = buildBoard(['access/walkway', 'rail/platform'].map(readAsset));
+	expect(specimens.map(({ id, color }) => [id, color])).toEqual([
+		['access/walkway/deck', '--path'],
+		['access/walkway/bearing', '--path'],
+		['rail/platform/platform', '--cat-mobility'],
+		['rail/platform/bearing', '--cat-mobility-5']
+	]);
+});

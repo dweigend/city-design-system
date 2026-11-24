@@ -24,6 +24,8 @@ export type PlaceableObject = Readonly<{
 	anchors: readonly Anchor[];
 }>;
 
+const validated = new WeakSet<PlaceableObject>();
+
 function create({ id, slots, parts, footprint, anchors }: PlaceableObject): PlaceableObject {
 	const declared = new Set(slots);
 	const partIds = new Set<string>();
@@ -31,7 +33,7 @@ function create({ id, slots, parts, footprint, anchors }: PlaceableObject): Plac
 	finite(width);
 	finite(depth);
 	if (width < 0 || depth < 0) throw new RangeError('Footprint dimensions must be nonnegative');
-	return Object.freeze({
+	const object = Object.freeze({
 		id,
 		slots: Object.freeze([...slots]),
 		parts: Object.freeze(
@@ -45,11 +47,19 @@ function create({ id, slots, parts, footprint, anchors }: PlaceableObject): Plac
 		footprint: Object.freeze({ width, depth }),
 		anchors: Object.freeze(Array.from(anchors, copyAnchor))
 	});
+	validated.add(object);
+	return object;
 }
 /** Creates detached, deeply frozen metric geometry in input order. Invalid fields throw
  * RangeError for numeric or contract violations and TypeError for unknown shapes.
  */
-export const PlaceableObject = Object.freeze({ create });
+export const PlaceableObject = Object.freeze({
+	create,
+	/** Checks whether this exact object was validated and deeply frozen by create. */
+	isValidated(object: PlaceableObject): boolean {
+		return validated.has(object);
+	}
+});
 
 /** Returns detached world bounds of the parts in meters. Throws RangeError for an empty object. */
 export function bounds(object: PlaceableObject): Bounds3 {

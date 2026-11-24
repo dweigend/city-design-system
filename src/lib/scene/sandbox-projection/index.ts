@@ -3,13 +3,14 @@ import type { Vec2 } from '../../core/geometry';
 import { move, type PlaceableObject } from '../../core/object';
 import { defaults } from '../../../config/sandbox-projection';
 import { houseFaces, type AdjoiningWall, type HouseStyleName } from '../../domain/house-court';
+import type { SurfaceLevel } from '../../domain/material';
 import type { Parcel } from '../../domain/parcels';
 import type { createSandboxWorld } from '../../world/sandbox-world';
 import { cityWindow, type CityGrid, type CitySite } from '../../world/city-site';
 import { createParcelHouseObject, type PlacedParcelHouse } from '../../world/house-site';
 import { projectCityTerrain } from '../city-volume-projection';
 import { houseMaterials, projectCladHouse, projectHouse } from '../house-projection';
-import type { SurfaceLevel } from '../material';
+import { projectPathAsset } from '../paths-projection';
 import { readModelSurface, resolveSurfaces, type Drawable, type ModelTone } from '../surface';
 import { createTerrainDrape } from '../terrain-grid-projection';
 
@@ -18,7 +19,7 @@ type Holdings = ReturnType<typeof createSandboxWorld>['holdings'];
 const emptyMesh = { kind: 'mesh', positions: [], indices: [] } as const;
 // Exact arithmetic: the world origin and zero elevation are the frame transform anchor.
 const worldOrigin = [0, 0, 0] as const;
-const accessSurface = { color: '--ink-2', finish: 'matte' } as const;
+const placementSurface = { color: '--ink-2', finish: 'matte' } as const;
 
 function address(parts: readonly Drawable[], placementId: string): Drawable[] {
 	return parts.map((part) => ({ ...part, id: JSON.stringify([placementId, part.id]) }));
@@ -76,10 +77,11 @@ export function createSandboxProjection(site: CitySite, layout: CityGrid, holdin
 			const parts =
 				kind === 'house'
 					? projectHouse(local, 'full')
-					: resolveSurfaces(
+					: (projectPathAsset(local, kind) ??
+						resolveSurfaces(
 							local,
-							Object.fromEntries(local.slots.map((slot) => [slot, accessSurface]))
-						);
+							Object.fromEntries(local.slots.map((slot) => [slot, placementSurface]))
+						));
 			return address(parts, placementId);
 		},
 		/** Draws a parcel house at a model surface level with its current party walls and budget. */

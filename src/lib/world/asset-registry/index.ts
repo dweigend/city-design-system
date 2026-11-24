@@ -3,7 +3,8 @@ import { createAssetRegistry } from '../../core/asset-registry';
 import { courtHouses } from './houses';
 import { accessAssets } from './access';
 import { structuralAssets } from './structures';
-import { surfaceAssets } from './plates';
+import { surfaceAssets, type SpecimenMaterials } from './plates';
+import type { CityAssetHost } from './hosts';
 
 export {
 	InvalidAssetParamsError,
@@ -15,12 +16,13 @@ export {
 	type Placement
 } from '../../core/asset-registry';
 export type { CityAssetHost } from './hosts';
+export type { SpecimenMaterials } from './plates';
 export { placeParcelHouseAsset } from './houses';
 
 /** Replay revision for the installed asset IDs, parameter schemas and builders. */
 export const cityAssetRegistryRevision = 'city-assets/2';
 
-const registry = createAssetRegistry([
+const registry = createAssetRegistry<CityAssetHost, SpecimenMaterials>([
 	...courtHouses,
 	...accessAssets,
 	...surfaceAssets,
@@ -33,6 +35,9 @@ export const listAssets = registry.listAssets;
 export const readAsset = registry.readAsset;
 /** Builds one city asset in world meters from a resolved host, overrides and seed. */
 export const buildAsset = registry.buildAsset;
+
+/** Builds a city asset with its explicit material roles, when supplied by the builder. */
+export const buildAssetResult = registry.buildAssetResult;
 
 /** Checks whether the resolved host fits the asset before recording a placement. */
 export const validateAssetHost = registry.validateHost;

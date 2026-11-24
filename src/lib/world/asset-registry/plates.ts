@@ -4,12 +4,18 @@ import {
 	familyNames,
 	samplePlateBackingM,
 	samplePlateParams,
-	type Family
+	type Family,
+	type FamilySlot
 } from '../../domain/material';
 import type { CityAssetHost } from './hosts';
 
+/** The family and role of every generated material specimen slot. */
+export type SpecimenMaterials = Readonly<
+	Record<string, Readonly<{ family: Family; role: FamilySlot }> | undefined>
+>;
+
 // Exact arithmetic: the sample patch faces up, with its across axis along world X.
-function samplePlate(family: Family): AssetEntry<CityAssetHost> {
+function samplePlate(family: Family): AssetEntry<CityAssetHost, SpecimenMaterials> {
 	const id = `surface/${family}`;
 	return {
 		id,
@@ -20,7 +26,7 @@ function samplePlate(family: Family): AssetEntry<CityAssetHost> {
 		build(host, { width, depth }, seed) {
 			if (host.kind !== 'ground') throw new RangeError('Expected a ground point');
 			const [x, y, z] = host.point;
-			return createSamplePlateObject(
+			const { object, groups } = createSamplePlateObject(
 				id,
 				{
 					origin: [x, y, z + samplePlateBackingM],
@@ -31,7 +37,11 @@ function samplePlate(family: Family): AssetEntry<CityAssetHost> {
 				},
 				family,
 				{ seed }
-			).object;
+			);
+			const materials = groups.flatMap(({ family, slots }) =>
+				Array.from(slots, ([slot, role]) => [slot, Object.freeze({ family, role })] as const)
+			);
+			return { object, metadata: Object.freeze(Object.fromEntries(materials)) };
 		}
 	};
 }

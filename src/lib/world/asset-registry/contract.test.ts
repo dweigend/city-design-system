@@ -8,6 +8,7 @@ import {
 	listAssets,
 	readAsset,
 	UnknownAssetError,
+	validateAssetHost,
 	WrongAssetHostError
 } from './index';
 import { placementsExample } from './example';
@@ -108,4 +109,33 @@ test('rejects a stair asset on an otherwise valid flat plan edge', () => {
 		]
 	} as const;
 	expect(() => buildAsset('access/stair', flat, {}, 0)).toThrow(/inclined run/);
+});
+
+test.each([
+	{ points: [[0, 0, 0]], error: 'Expected a resolved graph edge' },
+	{
+		points: [
+			[0, 0, 0],
+			[0, 0, 2]
+		],
+		error: 'Invalid track direction'
+	}
+] as const)('platform validation and build reject the same invalid edge', ({ points, error }) => {
+	const edge = { kind: 'graph-edge', id: 'alignment', points } as const;
+	expect(() => validateAssetHost('rail/platform', edge)).toThrow(error);
+	expect(() => buildAsset('rail/platform', edge, {}, 1)).toThrow(error);
+});
+
+test('platform validation and build accept a horizontal edge', () => {
+	const edge = {
+		kind: 'graph-edge',
+		id: 'alignment',
+		points: [
+			[2, 3, 1],
+			[12, 3, 1]
+		]
+	} as const;
+	expect(() => validateAssetHost('rail/platform', edge)).not.toThrow();
+	const object = buildAsset('rail/platform', edge, {}, 1);
+	expect(object.anchors[0].position).toEqual([2, 3, 1]);
 });

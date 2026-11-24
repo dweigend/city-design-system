@@ -8,7 +8,7 @@ import {
 import { defaults } from '../../../config/paths-projection';
 import { appendParts, assembly, local, trace, up } from './assembly';
 import { clip, onFootprint } from './clip';
-import { pathSurfaces } from './surfaces';
+import { pathSurfaces, railSurfaces } from './surfaces';
 import type { PathsFrame } from './types';
 
 // Exact arithmetic: rails and shelters are paired symmetrically about the centerline.
@@ -16,8 +16,8 @@ export function guideway(line: TransitLine | undefined, frame: PathsFrame) {
 	const drawing = assembly('transit', frame);
 	const rail = drawing.layer('rail-guideway', pathSurfaces.rail);
 	const track = drawing.layer('rail-tracks', pathSurfaces.track);
-	const piers = drawing.layer('rail-piers', pathSurfaces.pier);
-	const stations = drawing.layer('rail-stations', pathSurfaces.station);
+	const piers = drawing.layer('rail-piers', railSurfaces.bearing);
+	const stations = drawing.layer('rail-stations', railSurfaces.platform);
 	if (!line) return drawing.complete();
 	const endpoints = clip(
 		local(frame, line.points[0]),
