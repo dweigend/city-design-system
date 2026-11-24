@@ -15,21 +15,33 @@ export function createStroke(
 	commit: (parcels: readonly Parcel[], tool: string) => void
 ) {
 	let active:
-		{ pointer: number; tool: string; parcels: Map<string, Parcel>; last?: Vec2 } | undefined;
-	return ({ event, ground, canvas }: GroundPointer, tool: string) => {
+		| {
+				pointer: number;
+				canvas: HTMLCanvasElement;
+				tool: string;
+				parcels: Map<string, Parcel>;
+				last?: Vec2;
+		  }
+		| undefined;
+	function read({ event, ground, canvas }: GroundPointer, tool: string, loading = false) {
 		if (active && active.pointer !== event.pointerId) return;
 		if (event.type === 'pointercancel' || event.type === 'lostpointercapture') {
 			active = undefined;
 			return;
 		}
+		if (loading) {
+			if (event.type === 'pointerup') cancel();
+			return;
+		}
+		if (event.type === 'pointerup' && !active) return;
 		const position = ground && toWorld(ground[0], ground[1]);
 		const parcel = position && polygons.readPoint(position);
 		hover(parcel);
-		if (tool === 'explore') return;
+		if (tool === 'explore' && !active) return;
 		if (event.type === 'pointerdown' && event.button === 0 && position) {
 			canvas.focus({ preventScroll: true });
 			canvas.setPointerCapture(event.pointerId);
-			active = { pointer: event.pointerId, tool, parcels: new Map() };
+			active = { pointer: event.pointerId, canvas, tool, parcels: new Map() };
 		}
 		if (!active) return;
 		if (
@@ -46,5 +58,12 @@ export function createStroke(
 			active = undefined;
 			commit([...parcels.values()], activeTool);
 		}
-	};
+	}
+	function cancel() {
+		const stroke = active;
+		active = undefined;
+		if (stroke?.canvas.hasPointerCapture(stroke.pointer))
+			stroke.canvas.releasePointerCapture(stroke.pointer);
+	}
+	return { read, cancel };
 }

@@ -1,12 +1,6 @@
-import { bounds, houseExample } from '../../core/object';
-import { accent, existing, resolveSurfaces } from '../surface';
+import { stageExample } from './index';
 
-export function stageExample() {
-	const object = houseExample();
-	return {
-		drawables: resolveSurfaces(object, existing),
-		newDrawables: resolveSurfaces(object, accent('--cat-living')),
-		footprint: object.footprint,
-		bounds: bounds(object)
-	};
+/** Reads the shared stage's fixed specimen and its framing bounds. */
+export function example() {
+	return stageExample();
 }

@@ -26,3 +26,19 @@ test('finds crossed and touched polygons in travel order even with both endpoint
 	expect(index.readSegment([4, 3], [2, 3]).map(({ id }) => id)).toEqual(['neighbor']);
 	expect(index.readSegment([2, 4], [4, 4])).toEqual([]);
 });
+
+test('finds the exact diagonal of a non-axis-aligned ring at zero margin', () => {
+	const index = createPolygonIndex([
+		{
+			id: 'triangle',
+			outline: [
+				[0, 0],
+				[22, 22],
+				[0, 22]
+			]
+		}
+	]);
+	expect(index.readPoint([15, 15])?.id).toBe('triangle');
+	expect(index.readPoint([15, 15.000001])?.id).toBe('triangle');
+	expect(index.readPoint([15, 14.999999])).toBeUndefined();
+});

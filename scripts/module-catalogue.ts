@@ -1,4 +1,5 @@
 import ts from 'typescript';
+import { readsPublicResult } from './example-call';
 
 type Sources = Readonly<Record<string, string>>;
 
@@ -17,7 +18,7 @@ export type ModuleRow = Readonly<{
 
 const moduleEntry = /^(src\/lib\/(?:core|domain|world|scene|ui)\/[^/]+)\/index\.ts$/;
 const exampleExemption =
-	/^Modules under `(src\/lib\/[a-z-]+)`[^\n]*demonstrated on the `(\/[a-z-]+)` page instead of carrying `contract\.test\.ts` and `example\.ts`\./gm;
+	/^Modules under `(src\/lib\/[a-z/-]+)`[^\n]*demonstrated on the `(\/[a-z-]+)` page instead of carrying `contract\.test\.ts` and `example\.ts`\./gm;
 const purposeLine = /^\/\*\* Module: ([^\n]+) \*\//;
 const configImport = /['"](?:\.\.\/)+config\/([\w-]+)['"]/g;
 const principleId = /\b[A-Z]+-\d+\b/g;
@@ -41,18 +42,23 @@ function exportedNames(statement: ts.Statement): string[] {
 	return [];
 }
 
-function exampleNames(statement: ts.Statement) {
-	if (ts.isFunctionDeclaration(statement) && statement.body) return exportedNames(statement);
-	if (!ts.isVariableStatement(statement)) return [];
-	const names = exportedNames(statement);
-	return statement.declarationList.declarations.flatMap(({ name, initializer }) =>
-		ts.isIdentifier(name) &&
-		names.includes(name.text) &&
-		initializer &&
-		(ts.isArrowFunction(initializer) || ts.isFunctionExpression(initializer))
-			? [name.text]
-			: []
-	);
+function exampleNames(text: string, publicExports: ReadonlySet<string>) {
+	const source = ts.createSourceFile('example.ts', text, ts.ScriptTarget.Latest);
+	return source.statements.flatMap((statement) => {
+		const names = exportedNames(statement);
+		if (ts.isFunctionDeclaration(statement))
+			return readsPublicResult(source, statement, publicExports) ? names : [];
+		if (!ts.isVariableStatement(statement)) return [];
+		return statement.declarationList.declarations.flatMap(({ name, initializer }) =>
+			ts.isIdentifier(name) &&
+			names.includes(name.text) &&
+			initializer &&
+			(ts.isArrowFunction(initializer) || ts.isFunctionExpression(initializer)) &&
+			readsPublicResult(source, initializer, publicExports)
+				? [name.text]
+				: []
+		);
+	});
 }
 
 function statements(text: string) {
@@ -86,23 +92,24 @@ function row(
 ): ModuleRow {
 	const examplePath = folder + '/example.ts';
 	const example = Object.hasOwn(sources, examplePath) ? examplePath : null;
-	const purpose = purposeLine.exec(sources[entry])?.[1] ?? null;
-	const calls = example ? statements(sources[example]).flatMap(exampleNames) : [];
+	const purpose = purposeLine.exec(sources[entry])?.[1].trim() || null;
+	const exports = new Set(statements(sources[entry]).flatMap(exportedNames));
+	const calls = example ? exampleNames(sources[example], exports) : [];
 	const exampleCall = calls.includes('example') ? 'example' : (calls[0] ?? null);
 	const errors = [];
 	if (!purpose) errors.push('Missing module purpose in index.ts');
 	const architecture = sources['docs/standards/ARCHITECTURE.md'] ?? '';
 	const exampleDemo = example
 		? null
-		: (Array.from(architecture.matchAll(exampleExemption)).find(([, path]) =>
-				folder.startsWith(path + '/')
+		: (Array.from(architecture.matchAll(exampleExemption)).find(
+				([, path]) => folder === path || folder.startsWith(path + '/')
 			)?.[2] ?? null);
 	if (!example && !exampleDemo) errors.push('Missing example.ts');
 	else if (example && !exampleCall) errors.push('Missing example caller');
 	return {
 		module: folder.slice('src/lib/'.length),
 		purpose,
-		exports: [...new Set(statements(sources[entry]).flatMap(exportedNames))],
+		exports: [...exports],
 		example,
 		exampleCall,
 		exampleDemo,

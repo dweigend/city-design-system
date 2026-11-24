@@ -2,7 +2,8 @@ import type { AssetEntry } from '../../core/asset-registry';
 import {
 	accessObjectParams,
 	createStairObject,
-	createWalkwayObject
+	createWalkwayObject,
+	validateStairEdge
 } from '../../domain/movement-network';
 import {
 	createRailPierObject,
@@ -30,6 +31,11 @@ export const accessAssets: readonly AssetEntry<CityAssetHost>[] = [
 		tags: ['steps'],
 		params: accessObjectParams.stair,
 		hostKinds: ['graph-edge', 'plan-edge'],
+		validateHost(host) {
+			if (host.kind !== 'graph-edge' && host.kind !== 'plan-edge')
+				throw new RangeError('Expected an edge');
+			validateStairEdge(host);
+		},
 		build(host, { width }) {
 			if (host.kind !== 'graph-edge' && host.kind !== 'plan-edge')
 				throw new RangeError('Expected an edge');

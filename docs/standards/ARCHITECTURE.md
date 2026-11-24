@@ -37,6 +37,7 @@ Use one flat folder directly under its layer. Keep every file at that level.
 - `example.ts` runs the entry with fixed inputs.
 
 Modules under `src/lib/ui` are presentational and are demonstrated on the `/interface` page instead of carrying `contract.test.ts` and `example.ts`.
+Modules under `src/lib/scene/stage-view` are presentational and are demonstrated on the `/sandbox` page instead of carrying `contract.test.ts` and `example.ts`.
 
 ## Object contract
 

@@ -10,7 +10,13 @@ import {
 	type SandboxEdit
 } from './index';
 
-const world = { seed: 1201, planFamily: 'square', citySize: 1800 };
+const world = {
+	seed: 1201,
+	planFamily: 'square',
+	citySize: 1800,
+	terrainRevision: 'terrain-test',
+	topologyRevision: 'topology-test'
+};
 const parcel = (id: string): HostAddress => ({ kind: 'parcel', id });
 const place = (host: HostAddress): SandboxEdit => ({
 	kind: 'place',

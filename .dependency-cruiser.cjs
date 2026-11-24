@@ -28,6 +28,8 @@ const configOwners = {
 	'lib/scene/house-projection': 'house-projection',
 	'lib/scene/sandbox-projection': 'sandbox-projection',
 	'routes/surfaces': 'surface-specimens',
+	'routes/blocks': 'blocks-board',
+	'routes/sandbox': 'sandbox-brush',
 	'lib/world/valley-protocol': 'valley-measurement'
 };
 const allowedConfigEntries = Object.values(configOwners).join('|');

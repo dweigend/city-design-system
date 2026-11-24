@@ -54,4 +54,4 @@ export function createCityStructure(lattice: CityLattice, datumZ: number) {
 }
 
 /** Fixed default-town and largest-city study inputs. */
-export { structureTownExample, largestStructureExample } from './example';
+export { structureTownExample, largestStructureExample } from './city-structure-example';

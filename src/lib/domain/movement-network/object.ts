@@ -56,12 +56,34 @@ export function createWalkwayObject(edge: AccessEdge, widthM: number = accessWid
 	return build(edge, 'deck', (body) => body.ribbon(edge.points, widthM, defaults.deckThicknessM));
 }
 
-/** Builds one supported stair with metric treads along the edge's inclined run. */
+function stairRun({ points }: AccessEdge) {
+	if (points.some((point) => !point.every(Number.isFinite)))
+		throw new RangeError('Expected finite stair points');
+	const first = points.findIndex((end, i) => {
+		const start = points[i - 1];
+		return start && end[2] !== start[2];
+	});
+	if (first < 0) throw new RangeError('A stair requires an inclined run with horizontal length');
+	const run = points.slice(first - 1);
+	if (
+		run.some(([x, y, z], i) => {
+			const previous = run[i - 1];
+			return previous && previous[0] === x && previous[1] === y && previous[2] !== z;
+		})
+	)
+		throw new RangeError('A stair requires horizontal length for each inclined segment');
+	return run;
+}
+
+/** Rejects an edge without an inclined run of positive horizontal length. */
+export function validateStairEdge(edge: AccessEdge): void {
+	stairRun(edge);
+}
+
+/** Builds one supported stair with metric treads. Removes the level approach preceding the
+ * first inclined segment and retains the landings that follow it. */
 export function createStairObject(edge: AccessEdge, widthM: number = accessWidths.stair) {
 	if (!Number.isFinite(widthM) || widthM <= 0) throw new RangeError('Invalid stair width');
-	const { points } = edge;
-	return build(edge, 'stairs', (body) => {
-		const hasApproach = points[0][2] === points[1][2];
-		drawStair(body, hasApproach ? points.slice(1) : points, widthM);
-	});
+	const points = stairRun(edge);
+	return build(edge, 'stairs', (body) => drawStair(body, points, widthM));
 }

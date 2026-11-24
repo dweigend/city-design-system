@@ -33,12 +33,21 @@ function distanceToEdge([x, y]: Vec2, [ax, ay]: Vec2, [bx, by]: Vec2) {
 	return Math.hypot(x - ax - t * dx, y - ay - t * dy);
 }
 
+function onSegment([x, y]: Vec2, [ax, ay]: Vec2, [bx, by]: Vec2) {
+	if (x < Math.min(ax, bx) || x > Math.max(ax, bx) || y < Math.min(ay, by) || y > Math.max(ay, by))
+		return false;
+	const left = (x - ax) * (by - ay);
+	const right = (y - ay) * (bx - ax);
+	return Math.abs(left - right) <= Number.EPSILON * (Math.abs(left) + Math.abs(right));
+}
+
 export function contains(ring: readonly Vec2[], point: Vec2, margin: number) {
 	const [x, y] = point;
 	let inside = false;
 	for (const [i, a] of ring.entries()) {
 		const b = ring[(i + 1) % ring.length];
-		if (distanceToEdge(point, a, b) <= margin) return true;
+		if (onSegment(point, a, b) || (margin > 0 && distanceToEdge(point, a, b) <= margin))
+			return true;
 		if (a[1] > y !== b[1] > y && x < a[0] + ((b[0] - a[0]) * (y - a[1])) / (b[1] - a[1]))
 			inside = !inside;
 	}

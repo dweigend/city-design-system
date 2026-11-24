@@ -4,6 +4,7 @@
 
 <script lang="ts">
 	import { resolve } from '$app/paths';
+	import { defaults } from '../../config/blocks-board';
 	import { createFocusResolver } from '../../lib/scene/focus';
 	import { StageView } from '../../lib/scene/stage-view';
 	import { Select } from '../../lib/ui/select';
@@ -66,7 +67,12 @@
 	const labels = $derived(
 		assets.map(({ id }) => assetLabels[id] ?? (id.split('/').at(-1) ?? id).replaceAll('-', ' '))
 	);
-	const fit = { fill: 0.87, bearing: 0.18, elevation: 0.76, offset: [0, -1] as const };
+	const fit = {
+		fill: defaults.boardFitFill,
+		bearing: defaults.boardFitBearingRad,
+		elevation: defaults.boardFitElevationRad,
+		offset: [0, defaults.boardFitOffsetYM] as const
+	};
 </script>
 
 <svelte:head>
@@ -127,8 +133,10 @@
 						<td>
 							{#if row.exampleCall}
 								<code>{row.exampleCall}()</code>
-							{:else if row.exampleDemo === '/interface'}
-								<a class="small" href={resolve(row.exampleDemo)}>Interface</a>
+							{:else if row.exampleDemo === '/interface' || row.exampleDemo === '/sandbox'}
+								<a class="small" href={resolve(row.exampleDemo)}
+									>{row.exampleDemo === '/sandbox' ? 'Sandbox' : 'Interface'}</a
+								>
 							{:else}
 								<span class="small">{row.example ? 'Missing caller' : 'Missing example'}</span>
 							{/if}

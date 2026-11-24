@@ -36,7 +36,7 @@ export type Presentation = (viewport: Viewport) => readonly Drawable[];
 /** Surface displays for the same geometry. */
 export type { Display } from './material';
 /** Returns the fixed house, resolved surfaces and metric extents for a stage. */
-export { stageExample } from './example';
+export { stageExample } from './stage-example';
 
 async function create({
 	canvas,

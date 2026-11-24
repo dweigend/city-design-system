@@ -122,6 +122,7 @@ export function createMovementNetwork<K extends string>(
 export {
 	accessObjectParams,
 	createStairObject,
+	validateStairEdge,
 	createWalkwayObject,
 	type AccessEdge
 } from './object';

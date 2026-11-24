@@ -1,11 +1,12 @@
 /** Module: Records reversible, world-scoped edits to addressed asset placements. */
-import type { HostAddress } from '../../core/asset-registry';
+import type { HostAddress, Placement } from '../../core/asset-registry';
 import {
 	edit,
 	hostKey,
 	replace,
 	placement,
 	readPlacementId,
+	readParams,
 	record,
 	SandboxDataError,
 	worldIdentity,
@@ -36,7 +37,12 @@ export class MissingPlacementError extends Error {
 
 type Transaction = Readonly<{ edits: readonly SandboxEdit[]; changes: readonly PlacementChange[] }>;
 type Prepare = (changes: readonly PlacementChange[]) => void;
-const format = 'sandbox/1';
+type ResolveParams = (
+	assetId: string,
+	host: HostAddress,
+	params: Placement['params']
+) => Placement['params'];
+const format = 'sandbox/2';
 const noChanges: readonly PlacementChange[] = Object.freeze([]);
 
 /** Keys the single occupancy slot of an exact address by its full world identity. */
@@ -44,15 +50,19 @@ export { readPlacementId };
 
 /** Creates an empty document. Each exact host has one slot. A transaction is atomic.
  * A caller may prepare the derived state from the change list before the transaction takes effect.
+ * The optional resolver validates and canonicalizes every staged placement and replacement.
  * If preparation throws, the document and its history retain their prior state. */
-export function createSandboxDocument(identity: WorldIdentity) {
+export function createSandboxDocument(identity: WorldIdentity, resolveParams?: ResolveParams) {
 	const world = worldIdentity(identity);
 	const placements = new Map<string, SandboxPlacement>();
 	const history: Transaction[] = [];
 	let position = 0;
+	let projection: Prepare | undefined;
 
 	function publish(changes: readonly PlacementChange[], prepare?: Prepare) {
-		prepare?.(changes);
+		if (projection && prepare)
+			throw new SandboxDataError('This document already owns a projection');
+		(projection ?? prepare)?.(changes);
 		for (const { id, after } of changes) {
 			if (after) placements.set(id, after);
 			else placements.delete(id);
@@ -60,23 +70,42 @@ export function createSandboxDocument(identity: WorldIdentity) {
 		return changes;
 	}
 
-	function stage(edits: readonly SandboxEdit[]) {
+	function canonicalParams(assetId: string, host: HostAddress, params: Placement['params']) {
+		return resolveParams ? readParams(resolveParams(assetId, host, params)) : params;
+	}
+
+	function stage(input: readonly SandboxEdit[]) {
+		const edits: SandboxEdit[] = [];
 		const staged = new Map<string, SandboxPlacement | undefined>();
 		const current = (id: string) => (staged.has(id) ? staged.get(id) : placements.get(id));
-		for (const operation of edits) {
+		for (const raw of input) {
+			const operation = edit(raw);
 			if (operation.kind === 'place') {
-				const after = placement(world, operation);
+				const resolved = Object.freeze({
+					...operation,
+					params: canonicalParams(operation.assetId, operation.host, operation.params)
+				});
+				const after = placement(world, resolved);
 				if (current(after.id))
 					throw new OccupiedHostError('Host already occupied: ' + hostKey(after.host));
+				edits.push(resolved);
 				staged.set(after.id, after);
 				continue;
 			}
 			const { id } = operation;
 			const before = current(id);
 			if (!before) throw new MissingPlacementError('Missing placement: ' + id);
-			staged.set(id, operation.kind === 'remove' ? undefined : replace(before, operation));
+			const resolved =
+				operation.kind === 'replace'
+					? Object.freeze({
+							...operation,
+							params: canonicalParams(before.assetId, before.host, operation.params)
+						})
+					: operation;
+			edits.push(resolved);
+			staged.set(id, resolved.kind === 'remove' ? undefined : replace(before, resolved));
 		}
-		return Object.freeze(
+		const changes = Object.freeze(
 			Array.from(staged, ([id, after]) =>
 				Object.freeze({
 					id,
@@ -85,10 +114,20 @@ export function createSandboxDocument(identity: WorldIdentity) {
 				})
 			).filter(({ before, after }) => before !== after)
 		);
+		return { edits: Object.freeze(edits), changes };
 	}
 
 	return Object.freeze({
 		world,
+		/** Attaches one derived projection to this document and initializes it from active records.
+		 * All later changes prepare that projection before publishing history. */
+		attach(prepare: Prepare) {
+			if (projection) throw new SandboxDataError('This document already owns a projection');
+			prepare(
+				[...placements.values()].map((after) => ({ id: after.id, before: undefined, after }))
+			);
+			projection = prepare;
+		},
 		/** Reads one active placement for an exact host address. */
 		readPlacement: (host: HostAddress) => placements.get(readPlacementId(world, host)),
 		/** Lists active placements in stable ID order, independent of how history was traversed. */
@@ -100,8 +139,7 @@ export function createSandboxDocument(identity: WorldIdentity) {
 		readHistory: () => ({ placements: placements.size, strokes: history.length, position }),
 		/** Applies one ordered stroke, drops redo on a state change, and returns its net changes. */
 		apply(input: readonly SandboxEdit[], prepare?: Prepare) {
-			const edits = Object.freeze(input.map(edit));
-			const changes = stage(edits);
+			const { edits, changes } = stage(input);
 			if (!changes.length) return noChanges;
 			publish(changes, prepare);
 			history.splice(position, history.length - position, { edits, changes });
@@ -144,9 +182,11 @@ export function createSandboxDocument(identity: WorldIdentity) {
 export function restoreSandboxDocument(
 	json: string,
 	expectedWorld?: WorldIdentity,
-	validate?: Prepare
+	resolveParams?: ResolveParams
 ) {
 	const { format: version, world, strokes, position } = record(JSON.parse(json) as unknown);
+	if (version === 'sandbox/1')
+		throw new SandboxDataError('This save lacks terrain and topology revisions');
 	if (
 		version !== format ||
 		!Array.isArray(strokes) ||
@@ -159,9 +199,9 @@ export function restoreSandboxDocument(
 	const identity = worldIdentity(world);
 	if (expectedWorld && worldKey(identity) !== worldKey(worldIdentity(expectedWorld)))
 		throw new SandboxDataError('This document belongs to a different world');
-	const document = createSandboxDocument(identity);
+	const document = createSandboxDocument(identity, resolveParams);
 	for (const input of strokes) {
-		if (!Array.isArray(input) || !document.apply(input, validate).length)
+		if (!Array.isArray(input) || !document.apply(input).length)
 			throw new SandboxDataError('Expected a stroke that changes the document');
 	}
 	while (document.readHistory().position > position) document.undo();

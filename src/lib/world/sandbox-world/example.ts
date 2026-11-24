@@ -1,4 +1,3 @@
-import { citySiteParams } from '../city-site';
 import { createTownHouseStudy } from '../house-site';
 import { createSandboxWorld } from './index';
 
@@ -6,16 +5,7 @@ import { createSandboxWorld } from './index';
 export function example() {
 	const town = createTownHouseStudy();
 	const { site, layout, columns, parcelsByBlock, blocks } = town;
-	const world = createSandboxWorld(
-		{
-			seed: layout.seed,
-			planFamily: layout.variant,
-			citySize: citySiteParams.citySize.default
-		},
-		site,
-		layout,
-		columns
-	);
+	const world = createSandboxWorld(site, layout, columns);
 	const parcels = parcelsByBlock.get(blocks.block.id) ?? [];
 	return { world, town, parcels };
 }

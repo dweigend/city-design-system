@@ -1,5 +1,9 @@
 import { readPartyWallExposure, type AdjoiningWall } from '../../domain/house-court';
-import type { PlacementChange, SandboxPlacement } from '../../domain/sandbox-document';
+import type {
+	createSandboxDocument,
+	PlacementChange,
+	SandboxPlacement
+} from '../../domain/sandbox-document';
 import { readParcelHouseWalls, type ParcelHouseResult } from '../house-site';
 
 type Source = {
@@ -15,8 +19,10 @@ function blockId({ house }: Source) {
 
 /** Maintains active objects by placement ID. With a parcel occupancy resolver, stages all
  * incoming houses before deriving party walls and rebuilds surviving houses only when their
- * exposure changes. A failed preparation leaves the active objects untouched. */
+ * exposure changes. The cache attaches to one document, including any restored placements.
+ * A failed preparation leaves the active objects untouched. */
 export function createPlacementCache<T>(
+	document: ReturnType<typeof createSandboxDocument>,
 	build: (
 		placement: SandboxPlacement,
 		house: ParcelHouseResult | undefined,
@@ -25,6 +31,7 @@ export function createPlacementCache<T>(
 	resolveHouse?: (placement: SandboxPlacement) => ParcelHouseResult | undefined
 ) {
 	const entries = new Map<string, Entry<T>>();
+	let changesMade: ReturnType<typeof apply>;
 
 	function source(placement: SandboxPlacement): Source {
 		const house = resolveHouse?.(placement);
@@ -84,9 +91,12 @@ export function createPlacementCache<T>(
 		return { built: [...built.keys()], removed };
 	}
 
+	document.attach((changes) => {
+		changesMade = apply(changes);
+	});
 	return Object.freeze({
-		/** Applies a document delta and reports the identities built and removed. */
-		apply,
+		/** Reports the IDs built and removed by the last published document delta. */
+		readChanges: () => changesMade,
 		/** Returns the active products in stable placement ID order. */
 		read: () =>
 			Array.from(entries.keys())

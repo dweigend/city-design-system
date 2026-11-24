@@ -30,3 +30,6 @@ export const listAssets = registry.listAssets;
 export const readAsset = registry.readAsset;
 /** Builds one city asset in world meters from a resolved host, overrides and seed. */
 export const buildAsset = registry.buildAsset;
+
+/** Checks whether the resolved host fits the asset before recording a placement. */
+export const validateAssetHost = registry.validateHost;

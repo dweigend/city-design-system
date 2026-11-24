@@ -1,7 +1,13 @@
 import type { HostAddress, Placement } from '../../core/asset-registry';
 import { Random } from '../../core/random';
 
-export type WorldIdentity = Readonly<{ seed: number; planFamily: string; citySize: number }>;
+export type WorldIdentity = Readonly<{
+	seed: number;
+	planFamily: string;
+	citySize: number;
+	terrainRevision: string;
+	topologyRevision: string;
+}>;
 export type SandboxPlacement = Placement & Readonly<{ id: string }>;
 export type SandboxEdit =
 	| (Omit<Placement, 'seed'> & { readonly kind: 'place'; readonly seed?: number })
@@ -46,12 +52,14 @@ export function seedValue(value: unknown) {
 }
 
 export function worldIdentity(input: unknown): WorldIdentity {
-	const { seed, planFamily, citySize } = record(input);
+	const { seed, planFamily, citySize, terrainRevision, topologyRevision } = record(input);
 	if (number(citySize) <= 0) throw new SandboxDataError('City size must be positive');
 	return Object.freeze({
 		seed: seedValue(seed),
 		planFamily: name(planFamily),
-		citySize: number(citySize)
+		citySize: number(citySize),
+		terrainRevision: name(terrainRevision),
+		topologyRevision: name(topologyRevision)
 	});
 }
 
@@ -78,7 +86,7 @@ function hostAddress(input: unknown): HostAddress {
 	}
 }
 
-function readParams(input: unknown): Placement['params'] {
+export function readParams(input: unknown): Placement['params'] {
 	return Object.freeze(
 		Object.fromEntries(
 			Object.entries(record(input))
@@ -113,8 +121,14 @@ export function hostKey(host: HostAddress): string {
 	return JSON.stringify([host.kind, host.kind === 'ground' ? host.point : host.id]);
 }
 
-export function worldKey({ seed, planFamily, citySize }: WorldIdentity): string {
-	return JSON.stringify([seed, planFamily, citySize]);
+export function worldKey({
+	seed,
+	planFamily,
+	citySize,
+	terrainRevision,
+	topologyRevision
+}: WorldIdentity): string {
+	return JSON.stringify([seed, planFamily, citySize, terrainRevision, topologyRevision]);
 }
 
 /** Keys the single occupancy slot of an exact address by its full world identity. */

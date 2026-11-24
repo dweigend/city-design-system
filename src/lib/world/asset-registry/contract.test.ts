@@ -97,3 +97,15 @@ test('replays three JSON placements into identical objects', () => {
 		'0b42d644b097e2165c4d1b3351301ea2174d0fe2a9ecb1c0c9aa89f51cc8bcd7'
 	]);
 });
+
+test('rejects a stair asset on an otherwise valid flat plan edge', () => {
+	const flat = {
+		kind: 'plan-edge',
+		id: 'flat',
+		points: [
+			[0, 0, 0],
+			[20, 0, 0]
+		]
+	} as const;
+	expect(() => buildAsset('access/stair', flat, {}, 0)).toThrow(/inclined run/);
+});

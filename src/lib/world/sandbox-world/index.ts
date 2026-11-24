@@ -6,20 +6,21 @@ import type { CityColumn } from '../../domain/city-volume';
 import {
 	createSandboxDocument,
 	restoreSandboxDocument,
-	type SandboxPlacement,
-	type WorldIdentity
+	type SandboxPlacement
 } from '../../domain/sandbox-document';
 import {
 	buildAsset,
 	listAssets,
 	placeParcelHouseAsset,
 	readAsset,
+	validateAssetHost,
 	type CityAssetHost,
 	type HostAddress
 } from '../asset-registry';
 import { readCityMovement } from '../city-movement';
 import { readCityParcels, type CityGrid, type CitySite } from '../city-site';
 import { createTownParcelSites } from '../house-site';
+import { readSandboxIdentity } from './identity';
 
 export { createPlacementCache } from './cache';
 
@@ -29,16 +30,14 @@ export class UnavailableHostError extends Error {
 }
 
 /** Indexes the supplied city's private parcels and ground movement edges.
- * The caller supplies the city's fixed terrain, selected layout and columns. */
+ * Derives the save identity from the layout and terrain. Supply a stable revision for a custom
+ * terrain sampler, whose inputs cannot be derived from a valley. */
 export function createSandboxWorld(
-	identity: WorldIdentity,
 	site: CitySite,
 	layout: CityGrid,
-	columns: ReadonlyMap<string, CityColumn>
+	columns: ReadonlyMap<string, CityColumn>,
+	customTerrainRevision?: string
 ) {
-	if (identity.seed !== layout.seed || identity.planFamily !== layout.variant)
-		throw new RangeError('World identity does not match the selected plan');
-	const world = createSandboxDocument(identity).world;
 	const holdings = readCityParcels(site, layout);
 	const polygons = createPolygonIndex(holdings.parcels, holdings.linearToleranceM);
 	const readParcelSite = createTownParcelSites(
@@ -51,6 +50,15 @@ export function createSandboxWorld(
 	const groundOffset = 0;
 	const movement = readCityMovement(site, layout, [], groundOffset, undefined, []);
 	const edges = new Map(movement.network.edges.map((edge) => [edge.id, edge]));
+	const identity = readSandboxIdentity(
+		site,
+		layout,
+		holdings,
+		columns,
+		movement.network.edges,
+		customTerrainRevision
+	);
+	const createDocument = () => createSandboxDocument(identity, prepare);
 
 	function resolveHost(host: HostAddress): CityAssetHost {
 		if (host.kind === 'parcel') {
@@ -68,13 +76,18 @@ export function createSandboxWorld(
 	function prepare(assetId: string, host: HostAddress, params: Placement['params']) {
 		const resolved = resolveHost(host);
 		const definition = readAsset(assetId);
-		if (!definition.hostKinds.includes(resolved.kind))
-			throw new UnavailableHostError('Asset cannot use this host: ' + assetId);
+		try {
+			validateAssetHost(assetId, resolved);
+		} catch (cause) {
+			throw new UnavailableHostError('Asset cannot use this host: ' + assetId, { cause });
+		}
 		return resolveParams(definition.params, params);
 	}
 
 	return Object.freeze({
-		world,
+		world: Object.freeze(identity),
+		/** Creates an empty editable document using this world’s registry and snapshot. */
+		createDocument,
 		holdings,
 		movement,
 		polygons,
@@ -104,12 +117,9 @@ export function createSandboxWorld(
 		build({ assetId, host, params, seed }: SandboxPlacement) {
 			return buildAsset(assetId, resolveHost(host), params, seed);
 		},
-		/** Restores the log for this world and validates transaction results, including redo. */
+		/** Restores and canonicalizes every edit, including transient records and the redo tail. */
 		restore(json: string) {
-			return restoreSandboxDocument(json, world, (changes) => {
-				for (const { after } of changes)
-					if (after) prepare(after.assetId, after.host, after.params);
-			});
+			return restoreSandboxDocument(json, identity, prepare);
 		}
 	});
 }

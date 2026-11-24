@@ -1,9 +1,10 @@
+import { defaults } from '../../config/blocks-board';
 import { parcelEdgeId } from '../../lib/domain/cell-space';
 import { createCityLattice, type CityColumn } from '../../lib/domain/city-volume';
 import { portalExample } from '../../lib/domain/structure';
 import type { AssetDefinition, CityAssetHost } from '../../lib/world/asset-registry';
 
-const parcelSideM = 16;
+const { boardPlotSideM: parcelSideM } = defaults;
 const baySideM = 8;
 const frontage = parcelEdgeId('a', 'b');
 const alternatingLattices = new Set(['lattice/antiprism', 'lattice/diagrid', 'lattice/tree']);

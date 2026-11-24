@@ -3,8 +3,7 @@
 	import { Random } from '../../lib/core/random';
 	import type { Parcel } from '../../lib/domain/parcels';
 	import {
-		createSandboxDocument,
-		type PlacementChange,
+		type createSandboxDocument,
 		type SandboxEdit,
 		type SandboxPlacement
 	} from '../../lib/domain/sandbox-document';
@@ -59,8 +58,8 @@
 	onMount(() => {
 		try {
 			const opened = createTownSandbox();
-			documentModel = createSandboxDocument(opened.world.world);
-			cache = opened.createCache();
+			documentModel = opened.world.createDocument();
+			cache = opened.createCache(documentModel);
 			paint = createStroke(opened.world.polygons, opened.projection.toWorld, selectParcel, commit);
 			layout = opened.projection.background;
 			town = opened;
@@ -86,12 +85,8 @@
 		placed = products.flatMap(({ drawables }) => drawables);
 	}
 
-	function prepare(changes: readonly PlacementChange[]) {
-		cache.apply(changes);
-	}
-
 	function apply(edits: readonly SandboxEdit[]) {
-		if (!documentModel.apply(edits, prepare).length) return;
+		if (!documentModel.apply(edits).length) return;
 		refresh();
 	}
 
@@ -131,13 +126,13 @@
 	}
 
 	function groundPointer(pointer: GroundPointer) {
-		if (!loading) paint(pointer, tool);
+		paint.read(pointer, tool, loading);
 	}
 
 	function moveHistory(direction: 'undo' | 'redo') {
 		if (!town || loading) return;
 		try {
-			if (documentModel[direction](prepare).length) refresh();
+			if (documentModel[direction]().length) refresh();
 			status = '';
 		} catch (error) {
 			fail(error);
@@ -197,11 +192,9 @@
 		if (!town || loading) return;
 		loading = true;
 		try {
+			paint.cancel();
 			const next = town.world.restore(await file.text());
-			const nextCache = town.createCache();
-			nextCache.apply(
-				next.readPlacements().map((after) => ({ id: after.id, before: undefined, after }))
-			);
+			const nextCache = town.createCache(next);
 			documentModel = next;
 			cache = nextCache;
 			hovered = undefined;

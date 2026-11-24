@@ -10,3 +10,35 @@ test('records two attachment positions and separates deck, bearing and stair rol
 	expect(stair.footprint.width).toBeGreaterThan(0);
 	expect(() => createStairObject({ id: 'short', points: [[0, 0, 0]] })).toThrow(RangeError);
 });
+
+test('rejects flat and vertical hosts and preserves the landings after a real approach', () => {
+	expect(() =>
+		createStairObject({
+			id: 'flat',
+			points: [
+				[0, 0, 0],
+				[3, 0, 0]
+			]
+		})
+	).toThrow(/inclined run/);
+	expect(() =>
+		createStairObject({
+			id: 'vertical',
+			points: [
+				[0, 0, 0],
+				[0, 0, 3]
+			]
+		})
+	).toThrow(/horizontal length/);
+	const id = 'flight';
+	const run = [
+		[0, 0, 0],
+		[3, 0, 2],
+		[3, 3, 2]
+	] as const;
+	const flight = createStairObject({ id, points: run });
+	const approach = createStairObject({ id, points: [[-3, 0, 0], [-1, 0, 0], ...run] });
+	expect(approach.parts).toEqual(flight.parts);
+	expect(approach.anchors[0].position).toEqual([-3, 0, 0]);
+	expect(createStairObject({ id, points: run.slice(0, 2) }).parts).not.toEqual(flight.parts);
+});

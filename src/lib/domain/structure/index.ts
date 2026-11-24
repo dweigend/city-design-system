@@ -5,7 +5,7 @@ export { runGravity, gravityBalanceTolerance } from './gravity';
 export type { GravityResult, JointLoad } from './gravity';
 
 /** A standalone three-bay portal and its roof loads. */
-export { portalExample } from './example';
+export { portalExample } from './portal-example';
 
 /** Builds the geometry for a standalone frame or an addressed member subset. */
 export { createFrameBayObject, type FrameBayOptions } from './frame-object';

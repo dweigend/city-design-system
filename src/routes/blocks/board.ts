@@ -1,3 +1,4 @@
+import { defaults } from '../../config/blocks-board';
 import type { Vec3 } from '../../lib/core/geometry';
 import { PlaceableObject } from '../../lib/core/object';
 import { type Family, type FamilySlot } from '../../lib/domain/material';
@@ -15,14 +16,17 @@ import { buildAsset, type AssetDefinition } from '../../lib/world/asset-registry
 import { specimenHost } from './hosts';
 import { mountSpecimen } from './mount-specimen';
 
-const maximumColumns = 5;
-const plotSideM = 16;
-const columnPitchM = 22;
-const rowPitchM = 34;
-const plinthHeightM = 0.6;
-const plinthRimM = 0.5;
-
-const seed = 73;
+const {
+	boardMaximumColumns,
+	boardCompactColumns,
+	boardCompactLimit,
+	boardPlotSideM,
+	boardColumnPitchM,
+	boardRowPitchM,
+	boardPlinthHeightM,
+	boardPlinthRimM,
+	boardSeed
+} = defaults;
 
 function paint(object: PlaceableObject, asset: AssetDefinition): Drawable[] {
 	if (asset.kind === 'house') return projectHouse(object, 'full');
@@ -48,8 +52,8 @@ function paint(object: PlaceableObject, asset: AssetDefinition): Drawable[] {
 }
 
 function plinth(id: string, x: number, y: number) {
-	const side = plotSideM + 2 * plinthRimM;
-	const center: Vec3 = [x, y, -plinthHeightM / 2];
+	const side = boardPlotSideM + 2 * boardPlinthRimM;
+	const center: Vec3 = [x, y, -boardPlinthHeightM / 2];
 	const base = PlaceableObject.create({
 		id,
 		slots: ['plinth'],
@@ -57,7 +61,7 @@ function plinth(id: string, x: number, y: number) {
 			{
 				id: `${id}/plinth`,
 				slot: 'plinth',
-				shape: { kind: 'box', center, size: [side, side, plinthHeightM], rotation: 0 }
+				shape: { kind: 'box', center, size: [side, side, boardPlinthHeightM], rotation: 0 }
 			}
 		],
 		anchors: [],
@@ -70,13 +74,16 @@ function plinth(id: string, x: number, y: number) {
 export function buildBoard(assets: readonly AssetDefinition[]) {
 	const specimens: Drawable[] = [];
 	const bases: Drawable[] = [];
-	const columns = assets.length <= 4 ? Math.min(2, assets.length) : maximumColumns;
+	const columns =
+		assets.length <= boardCompactLimit
+			? Math.min(boardCompactColumns, assets.length)
+			: boardMaximumColumns;
 	for (const [index, asset] of assets.entries()) {
 		const { id } = asset;
-		const x = (index % columns) * columnPitchM;
-		const y = -Math.floor(index / columns) * rowPitchM;
-		const object = buildAsset(id, specimenHost(asset), {}, seed);
-		const mounted = mountSpecimen(object, x, y, plotSideM);
+		const x = (index % columns) * boardColumnPitchM;
+		const y = -Math.floor(index / columns) * boardRowPitchM;
+		const object = buildAsset(id, specimenHost(asset), {}, boardSeed);
+		const mounted = mountSpecimen(object, x, y, boardPlotSideM);
 		specimens.push(...paint(mounted, asset).map((part) => ({ ...part, id: `${id}/${part.id}` })));
 		bases.push(...plinth(id, x, y));
 	}
