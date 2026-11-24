@@ -5,6 +5,9 @@ const stageUnavailable = 'Use a browser with WebGPU to see this view.';
 export const journeys = test.extend<{ browserErrors: void }>({
 	browserErrors: [
 		async ({ page }, use) => {
+			await page.route(/^https:\/\/fonts\.(googleapis|gstatic)\.com\//, (route) =>
+				route.fulfill({ status: 200, body: '' })
+			);
 			const errors: string[] = [];
 			page.on('console', (message) => {
 				if (message.type() === 'error') {
@@ -48,6 +51,8 @@ export async function readyStages(page: Page, count: number) {
 			await expect(canvas).toHaveAttribute('data-stage-hardware', 'true');
 			expect(adapter).toMatch(/amd|radeon/i);
 			expect(adapter).not.toMatch(/swiftshader|llvmpipe|lavapipe|software/i);
+		} else {
+			expect(adapter).toMatch(/swiftshader/i);
 		}
 		console.log(`${new URL(page.url()).pathname} WebGPU: ${adapter}`);
 	}

@@ -48,15 +48,17 @@ async function choose(page: Page, control: string, option: string) {
 	await expect(trigger).toHaveText(option);
 }
 
+const hideHud = { style: '.sandbox-hud { visibility: hidden !important; }' };
+
 async function renderedChange(canvas: Locator, change: () => Promise<void>) {
-	const before = await canvas.screenshot();
+	const before = await canvas.screenshot(hideHud);
 	const frame = Number(await canvas.getAttribute('data-stage-frames'));
 	await change();
 	await expect
 		.poll(async () => Number(await canvas.getAttribute('data-stage-frames')))
 		.toBeGreaterThan(frame);
 	await expect(canvas).toHaveAttribute('data-stage-ready', 'true');
-	await expect.poll(async () => (await canvas.screenshot()).equals(before)).toBe(false);
+	await expect.poll(async () => (await canvas.screenshot(hideHud)).equals(before)).toBe(false);
 }
 
 // Changing the camera must render without rebuilding geometry (R07). This catches replacement
@@ -171,7 +173,7 @@ journeys('paints, erases, uses history and reloads the saved sandbox', async ({ 
 		await page.mouse.move(box.x + box.width * 0.65, y, { steps: 16 });
 		await page.mouse.up();
 	};
-	await stroke();
+	await renderedChange(canvas, stroke);
 	await expect.poll(placements).toBeGreaterThan(0);
 	await expect(page.getByRole('status')).toContainText(/\b[1-9]\d* houses? placed\b/);
 	await expect(stage).toHaveAttribute('data-sandbox-waiting', '0');

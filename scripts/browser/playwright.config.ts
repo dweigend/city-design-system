@@ -1,6 +1,7 @@
 import { defineConfig } from '@playwright/test';
 import { execFileSync } from 'node:child_process';
 import { existsSync, readFileSync, realpathSync } from 'node:fs';
+import { homedir } from 'node:os';
 import { basename, join } from 'node:path';
 
 const ci = process.env.CI === 'true';
@@ -12,7 +13,8 @@ if (!ci && !existsSync('/dev/dri/renderD128')) {
 }
 
 const webGpuArgs = ['--enable-features=Vulkan', '--enable-unsafe-webgpu', '--ignore-gpu-blocklist'];
-const reuseBuild = ci || process.env.CITY_BROWSER_SKIP_BUILD === '1';
+const reuseBuild =
+	process.env.GITHUB_ACTIONS === 'true' || process.env.CITY_BROWSER_SKIP_BUILD === '1';
 const build = reuseBuild
 	? 'if [ ! -f .svelte-kit/output/server/index.js ]; then bun run build || exit; fi; '
 	: 'bun run build && ';
@@ -21,6 +23,7 @@ export default defineConfig({
 	testDir: '.',
 	testMatch: 'flows.browser.ts',
 	outputDir: '../../_lokal/browser-tests',
+	forbidOnly: ci,
 	timeout: 90_000,
 	expect: { timeout: 15_000 },
 	workers: 1,
@@ -29,6 +32,8 @@ export default defineConfig({
 		browserName: 'chromium',
 		actionTimeout: 15_000,
 		viewport: { width: 1366, height: 900 },
+		trace: 'retain-on-failure',
+		screenshot: 'only-on-failure',
 		launchOptions: ci
 			? {
 					// Keep the compositor and Dawn on SwiftShader. Mixing native Vulkan
@@ -55,8 +60,11 @@ function requireHeavySlot() {
 	const found = execFileSync('sh', ['-c', 'command -v heavy-slot || true'], {
 		encoding: 'utf8'
 	}).trim();
-	const wrapper = found || '/home/david/.local/bin/heavy-slot';
-	if (!existsSync(wrapper)) return;
+	const wrapper = found || join(homedir(), '.local/bin/heavy-slot');
+	if (!existsSync(wrapper)) {
+		if (ci) return;
+		throw new Error('Local browser tests require heavy-slot on PATH or ~/.local/bin/heavy-slot');
+	}
 	const resolvedWrapper = realpathSync(wrapper);
 	for (let pid = process.ppid; pid > 1;) {
 		const proc = '/proc/' + pid;
