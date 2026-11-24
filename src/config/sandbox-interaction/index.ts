@@ -18,22 +18,6 @@ export const settings = defineSettings({
 		rationale:
 			'Showing re-renders the whole town; four steps a second read as progress and leave the frames between for input.'
 	},
-	reliefRadiusM: {
-		value: 60,
-		unit: 'm',
-		meaning: 'Ground distance from the view centre within which houses show cladding relief',
-		bounds: { min: 0 },
-		principle: 'MAT-5',
-		rationale: 'About two town blocks around the point the viewer looks at.'
-	},
-	reliefMaxMetersPerPixel: {
-		value: 0.3,
-		unit: 'm/px',
-		meaning: 'Coarsest view scale at which nearby houses show relief',
-		bounds: { exclusiveMin: 0 },
-		principle: 'MAT-5',
-		rationale: 'Relief modules narrower than about two pixels read as noise, not as material.'
-	},
 	previewEavesRatio: {
 		value: 0.7,
 		unit: 'ratio',

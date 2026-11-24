@@ -1,21 +1,27 @@
 # Sandbox document
 
-A document owns a fixed seed, plan family, city size, and terrain and topology revisions. Its ordered transaction log records
-placement, removal and replacement of parameters with an optional new seed. A placement uses
-the asset registry record plus an ID that encodes the world and exact host address. Each
-address owns one slot. A duplicate placement raises `OccupiedHostError`, and edits to an
-absent placement raise `MissingPlacementError`. A seed omitted at placement derives from
-the world seed and the encoded host. Replacing parameters retains the seed unless supplied.
+A document uses an opaque world ID, terrain and topology snapshot revisions, an asset registry
+revision and an optional seed. Each host owns one placement slot. An occupied slot raises
+`OccupiedHostError`. An edit to an absent slot raises `MissingPlacementError`. The document
+derives and stores the seed on placement. Parameter replacement retains the seed unless supplied.
+See the [address table and survival rules](../../world/sandbox-world/CONTRACT.md).
 
-Each transaction publishes its net changes atomically. Undo and redo apply inverse and forward
-changes. `amend` extends the last applied transaction, so a gesture that grows over time stays
-one undo step; a transaction whose edits cancel out leaves the history. Only a successful,
-state-changing edit drops the redo tail. A caller can supply a
-synchronous preparation callback for derived products. The callback must publish its own state
-atomically or throw before publication. It must not mutate the document.
+A transaction publishes its net changes atomically. Undo and redo apply the inverse and forward
+changes. `amend` extends the last applied transaction, so a gesture that grows over time stays one
+undo step; a transaction whose edits cancel out leaves the history. Only a successful
+state-changing edit drops the redo tail. A caller can prepare derived
+products synchronously before publication or attach one projection to the document. Preparation
+must publish atomically or throw before publication and must leave the document alone.
 
-One optional resolver canonicalizes and validates every placement and replacement before it is staged.
-One derived placement cache may attach to a document and follow its transactions.
+The optional resolver canonicalizes and validates placement parameters. Restore replays every
+stroke, including transient edits and the redo tail. If the resolver raises `UnavailableHostError`,
+the placement stays in the log at its original slot. `readOrphans` reports retained records at the
+current history position. Undo and redo move these records with their stroke. Active placement
+queries, history placement counts and the projection include usable records. Restoring against
+a snapshot where a host has returned reevaluates the original record.
 
-The versioned JSON contains the world, ordered strokes and current history position. Restore
-validates and replays the complete log, including its redo tail. Saves without snapshot revisions cannot be verified.
+`sandbox/3` stores the revisions, ordered strokes, history position and a versioned host reference
+on each place edit. A document can replay against another snapshot of its own world with the same
+registry revision. `UnsupportedSandboxVersionError` identifies `sandbox/1` and `sandbox/2` saves.
+Version 2 encoded revisions into slot IDs and allowed floating and positional movement IDs, so
+its local identifiers would need an explicit migration.

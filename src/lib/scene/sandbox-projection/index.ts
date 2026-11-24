@@ -14,6 +14,7 @@ import {
 	projectCladHouse,
 	projectHouse
 } from '../house-projection';
+import { shapeArrays } from '../stage';
 import { resolveSurfaces, type Drawable } from '../surface';
 import { createTerrainDrape } from '../terrain-grid-projection';
 
@@ -120,6 +121,39 @@ export function createSandboxProjection(site: CitySite, layout: CityGrid, holdin
 				}
 			);
 			return address(drawables, placementId);
+		},
+		/** Draws a town parcel house as its plain massing: block detail merged into one matte body
+		 * in one tone with hairline edges. No cladding and no separate parts. */
+		projectParcelVolume(
+			placed: PlacedParcelHouse,
+			adjoiningWalls: readonly AdjoiningWall[],
+			placementId: string,
+			color: `--${string}`
+		): Drawable[] {
+			const local = move(
+				createParcelHouseObject(placed, 'block', adjoiningWalls),
+				offset,
+				-bearing
+			);
+			// Exact arithmetic: a mesh position has three coordinates.
+			const stride = 3;
+			const positions: number[] = [];
+			const indices: number[] = [];
+			for (const { shape } of local.parts) {
+				const arrays = shapeArrays(shape);
+				const base = positions.length / stride;
+				positions.push(...arrays.positions);
+				for (const index of arrays.indices) indices.push(base + index);
+			}
+			return [
+				{
+					id: JSON.stringify([placementId, 'volume']),
+					shape: { kind: 'mesh', positions, indices },
+					color,
+					finish: 'matte',
+					boundaryStroke: true
+				}
+			];
 		},
 		/** Drapes a single contour on displayed ground so it remains visible above plan strokes. */
 		projectHover(parcel: Pick<Parcel, 'outline'>): Drawable {

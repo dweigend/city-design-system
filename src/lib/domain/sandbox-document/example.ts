@@ -4,8 +4,8 @@ import { createSandboxDocument } from './index';
 export function example() {
 	const document = createSandboxDocument({
 		seed: 1201,
-		planFamily: 'square',
-		citySize: 1800,
+		id: 'square-plan',
+		registryRevision: 'registry-test',
 		terrainRevision: 'terrain-test',
 		topologyRevision: 'topology-test'
 	});

@@ -1,14 +1,25 @@
 import type { HostAddress, Placement } from '../../core/asset-registry';
 import { Random } from '../../core/random';
+import {
+	createWorldReference,
+	readWorldReference,
+	type WorldReference
+} from '../../core/world-reference';
+import { defaults } from '../../../config/sandbox-document';
 
 export type WorldIdentity = Readonly<{
-	seed: number;
-	planFamily: string;
-	citySize: number;
+	id: string;
+	seed?: number;
 	terrainRevision: string;
 	topologyRevision: string;
+	registryRevision: string;
 }>;
-export type SandboxPlacement = Placement & Readonly<{ id: string }>;
+export type SandboxPlacement = Placement &
+	Readonly<{
+		id: string;
+		hostReference: WorldReference<HostAddress['kind']>;
+		registryRevision: string;
+	}>;
 export type SandboxEdit =
 	| (Omit<Placement, 'seed'> & { readonly kind: 'place'; readonly seed?: number })
 	| Readonly<{ kind: 'remove'; id: string }>
@@ -52,15 +63,30 @@ export function seedValue(value: unknown) {
 }
 
 export function worldIdentity(input: unknown): WorldIdentity {
-	const { seed, planFamily, citySize, terrainRevision, topologyRevision } = record(input);
-	if (number(citySize) <= 0) throw new SandboxDataError('City size must be positive');
+	const { id, seed, terrainRevision, topologyRevision, registryRevision } = record(input);
 	return Object.freeze({
-		seed: seedValue(seed),
-		planFamily: name(planFamily),
-		citySize: number(citySize),
+		id: name(id),
+		...(seed === undefined ? {} : { seed: seedValue(seed) }),
 		terrainRevision: name(terrainRevision),
-		topologyRevision: name(topologyRevision)
+		topologyRevision: name(topologyRevision),
+		registryRevision: name(registryRevision)
 	});
+}
+
+function groundIndex(value: unknown): number {
+	const index = Math.round(number(value) / defaults.groundAddressStepM);
+	if (!Number.isSafeInteger(index))
+		throw new SandboxDataError('Ground address is outside the safe grid');
+	return index || 0;
+}
+
+function groundPoint(index: unknown): number {
+	if (typeof index !== 'number' || !Number.isSafeInteger(index))
+		throw new SandboxDataError('Expected an integer ground coordinate');
+	const value = index * defaults.groundAddressStepM;
+	if (groundIndex(value) !== index)
+		throw new SandboxDataError('Ground grid coordinate cannot be represented');
+	return value || 0;
 }
 
 // Exact arithmetic: ground addresses are XYZ triples in meters.
@@ -72,7 +98,11 @@ function hostAddress(input: unknown): HostAddress {
 				throw new SandboxDataError('Expected an XYZ ground address');
 			return Object.freeze({
 				kind,
-				point: Object.freeze([number(point[0]), number(point[1]), number(point[2])] as const)
+				point: Object.freeze([
+					groundPoint(groundIndex(point[0])),
+					groundPoint(groundIndex(point[1])),
+					groundPoint(groundIndex(point[2]))
+				] as const)
 			});
 		case 'parcel':
 		case 'cell-space':
@@ -117,36 +147,73 @@ export function edit(input: unknown): SandboxEdit {
 	}
 }
 
-export function hostKey(host: HostAddress): string {
-	return JSON.stringify([host.kind, host.kind === 'ground' ? host.point : host.id]);
+/** Scopes a local host address for storage or transfer. Ground keys are integer XYZ grid indices. */
+export function readHostReference(world: WorldIdentity, host: HostAddress) {
+	return createWorldReference(
+		world.id,
+		host.kind,
+		host.kind === 'ground' ? JSON.stringify(host.point.map(groundIndex)) : host.id
+	);
 }
 
-export function worldKey({
-	seed,
-	planFamily,
-	citySize,
-	terrainRevision,
-	topologyRevision
-}: WorldIdentity): string {
-	return JSON.stringify([seed, planFamily, citySize, terrainRevision, topologyRevision]);
+export function savedEdit(operation: SandboxEdit, world: WorldIdentity) {
+	return operation.kind === 'place'
+		? { ...operation, host: readHostReference(world, operation.host) }
+		: operation;
 }
 
-/** Keys the single occupancy slot of an exact address by its full world identity. */
+export function replayEdit(input: unknown, world: WorldIdentity) {
+	const operation = record(input);
+	if (operation.kind !== 'place') return edit(operation);
+	const host = readWorldReference(operation.host);
+	if (!host || host.world !== world.id) throw new SandboxDataError('Invalid saved host reference');
+	const local =
+		host.kind === 'ground'
+			? { kind: host.kind, point: groundKey(host.key) }
+			: { kind: host.kind, id: host.key };
+	return edit({ ...operation, host: local });
+}
+
+// Exact arithmetic: a serialized ground key has three integer coordinates.
+function groundKey(key: string) {
+	try {
+		const indices: unknown = JSON.parse(key);
+		if (Array.isArray(indices) && indices.length === 3) return indices.map(groundPoint);
+	} catch (cause) {
+		if (cause instanceof SandboxDataError) throw cause;
+	}
+	throw new SandboxDataError('Invalid ground reference');
+}
+
+/** Keys the single slot of an address in one world across revisions. */
 export function readPlacementId(world: WorldIdentity, host: HostAddress): string {
-	return JSON.stringify([worldKey(world), hostKey(host)]);
+	return placementId(readHostReference(world, host));
 }
+
+function placementId({ world, kind, key }: WorldReference) {
+	return JSON.stringify([world, kind, key]);
+}
+
+// Exact arithmetic: deterministic initial seed for worlds that omit a seed.
+const defaultPlacementSeed = 0;
 
 export function placement(
 	world: WorldIdentity,
 	{ assetId, host, params, seed }: Extract<SandboxEdit, { kind: 'place' }>
 ): SandboxPlacement {
-	const id = readPlacementId(world, host);
+	const reference = readHostReference(world, host);
 	return Object.freeze({
-		id,
+		id: placementId(reference),
 		assetId,
+		hostReference: reference,
+		registryRevision: world.registryRevision,
 		host,
 		params,
-		seed: seed ?? Random.create({ seed: world.seed }).derive(hostKey(host)).seed
+		seed:
+			seed ??
+			Random.create({ seed: world.seed ?? defaultPlacementSeed }).derive(
+				JSON.stringify([host.kind, host.kind === 'ground' ? host.point : host.id])
+			).seed
 	});
 }
 

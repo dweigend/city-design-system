@@ -1,12 +1,16 @@
 /** Module: Resolves sandbox addresses against a fixed city and builds registry placements. */
 import type { Placement } from '../../core/asset-registry';
 import { resolveParams } from '../../core/params';
+import { readWorldReference, type ReferenceResolution } from '../../core/world-reference';
 import { createPolygonIndex } from '../../core/polygon-index';
 import type { CityColumn } from '../../domain/city-volume';
+import { planEdges, type PlanEdge } from '../../domain/terrain-grid';
 import {
 	createSandboxDocument,
 	restoreSandboxDocument,
-	type SandboxPlacement
+	readHostReference,
+	type SandboxPlacement,
+	UnavailableHostError
 } from '../../domain/sandbox-document';
 import {
 	buildAsset,
@@ -23,20 +27,30 @@ import { createTownParcelSites } from '../house-site';
 import { readSandboxIdentity } from './identity';
 
 export { createPlacementCache } from './cache';
+export { UnavailableHostError };
 
-/** An address is absent or cannot host a placement in this fixed city. */
-export class UnavailableHostError extends Error {
-	override name = 'UnavailableHostError';
+type TopologyHostKind = Exclude<HostAddress['kind'], 'ground'>;
+
+type CityReferenceValue =
+	| ReturnType<typeof readCityParcels>['parcels' | 'portals' | 'lanes' | 'blocks'][number]
+	| CityGrid['selectedCrossings'][number]
+	| PlanEdge
+	| CityGrid['plan']['cells' | 'vertices'][number]
+	| ReturnType<typeof readCityMovement>['network']['nodes' | 'edges'][number];
+
+function byId<T extends { id: string }>(items: readonly T[]) {
+	return new Map(items.map((item) => [item.id, item]));
 }
 
 /** Indexes the supplied city's private parcels and ground movement edges.
  * Derives the save identity from the layout and terrain. Supply a stable revision for a custom
- * terrain sampler, whose inputs cannot be derived from a valley. */
+ * terrain sampler. Give snapshots of the same custom terrain a common ID to allow replay across revisions. */
 export function createSandboxWorld(
 	site: CitySite,
 	layout: CityGrid,
 	columns: ReadonlyMap<string, CityColumn>,
-	customTerrainRevision?: string
+	customTerrainRevision?: string,
+	customTerrainId?: string
 ) {
 	const holdings = readCityParcels(site, layout);
 	const polygons = createPolygonIndex(holdings.parcels, holdings.linearToleranceM);
@@ -56,33 +70,72 @@ export function createSandboxWorld(
 		holdings,
 		columns,
 		movement.network.edges,
-		customTerrainRevision
+		customTerrainRevision,
+		customTerrainId
 	);
 	const createDocument = () => createSandboxDocument(identity, prepare);
 
+	const hosts = new Map<TopologyHostKind, (id: string) => CityAssetHost | undefined>([
+		[
+			'parcel',
+			(id) => {
+				const site = readParcelSite(id);
+				return site && { kind: 'parcel', parcel: site.parcel, site };
+			}
+		],
+		[
+			'graph-edge',
+			(id) => {
+				const edge = edges.get(id);
+				return edge && { kind: 'graph-edge', id, points: edge.points, supports: edge.supports };
+			}
+		]
+	]);
+
 	function resolveHost(host: HostAddress): CityAssetHost {
-		if (host.kind === 'parcel') {
-			const site = readParcelSite(host.id);
-			if (site) return { kind: 'parcel', parcel: site.parcel, site };
-		}
-		if (host.kind === 'graph-edge') {
-			const edge = edges.get(host.id);
-			if (edge)
-				return { kind: host.kind, id: edge.id, points: edge.points, supports: edge.supports };
-		}
+		const value = host.kind === 'ground' ? undefined : hosts.get(host.kind)?.(host.id);
+		if (value) return value;
 		throw new UnavailableHostError('Unavailable city host: ' + JSON.stringify(host));
 	}
 
 	function prepare(assetId: string, host: HostAddress, params: Placement['params']) {
-		const resolved = resolveHost(host);
 		const definition = readAsset(assetId);
+		const parameters = resolveParams(definition.params, params);
+		const resolved = resolveHost(host);
 		try {
 			validateAssetHost(assetId, resolved);
 		} catch (cause) {
 			throw new UnavailableHostError('Asset cannot use this host: ' + assetId, { cause });
 		}
-		return resolveParams(definition.params, params);
+		return parameters;
 	}
+
+	function validatePlacement({ host, hostReference, registryRevision }: SandboxPlacement) {
+		const expected = readHostReference(identity, host);
+		if (
+			hostReference.v !== expected.v ||
+			hostReference.world !== expected.world ||
+			hostReference.kind !== expected.kind ||
+			hostReference.key !== expected.key ||
+			registryRevision !== identity.registryRevision
+		)
+			throw new UnavailableHostError('Placement has an incompatible reference or registry');
+	}
+
+	const addresses = new Map<string, ReadonlyMap<string, CityReferenceValue>>([
+		['parcel', byId(holdings.parcels)],
+		['portal', byId(holdings.portals)],
+		['lane', byId(holdings.lanes)],
+		['crossing', byId(layout.selectedCrossings)],
+		['graph-node', byId(movement.network.nodes)],
+		['graph-edge', edges],
+		['bridge', byId(movement.network.edges.filter(({ kind }) => kind === 'bridge'))],
+		['block', byId(holdings.blocks)],
+		['plan-cell', byId(layout.plan.cells)],
+		['plan-edge', byId(planEdges(layout.plan))],
+		['shore-node', byId(layout.grid.vertices.filter(({ shore }) => shore !== undefined))],
+		['plan-node', byId(layout.plan.vertices)]
+	]);
 
 	return Object.freeze({
 		world: Object.freeze(identity),
@@ -95,7 +148,19 @@ export function createSandboxWorld(
 		resolveHost,
 		/** Offers the registry assets that accept the given host kind. */
 		listAssets: (kind: HostAddress['kind']) =>
-			listAssets().filter(({ hostKinds }) => hostKinds.includes(kind)),
+			kind !== 'ground' && hosts.has(kind)
+				? listAssets().filter(({ hostKinds }) => hostKinds.includes(kind))
+				: [],
+		/** Resolves a portable city address against the current snapshot. */
+		resolveReference(input: unknown): ReferenceResolution<CityReferenceValue> {
+			const reference = readWorldReference(input);
+			if (!reference) return { status: 'invalid-reference' };
+			if (reference.world !== identity.id) return { status: 'different-world' };
+			const index = addresses.get(reference.kind);
+			if (!index) return { status: 'unsupported-kind' };
+			const value = index.get(reference.key);
+			return value ? { status: 'resolved', value } : { status: 'missing' };
+		},
 		/** Creates a placement edit with resolved parameters to preserve its defaults in saves. */
 		place(assetId: string, host: HostAddress, params: Placement['params'] = {}) {
 			return {
@@ -107,17 +172,21 @@ export function createSandboxWorld(
 		},
 		/** Resolves a city house's occupancy before contextual object building. Graph-edge assets
 		 * have no house occupancy. A valid city address may return a named garden result. */
-		resolveHouse({ assetId, host, params, seed }: SandboxPlacement) {
+		resolveHouse(placement: SandboxPlacement) {
+			validatePlacement(placement);
+			const { assetId, host, params, seed } = placement;
 			if (host.kind !== 'parcel' || readAsset(assetId).kind !== 'house') return undefined;
 			const site = readParcelSite(host.id);
 			if (!site) throw new UnavailableHostError('Unavailable house parcel: ' + host.id);
 			return placeParcelHouseAsset(assetId, site, { ...prepare(assetId, host, params), seed });
 		},
 		/** Builds a placed object against the fixed city via the registry. */
-		build({ assetId, host, params, seed }: SandboxPlacement) {
+		build(placement: SandboxPlacement) {
+			validatePlacement(placement);
+			const { assetId, host, params, seed } = placement;
 			return buildAsset(assetId, resolveHost(host), params, seed);
 		},
-		/** Restores and canonicalizes every edit, including transient records and the redo tail. */
+		/** Restores a same-world document against this snapshot, retaining unavailable hosts as orphans. */
 		restore(json: string) {
 			return restoreSandboxDocument(json, identity, prepare);
 		}

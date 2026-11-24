@@ -15,7 +15,7 @@ display level), so switching back costs nothing, and while a new key waits the l
 stays readable. The same submissions build the same products in the same order. `showIntervalMs`
 is the calm interval at which a busy queue's progress is shown.
 
-`selectHouseDetail` is a thin policy: flat by default, relief for an emphasised house and, in a
-view closer than `reliefMaxMetersPerPixel`, within `reliefRadiusM` of the view centre.
+`selectHouseDetail` is a thin policy: every house is a plain volume; the hovered house shows flat
+cladding and the selected house relief. A salience rule can replace it behind the same output.
 `shareBlockBudget` splits one block triangle budget evenly among a block's houses.
 `readPreviewHeight` gives the stand-in body height at about the eaves (`previewEavesRatio`).

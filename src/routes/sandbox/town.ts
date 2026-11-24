@@ -1,5 +1,5 @@
 import { defaults } from '../../config/sandbox-brush';
-import { measurePolygon, type Vec2, type Vec3 } from '../../lib/core/geometry';
+import type { Vec3 } from '../../lib/core/geometry';
 import type { Parcel } from '../../lib/domain/parcels';
 import type { createSandboxDocument, SandboxPlacement } from '../../lib/domain/sandbox-document';
 import { blockTriangleBudget, projectHouse } from '../../lib/scene/house-projection';
@@ -16,7 +16,7 @@ const brushParams = {
 };
 
 /** The cladding level a request is built at, with that level's share of the block budget. */
-export type Detail = Readonly<{ level: 'flat' | 'relief'; budget: number }>;
+export type Detail = Readonly<{ level: 'volume' | 'flat' | 'relief'; budget: number }>;
 
 /** What the cache hands the build queue for one placement: everything a build needs, read at
  * commit time, and a pure build that runs later at any detail. */
@@ -24,7 +24,6 @@ export type HouseRequest = Readonly<{
 	placement: SandboxPlacement;
 	parcel?: Parcel;
 	block?: string;
-	center?: Vec2;
 	tone: `--${string}`;
 	reason?: string;
 	build?: (detail: Detail) => readonly Drawable[];
@@ -49,19 +48,16 @@ export function createTownSandbox() {
 	const parcels = new Map(world.holdings.parcels.map((parcel) => [parcel.id, parcel]));
 	const toneOf = (assetId: string) =>
 		styleTones[assetId.replace('house/court-', '') as keyof typeof styleTones] ?? '--ink-3';
-	const centerOf = (parcel: Parcel) =>
-		projection.toLocal(...(measurePolygon(parcel.outline).centroid ?? parcel.outline[0]));
 	/** Draws each house style on the first parcel every style can build, as a small sketch. */
 	function createSpecimens() {
 		const host = (id: string) => ({ kind: 'parcel', id }) as const;
-		const resolve = (assetId: string, parcel: Parcel) =>
-			world.resolveHouse({
-				id: 'specimen',
-				assetId,
-				host: host(parcel.id),
-				params: world.place(assetId, host(parcel.id), brushParams).params,
-				seed: defaults.sandboxSpecimenSeed
-			});
+		const resolve = (assetId: string, parcel: Parcel) => {
+			const scratch = world.createDocument();
+			const edit = world.place(assetId, host(parcel.id), brushParams);
+			scratch.apply([{ ...edit, seed: defaults.sandboxSpecimenSeed }]);
+			const placement = scratch.readPlacement(host(parcel.id));
+			return placement && world.resolveHouse(placement);
+		};
 		for (const parcel of world.holdings.parcels) {
 			if (parcel.publicUse) continue;
 			let houses;
@@ -107,7 +103,7 @@ export function createTownSandbox() {
 					const tone = toneOf(placement.assetId);
 					const parcel =
 						placement.host.kind === 'parcel' ? parcels.get(placement.host.id) : undefined;
-					const where = parcel && { parcel, center: centerOf(parcel) };
+					const where = parcel && { parcel };
 					if (house?.status === 'unbuildable')
 						return { placement, ...where, tone, reason: house.reason };
 					if (house)
@@ -116,8 +112,13 @@ export function createTownSandbox() {
 							...where,
 							block: house.parcel.blockId,
 							tone,
-							build: (detail) =>
-								projection.projectParcelHouse(house, adjoining, placement.id, detail)
+							build: ({ level, budget }) =>
+								level === 'volume'
+									? projection.projectParcelVolume(house, adjoining, placement.id, tone)
+									: projection.projectParcelHouse(house, adjoining, placement.id, {
+											level,
+											budget
+										})
 						};
 					const object = world.build(placement);
 					return {
@@ -129,7 +130,7 @@ export function createTownSandbox() {
 				},
 				world.resolveHouse
 			),
-		/** The flat detail every house starts with. */
-		flat: { level: 'flat', budget: blockTriangleBudget } as Detail
+		/** The plain volume every house starts with. */
+		volume: { level: 'volume', budget: blockTriangleBudget } as Detail
 	};
 }

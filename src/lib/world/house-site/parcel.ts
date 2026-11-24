@@ -19,7 +19,7 @@ import {
 	type HouseStyle,
 	type HouseScale
 } from '../../domain/house-court';
-import type { Parcel, ParcelBlock, ParcelPortal, PlanPolygon } from '../../domain/parcels';
+import type { AddressedParcel, ParcelBlock, ParcelPortal, PlanPolygon } from '../../domain/parcels';
 import { readBaseLevel } from './base';
 import { parcelGroundRange } from './parcel-ground';
 
@@ -29,7 +29,7 @@ const { contactToleranceM, cornerSineRatio } = defaults;
  * `groundAt` reads the ground elevation in meters at a plan point; without it the lane is taken
  * at the house's base and the entrance needs no steps. */
 export type ParcelHouseSite = Readonly<{
-	parcel: Parcel;
+	parcel: AddressedParcel;
 	portal: ParcelPortal;
 	block: ParcelBlock;
 	columns: ReadonlyMap<string, CityColumn>;
@@ -80,12 +80,16 @@ function isCorner(ring: readonly Vec2[], frontage: number, block: ParcelBlock): 
 	});
 }
 
-function supportedCorners(outline: readonly Vec2[]) {
+function frontageCorners(parcel: AddressedParcel, [from, to]: ParcelPortal['side']) {
+	const start = parcel.corners.findIndex(({ id }) => id === from);
+	if (start < 0 || parcel.corners[(start + 1) % parcel.corners.length].id !== to)
+		throw new RangeError('The portal does not address a parcel side ' + parcel.portalId);
+	const ordered = [...parcel.corners.slice(start), ...parcel.corners.slice(0, start)];
 	const corners: ParcelCorner[] = [];
-	for (const [i, position] of outline.entries()) {
+	for (const corner of ordered) {
 		const previous = corners.at(-1);
-		if (!previous || distance(previous.position, position) >= minimumParcelEdgeM)
-			corners.push({ id: 'corner/' + i, position });
+		if (!previous || distance(previous.position, corner.position) >= minimumParcelEdgeM)
+			corners.push(corner);
 	}
 	while (
 		corners.length > 1 &&
@@ -93,21 +97,6 @@ function supportedCorners(outline: readonly Vec2[]) {
 	)
 		corners.pop();
 	return corners;
-}
-
-function frontageIndex(ring: readonly Vec2[], points: readonly Vec2[], tolerance: number) {
-	return ring.findIndex(([x, y], i) => {
-		const [u, v] = ring[(i + 1) % ring.length];
-		const length = Math.hypot(u - x, v - y);
-		if (length <= tolerance) return false;
-		const dx = (u - x) / length;
-		const dy = (v - y) / length;
-		return points.every(([a, b]) => {
-			const along = (a - x) * dx + (b - y) * dy;
-			const across = (b - y) * dx - (a - x) * dy;
-			return Math.abs(across) <= tolerance && along >= -tolerance && along <= length + tolerance;
-		});
-	});
 }
 
 /** The first storey plane above the datum at or above the given height. */
@@ -124,7 +113,7 @@ function storeyPlane(datumZ: number, storeyHeightM: number, z: number): number {
  * A parcel that cannot take a house returns `unbuildable` with its reason, leaving the ground
  * available as garden. Throws for a public holding, mismatched frontage or missing members. */
 export function createParcelHouse(
-	{ parcel, portal, block, columns, datumZ, linearToleranceM, groundAt, scale }: ParcelHouseSite,
+	{ parcel, portal, block, columns, datumZ, groundAt, scale }: ParcelHouseSite,
 	inputs: HouseInputs,
 	style: HouseStyle = houseStyles.neutral
 ) {
@@ -147,14 +136,10 @@ export function createParcelHouse(
 			portal
 		} as const);
 
-	const corners = supportedCorners(parcel.outline);
+	const corners = frontageCorners(parcel, portal.side);
 	const ring = corners.map(({ position }) => position);
-	const tolerance =
-		corners.length === parcel.outline.length
-			? linearToleranceM
-			: Math.max(linearToleranceM, minimumParcelEdgeM);
-	const edge = frontageIndex(ring, portal.points, tolerance);
-	if (edge < 0) throw new RangeError('The portal does not lie on a parcel edge ' + portal.id);
+	// Exact arithmetic: the ring starts with the directed frontage.
+	const edge = 0;
 	const edgeId = (i: number) => parcelEdgeId(corners[i].id, corners[(i + 1) % corners.length].id);
 	const storeyHeightM = levelHeight / storeysPerLevel;
 	const roofZ = datumZ + roofLevel * levelHeight;

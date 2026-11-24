@@ -90,11 +90,10 @@ export function createPlaneLattice(
 					used.set(id, Object.freeze({ id, position, ...(groundContact && { groundContact }) }));
 				}
 				const [from, to] = a.id < b.id ? [a, b] : [b, a];
-				const key = `${from.id}\n${to.id}`;
-				if (edges.has(key)) continue;
 				const id = JSON.stringify([from.id, to.id]);
+				if (edges.has(id)) continue;
 				const rank = a.level === b.level ? 'chord' : 'strut';
-				edges.set(key, Object.freeze({ id, from: from.id, to: to.id, rank }));
+				edges.set(id, Object.freeze({ id, from: from.id, to: to.id, rank }));
 			}
 		}
 	};

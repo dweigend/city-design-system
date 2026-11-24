@@ -5,7 +5,9 @@ import { laneAddress } from './reserve';
 import type { LaneInput, ParcelLane, ParcelPlanInput } from './types';
 
 export type {
+	AddressedParcel,
 	CourtEntrance,
+	HoldingCorner,
 	HoldingRule,
 	LaneInput,
 	MergeProposal,

@@ -1,5 +1,4 @@
 import { describe, expect, test } from 'bun:test';
-import { defaults } from '../../../config/sandbox-interaction';
 import { example } from './example';
 import {
 	createBuildQueue,
@@ -95,14 +94,10 @@ describe('sandbox interaction', () => {
 		expect(run()).toEqual(run());
 	});
 
-	test('detail is flat by default and relief when emphasised or near in a close view', () => {
-		const near = { id: 'a', block: 'b', distanceM: defaults.reliefRadiusM, emphasised: false };
-		const close = { metersPerPixel: defaults.reliefMaxMetersPerPixel };
-		const far = { metersPerPixel: defaults.reliefMaxMetersPerPixel * 2 };
-		expect(selectHouseDetail(near, close)).toBe('relief');
-		expect(selectHouseDetail(near, far)).toBe('flat');
-		expect(selectHouseDetail({ ...near, distanceM: near.distanceM + 1 }, close)).toBe('flat');
-		expect(selectHouseDetail({ ...near, distanceM: 1e6, emphasised: true }, far)).toBe('relief');
+	test('detail is a plain volume by default, flat on hover and relief on selection', () => {
+		expect(selectHouseDetail({ selected: false, hovered: false })).toBe('volume');
+		expect(selectHouseDetail({ selected: false, hovered: true })).toBe('flat');
+		expect(selectHouseDetail({ selected: true, hovered: true })).toBe('relief');
 		const shares = shareBlockBudget(
 			[
 				{ id: 'a', block: 'n' },

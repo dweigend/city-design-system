@@ -12,8 +12,8 @@ import {
 
 const world = {
 	seed: 1201,
-	planFamily: 'square',
-	citySize: 1800,
+	id: 'square-plan',
+	registryRevision: 'registry-test',
 	terrainRevision: 'terrain-test',
 	topologyRevision: 'topology-test'
 };
@@ -38,7 +38,7 @@ describe('sandbox document', () => {
 		expect(() => document.apply([{ kind: 'remove', id: 'missing' }])).toThrow(
 			MissingPlacementError
 		);
-		const other = { ...world, planFamily: 'triangular' };
+		const other = { ...world, id: 'triangle-plan' };
 		expect(readPlacementId(world, north)).not.toBe(readPlacementId(other, north));
 	});
 
@@ -114,7 +114,7 @@ describe('sandbox document', () => {
 		expect(() => document.redo(fail)).toThrow('Build failed');
 		expect(document.readHistory()).toEqual({ placements: 0, strokes: 1, position: 0 });
 		expect(() =>
-			restoreSandboxDocument(document.serialize(), { ...world, citySize: 2000 })
+			restoreSandboxDocument(document.serialize(), { ...world, id: 'different-plan' })
 		).toThrow(SandboxDataError);
 		expect(() =>
 			restoreSandboxDocument(document.serialize().replace('"position":0', '"position":2'))
@@ -123,4 +123,42 @@ describe('sandbox document', () => {
 			restoreSandboxDocument(document.serialize().replace('"kind":"parcel"', '"kind":"unknown"'))
 		).toThrow(SandboxDataError);
 	});
+});
+
+test('ground slots round XYZ independently to the configured millimetre grid', () => {
+	const ground = (x: number, y: number, z: number): HostAddress => ({
+		kind: 'ground',
+		point: [x, y, z]
+	});
+	const document = createSandboxDocument(world);
+	const first = ground(-0.0005, 0.00049, 0.001);
+	const second = ground(0, 0, 0.001);
+	document.apply([place(first)]);
+	expect(document.readPlacement(second)?.host).toEqual(second);
+	expect(document.readPlacement(first)?.hostReference.key).toBe('[0,0,1]');
+	expect(() => document.apply([place(second)])).toThrow(OccupiedHostError);
+	document.apply([place(ground(0, 0.00051, 0.001))]);
+	expect(document.readPlacements()).toHaveLength(2);
+	expect(restoreSandboxDocument(document.serialize()).serialize()).toBe(document.serialize());
+	const incompatible = { ...world, registryRevision: 'new-builders' };
+	expect(() => restoreSandboxDocument(document.serialize(), incompatible)).toThrow(
+		'different asset registry revision'
+	);
+});
+
+test('opaque identity needs no city size, family or seed', () => {
+	const identity = {
+		id: world.id,
+		terrainRevision: world.terrainRevision,
+		topologyRevision: world.topologyRevision,
+		registryRevision: world.registryRevision
+	};
+	const document = createSandboxDocument(identity);
+	document.apply([place(parcel('a|b\nc'))]);
+	const rebuilt = restoreSandboxDocument(document.serialize(), {
+		...identity,
+		terrainRevision: 'later'
+	});
+	expect(rebuilt.readPlacements()).toEqual(document.readPlacements());
+	expect(rebuilt.world.terrainRevision).toBe('later');
 });

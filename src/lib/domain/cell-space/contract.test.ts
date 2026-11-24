@@ -184,6 +184,13 @@ describe('createCellSpace', () => {
 		).toBeGreaterThan(0);
 	});
 
+	test('delimiter-bearing corner keys keep opposite edge midpoints distinct', () => {
+		const ids = ['a', 'b|c', 'a|b', 'c'];
+		const corners = fixtures.rectangle.corners.map((corner, i) => ({ ...corner, id: ids[i] }));
+		const frontage = [parcelEdgeId(ids[0], ids[1])];
+		expect(checkTiling({ ...fixtures.rectangle, corners, frontage }).cells).toHaveLength(16);
+	});
+
 	test('R11-03: refinement rounds must be a bounded non-negative integer', () => {
 		for (const rounds of [0.1, NaN, Infinity, -1, 4])
 			expect(() => createCellSpace(fixtures.rectangle, rounds)).toThrow(RangeError);

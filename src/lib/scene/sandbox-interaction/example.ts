@@ -14,9 +14,6 @@ export function example() {
 	for (const id of ['a', 'b', 'c'])
 		queue.submit({ id, key: id + '/flat', run: () => ((clock += 1), id.toUpperCase()) });
 	const frames = [queue.advance(), queue.advance()];
-	const detail = selectHouseDetail(
-		{ id: 'a', block: 'north', distanceM: 0, emphasised: true },
-		{ metersPerPixel: 1 }
-	);
+	const detail = selectHouseDetail({ selected: true, hovered: false });
 	return { effects, frames, detail };
 }

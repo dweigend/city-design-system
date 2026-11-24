@@ -3,6 +3,7 @@ import {
 	createSandboxDocument,
 	readPlacementId,
 	SandboxDataError,
+	UnsupportedSandboxVersionError,
 	type SandboxEdit,
 	type PlacementChange
 } from '../../domain/sandbox-document';
@@ -21,8 +22,8 @@ import { example } from './example';
 
 const testWorld = {
 	seed: 1,
-	planFamily: 'fixed',
-	citySize: 600,
+	id: 'test-plan',
+	registryRevision: 'registry-test',
 	terrainRevision: 'terrain-test',
 	topologyRevision: 'topology-test'
 };
@@ -177,23 +178,30 @@ test('derives snapshot identity from the resolved city size, terrain and topolog
 		world,
 		town: { site, layout, columns }
 	} = example();
-	expect(world.world.citySize).toBe(layout.citySize);
 	const other = createSandboxWorld(site, readCityGrid(site, 600), columns);
-	expect(other.world.citySize).toBe(600);
+	expect(other.world.id).toBe(world.world.id);
+	expect(other.world.topologyRevision).not.toBe(world.world.topologyRevision);
 	const saved = world.createDocument().serialize();
-	expect(() => other.restore(saved)).toThrow(SandboxDataError);
+	expect(other.restore(saved).world).toEqual(other.world);
+	const triangle = createSandboxWorld(site, readCityGrid(site, 600, 'triangle'), columns);
+	expect(() => triangle.restore(saved)).toThrow(SandboxDataError);
 
 	const smaller = new Map(columns);
 	const [id, column] = Array.from(smaller)[0];
 	smaller.set(id, { ...column, levels: column.levels + 1 });
 	const changed = createSandboxWorld(site, layout, smaller);
 	expect(changed.world.topologyRevision).not.toBe(world.world.topologyRevision);
-	expect(() => changed.restore(saved)).toThrow(SandboxDataError);
+	expect(changed.restore(saved).world).toEqual(changed.world);
 	const slope = createTownHouseStudy({ relief: 0.5 });
 	const differentGround = createSandboxWorld(slope.site, slope.layout, slope.columns);
 	expect(differentGround.world.terrainRevision).not.toBe(world.world.terrainRevision);
-	expect(() => differentGround.restore(saved)).toThrow(SandboxDataError);
-	expect(() => world.restore(saved.replace('sandbox/2', 'sandbox/1'))).toThrow(
+	expect(differentGround.restore(saved).world).toEqual(differentGround.world);
+	expect(world.listAssets('ground')).toEqual([]);
+	expect(world.listAssets('parcel').length).toBeGreaterThan(0);
+	expect(() => world.restore(saved.replace('sandbox/3', 'sandbox/2'))).toThrow(
+		UnsupportedSandboxVersionError
+	);
+	expect(() => world.restore(saved.replace('sandbox/3', 'sandbox/1'))).toThrow(
 		'lacks terrain and topology revisions'
 	);
 }, 20000);
@@ -212,7 +220,14 @@ test('rejects transient invalid placements and replacements in the redo tail', (
 		const log = createSandboxDocument(world.world);
 		log.apply([bad, { kind: 'remove', id: readPlacementId(world.world, bad.host) }, good]);
 		log.undo();
-		expect(() => world.restore(log.serialize())).toThrow();
+		if (bad.assetId === 'house/unknown') {
+			expect(() => world.restore(log.serialize())).toThrow('Unknown asset');
+		} else {
+			const restored = world.restore(log.serialize());
+			restored.redo();
+			expect(restored.readOrphans()).toEqual([]);
+			expect(restored.readPlacement(good.host)).toBeDefined();
+		}
 	}
 	const log = createSandboxDocument(world.world);
 	log.apply([good]);

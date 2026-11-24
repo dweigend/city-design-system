@@ -18,7 +18,7 @@
 		showIntervalMs,
 		type StrokeEffect
 	} from '../../lib/scene/sandbox-interaction';
-	import { projectFocus, type View, type Viewport } from '../../lib/scene/stage';
+	import { projectFocus, type View } from '../../lib/scene/stage';
 	import { StageView, type GroundPointer } from '../../lib/scene/stage-view';
 	import type { Drawable } from '../../lib/scene/surface';
 	import { FilePicker } from '../../lib/ui/file-picker';
@@ -80,7 +80,6 @@
 	let serial = 0;
 	let requests = new Map<string, HouseRequest>();
 	const bodies = new WeakMap<HouseRequest, Drawable>();
-	let viewport: Viewport | undefined;
 
 	let history = $state({ placements: 0, strokes: 0, position: 0 });
 	let placed = $state.raw<readonly Drawable[]>([]);
@@ -155,25 +154,14 @@
 			),
 			blockTriangleBudget
 		);
-		// Relief costs a few hundred milliseconds per house, so hover alone never asks for it.
-		const focus = [selectedId];
-		const [cx, cy] = viewport?.center ?? [0, 0];
-		const detailOf = ({ placement, block, center }: HouseRequest): [string, Detail] => {
-			const level = selectHouseDetail(
-				{
-					id: placement.id,
-					block: block ?? '',
-					distanceM: center ? Math.hypot(center[0] - cx, center[1] - cy) : Infinity,
-					emphasised: focus.includes(placement.id)
-				},
-				{ metersPerPixel: viewport?.metersPerPixel ?? Infinity }
-			);
-			return [
-				placement.id,
-				level === 'relief'
-					? { level, budget: shares.get(placement.id) ?? blockTriangleBudget }
-					: (town?.flat ?? { level, budget: blockTriangleBudget })
-			];
+		const pointed = tool === 'select' ? hoveredRequest?.placement.id : undefined;
+		const detailOf = ({ placement }: HouseRequest): [string, Detail] => {
+			const level = selectHouseDetail({
+				selected: placement.id === selectedId,
+				hovered: placement.id === pointed
+			});
+			const budget = level === 'relief' ? shares.get(placement.id) : undefined;
+			return [placement.id, { level, budget: budget ?? blockTriangleBudget }];
 		};
 		return new Map([...requests.values()].map(detailOf));
 	}
@@ -402,8 +390,10 @@
 
 	function selectPointer({ event, ground }: GroundPointer) {
 		const position = ground && town?.projection.toWorld(ground[0], ground[1]);
+		const before = hoveredRequest?.placement.id;
 		hovered = position && town?.world.polygons.readPoint(position);
 		if (panning || tool !== 'select') return;
+		if (hoveredRequest?.placement.id !== before) submit();
 		if (event.type === 'pointerdown') press = { x: event.clientX, y: event.clientY };
 		if (event.type !== 'pointerup' || !press) return;
 		const travel = Math.hypot(event.clientX - press.x, event.clientY - press.y);
@@ -480,13 +470,6 @@
 
 	function removeSelected() {
 		if (selected) apply([{ kind: 'remove', id: selected.id }], 'House removed.');
-	}
-
-	function changeViewport(next: Viewport) {
-		const before = viewport;
-		viewport = next;
-		if (!before || before.metersPerPixel !== next.metersPerPixel || before.center !== next.center)
-			submit();
 	}
 
 	function shortcut(event: KeyboardEvent) {
@@ -584,7 +567,6 @@
 				interactive
 				panOnDrag={(tool === 'select' || panning) && !loading}
 				onGroundPointer={groundPointer}
-				onViewport={changeViewport}
 				{frameWork}
 			/>
 			<div class="sandbox-hud">

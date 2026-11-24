@@ -5,6 +5,7 @@ const layers = {
 	domain: ['domain', 'core']
 };
 const configOwners = {
+	'lib/domain/sandbox-document': 'sandbox-document',
 	'lib/core/geometry': 'geometry',
 	'lib/core/params': 'inputs',
 	'lib/core/object': 'object',

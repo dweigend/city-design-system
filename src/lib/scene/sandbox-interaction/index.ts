@@ -10,6 +10,5 @@ export {
 	selectHouseDetail,
 	shareBlockBudget,
 	type DetailSubject,
-	type DetailView,
 	type HouseDetail
 } from './detail';

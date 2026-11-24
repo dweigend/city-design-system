@@ -41,11 +41,10 @@ for (const variant of [
 				if (neighbor && cellComponents.has(neighbor))
 					expect(cellComponents.get(neighbor)).toBe(cellComponents.get(id));
 
-		expect(new Set(reservedEdges.map(({ id }) => id.split('/').slice(0, -2).join('/'))).size).toBe(
-			plan.lanes.length
-		);
+		const sourceLane = (id: string) => (JSON.parse(id.slice('lane/'.length)) as string[])[0];
+		expect(new Set(reservedEdges.map(({ id }) => sourceLane(id))).size).toBe(plan.lanes.length);
 		for (const edge of reservedEdges) {
-			const id = edge.id.split('/').slice(1, -2).join('/');
+			const id = sourceLane(edge.id);
 			const lane = laneById.get(id);
 			if (!lane) throw new Error('Missing parcel lane ' + id);
 			expect(edge.lane).toEqual({
@@ -167,7 +166,9 @@ test('the valley guideway keeps its bearings on dry ground at relief 0.5', () =>
 test('organic seed 1201 stairs clear the column at the primary crossing', () => {
 	const { network, columns, layout, site, heads, elevatedNodeIds } = cityMovementExample('organic');
 	const [from, to] = heads.map((id) => elevatedNodeIds.get(id) ?? 'ground/' + id);
-	expect(network.readRoute(from, to)?.edges.map(({ id }) => id)).toContain('upper/bridge/0');
+	expect(network.readRoute(from, to)?.edges.map(({ id }) => id)).toContain(
+		'upper/bridge/' + layout.selectedCrossings[0].id
+	);
 	const point = [276.94, 21.97, 0.96] as const;
 	const reproduced = network.edges.find(({ id }) => id === 'stair/base/-1,2');
 	expect(network.edges.some(({ id }) => id.startsWith('stair/'))).toBe(true);

@@ -17,6 +17,9 @@ export {
 export type { CityAssetHost } from './hosts';
 export { placeParcelHouseAsset } from './houses';
 
+/** Replay revision for the installed asset IDs, parameter schemas and builders. */
+export const cityAssetRegistryRevision = 'city-assets/1';
+
 const registry = createAssetRegistry([
 	...courtHouses,
 	...accessAssets,

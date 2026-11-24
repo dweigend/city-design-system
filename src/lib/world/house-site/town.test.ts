@@ -4,7 +4,7 @@ import { required } from '../../core/invariant';
 import type { Part } from '../../core/object';
 import { fineCellWidth, minimumParcelEdgeM, minimumStripWidthM } from '../../domain/cell-space';
 import { houseStyles, type HouseStyle, type HouseStyleName } from '../../domain/house-court';
-import type { Parcel, ParcelBlock } from '../../domain/parcels';
+import type { AddressedParcel, ParcelBlock } from '../../domain/parcels';
 import { createParcelHouse, createParcelHouseObject, createTownHouseStudy } from './index';
 
 const tolerance = 1e-6;
@@ -57,7 +57,7 @@ const { blocks, parcelsByBlock, portals, columns, layout, holdings, groundAt } =
 
 /** The study blocks, then further perimeter blocks until at least 60 parcels, with the smallest
  * private parcel and a triangle (a wedge) among them. */
-function sample(): { block: ParcelBlock; parcel: Parcel }[] {
+function sample(): { block: ParcelBlock; parcel: AddressedParcel }[] {
 	const order = [blocks.block, blocks.neighbour, blocks.merged];
 	const all = holdings.parcels.filter(({ publicUse }) => !publicUse);
 	const smallest = all.reduce((a, b) => (b.areaM2 < a.areaM2 ? b : a));
@@ -84,7 +84,7 @@ function sample(): { block: ParcelBlock; parcel: Parcel }[] {
 
 const parcels = sample();
 
-function place(block: ParcelBlock, parcel: Parcel, style: HouseStyle, ground = groundAt) {
+function place(block: ParcelBlock, parcel: AddressedParcel, style: HouseStyle, ground = groundAt) {
 	const placed = createParcelHouse(
 		{
 			parcel,

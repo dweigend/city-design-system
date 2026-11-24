@@ -435,3 +435,57 @@ test('keeps an exactly reconstructed fractional-datum contact on its plane', () 
 	expect(lattice.cells.map(({ level }) => level)).toEqual([3]);
 	expect(closedSolids(lattice)).toBe(true);
 });
+
+test('delimiter-bearing corner IDs retain every plane lattice member', () => {
+	const ids = ['a', 'b/level/0\nvertex/z', 'a/level/0\nvertex/b', 'z'];
+	const [column] = squares([[6]]);
+	const corners = column.corners.map((corner, i) => ({ ...corner, id: ids[i] }));
+	for (const variant of spatial) {
+		const lattice = createCityLattice([{ ...column, corners }], 0, 'square', variant);
+		const expected = new Set(
+			lattice.solids.flatMap(({ faces }) =>
+				faces.flatMap((face) =>
+					face.map((from, i) => JSON.stringify([from, face[(i + 1) % face.length]].sort()))
+				)
+			)
+		);
+		expect(new Set(lattice.edges.map(({ id }) => id))).toEqual(expected);
+	}
+});
+
+test('cell-array order cannot change the settlement class at the town threshold', () => {
+	const rings = Array.from({ length: 250 }, (_, i) => {
+		const y = i * 90;
+		const width = 50 + (i < 180 ? -1e-14 : 1e-14);
+		return (
+			[
+				[0, y, 0],
+				[width, y, 0],
+				[width, y + 80, 0],
+				[0, y + 80, 0]
+			] as const
+		).map((position, j) => ({ id: i + '/' + j, position }));
+	});
+	const plan: TerrainGrid = {
+		cells: rings.map((ring, i) => ({
+			id: String(i),
+			vertexIds: ring.map(({ id }) => id),
+			neighbors: [null, null, null, null]
+		})),
+		vertices: rings.flat(),
+		boundary: []
+	};
+	const growth = { rankedCellIds: plan.cells.map(({ id }) => id), futureFringe: [] };
+	const first = createCityDistricts(plan, core, 1201, undefined, growth);
+	const reverse = createCityDistricts(
+		{ ...plan, cells: [...plan.cells].reverse() },
+		core,
+		1201,
+		undefined,
+		growth
+	);
+	expect(first.settlement).toBe('village');
+	expect(reverse.areaKm2).toBe(first.areaKm2);
+	expect(reverse.settlement).toBe(first.settlement);
+	expect(reverse.shares).toEqual(first.shares);
+});
