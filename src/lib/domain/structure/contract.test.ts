@@ -1,5 +1,14 @@
 import { describe, expect, test } from 'bun:test';
-import { createMemberGraph, gravityBalanceTolerance, portalExample, runGravity } from './index';
+import { defaults } from '../../../config/structure';
+import {
+	createMemberGraph,
+	gravityBalanceTolerance,
+	memberSections,
+	portalExample,
+	runGravity,
+	type StructuralJoint,
+	type StructuralMember
+} from './index';
 
 describe('member graph', () => {
 	const { graph, loads } = portalExample();
@@ -24,6 +33,43 @@ describe('member graph', () => {
 		expect(() => createMemberGraph({ joints, members: [member] })).toThrow(
 			'Zero-length member "beam/1"'
 		);
+	});
+
+	test('rejects malformed positions and section keys with named errors', () => {
+		const joint = graph.joints[0];
+		const member = graph.members[0];
+		for (const value of [undefined, null, { 0: 0, 1: 0, 2: 0, length: 3 }, Array<number>(3)]) {
+			const position = value as unknown as StructuralJoint['position'];
+			expect(() =>
+				createMemberGraph({
+					...graph,
+					joints: [{ ...joint, position }, ...graph.joints.slice(1)]
+				})
+			).toThrow(new RangeError('Invalid position at joint "foot/0"'));
+		}
+		const section = ['light'] as unknown as StructuralMember['section'];
+		expect(() =>
+			createMemberGraph({
+				...graph,
+				members: [{ ...member, section }]
+			})
+		).toThrow(new RangeError('Unknown section at member "beam/1"'));
+	});
+
+	test('keeps validated input detached when the caller edits its records', () => {
+		const position: [number, number, number] = [0, 0, 0];
+		const joint = { ...graph.joints[0], position };
+		const member = { ...graph.members[0] };
+		const copy = createMemberGraph({
+			...graph,
+			joints: [joint, ...graph.joints.slice(1)],
+			members: [member]
+		});
+		position[0] = 18;
+		member.section = 'light';
+		expect(copy.joints[0].position).toEqual([0, 0, 0]);
+		expect(Object.isFrozen(copy.joints[0].position)).toBe(true);
+		expect(copy.members[0].section).toBe('heavy');
 	});
 
 	test('balances the standalone portal and reroutes a removed column across its beam', () => {
@@ -64,12 +110,16 @@ describe('member graph', () => {
 			]
 		});
 		const result = runGravity(frame, [{ joint: 'middle', forceKN: 800 }]);
-		expect(result.reactions).toEqual([
-			{ joint: 'left', forceKN: 700 },
-			{ joint: 'right', forceKN: 100 }
-		]);
-		expect(result.members[0].axialKN).toBe(125);
-		expect(result.members[0].utilization).toBe(125 / 480);
+		const { heavy, light } = memberSections;
+		const right = (800 * light.areaM2) / (heavy.areaM2 + light.areaM2);
+		expect(result.reactions.map(({ joint }) => joint)).toEqual(['left', 'right']);
+		expect(result.reactions[0].forceKN).toBeCloseTo(800 - right);
+		expect(result.reactions[1].forceKN).toBeCloseTo(right);
+		const axial = (right * 5) / 4;
+		expect(result.members[0].axialKN).toBeCloseTo(axial);
+		expect(result.members[0].utilization).toBeCloseTo(
+			axial / (light.areaM2 * defaults.nominalStressKPa)
+		);
 	});
 
 	test('reports a detached assembly without charging its members', () => {

@@ -6,8 +6,10 @@ A tree foot sitting on a foundation cap still transfers load through the foundat
 
 A face used by one solid defines the exposed shell. Primary members are shell columns and
 braces, roof rims, and shell chords on every third common level. Edges between two ground
-contacts stay light. Assigning sections leaves the rest of the lattice in place. The rule
-uses solid topology and elevations, without separate rules for grid or carrier families.
+contacts stay light. A brace that joins opposite corners of a bay side also belongs to the
+primary frame when only one bay uses that side. Shared-wall diagonals stay light unless
+they already lie on an exposed solid perimeter. The rule uses the lattice addresses and
+elevations for every grid and carrier.
 Matching faces must have identical joint loops up to reordering for the shell test.
 
 The gravity case approximates occupancy by nominal weight per cubic meter of each solid.

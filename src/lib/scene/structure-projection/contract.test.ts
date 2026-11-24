@@ -1,5 +1,5 @@
 import { expect, test } from 'bun:test';
-import { createMemberGraph, portalExample } from '../../domain/structure';
+import { createMemberGraph, portalExample, runGravity } from '../../domain/structure';
 import { projectStructure, structureProjectionExample } from './index';
 
 test('draws the portal in role batches with distinct reaction, load and bearing slots', () => {
@@ -26,4 +26,24 @@ test('primary view removes light members and the empty graph returns no drawable
 		projectStructure(mixed, { view: 'primary' }).some(({ id }) => id.includes('/light/'))
 	).toBe(false);
 	expect(projectStructure(createMemberGraph({ joints: [], members: [] }))).toEqual([]);
+});
+
+test('separates utilization at 100% from three progressively higher overload bands', () => {
+	const { graph, loads } = portalExample();
+	const result = runGravity(graph, loads);
+	const colorAt = (utilization: number) => {
+		const analysis = {
+			...result,
+			members: result.members.map((member) => ({ ...member, utilization }))
+		};
+		const parts = projectStructure(graph, { view: 'utilization', analysis });
+		const part = parts.find(({ id }) => id.startsWith('structure/column/heavy/'));
+		expect(part).toBeDefined();
+		expect(part?.stroke?.color).toBe(part?.color);
+		return part?.color;
+	};
+	expect(new Set([1, 1.01, 1.5, 2].map(colorAt)).size).toBe(4);
+	expect(colorAt(1.49)).toBe(colorAt(1.01));
+	expect(colorAt(1.99)).toBe(colorAt(1.5));
+	expect(colorAt(10)).toBe(colorAt(2));
 });

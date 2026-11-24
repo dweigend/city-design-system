@@ -21,10 +21,11 @@ export const settings = defineSettings({
 		rationale: 'Shows the frame unloaded, under nominal load, and above the reference demand'
 	},
 	tributaryWeightKNM3: {
-		value: 0.035,
+		value: 0.02,
 		unit: 'kN/m³',
-		meaning: 'Nominal gravity per cubic meter of lattice solid',
-		rationale: 'Represents sparse occupancy of the coarse volume in this study'
+		meaning: 'Superimposed service load per cubic meter of coarse built volume',
+		rationale:
+			'Assumes a 3.5 kN/m² deck and occupancy allowance over 4% of plan area per 7 m coarse level'
 	}
 });
 

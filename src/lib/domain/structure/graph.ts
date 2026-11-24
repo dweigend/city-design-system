@@ -46,14 +46,22 @@ function register(ids: Set<string>, id: string, kind: string) {
 	ids.add(id);
 }
 
+// Exact arithmetic: a world position has three XYZ coordinates.
+const positionSize = 3;
+
+function copyPosition(value: unknown): Vec3 | undefined {
+	if (!Array.isArray(value) || value.length !== positionSize) return undefined;
+	const position = [value[0], value[1], value[2]] as Vec3;
+	return position.every(Number.isFinite) ? Object.freeze(position) : undefined;
+}
+
 function copyJoint(joint: StructuralJoint, ids: Set<string>) {
 	const { id, support } = joint;
-	const position: Vec3 = [joint.position[0], joint.position[1], joint.position[2]];
 	register(ids, id, 'joint');
-	if (joint.position.length !== position.length || !position.every(Number.isFinite))
-		throw new RangeError(`Invalid position at joint "${id}"`);
+	const position = copyPosition(joint.position);
+	if (!position) throw new RangeError(`Invalid position at joint "${id}"`);
 	if (!supports.includes(support)) throw new RangeError(`Unknown support at joint "${id}"`);
-	return Object.freeze({ id, position: Object.freeze(position), support });
+	return Object.freeze({ id, position, support });
 }
 
 function copyMember(
@@ -69,7 +77,7 @@ function copyMember(
 	if (span === 0) throw new RangeError(`Zero-length member "${id}"`);
 	if (!Number.isFinite(span)) throw new RangeError(`Invalid span at member "${id}"`);
 	if (!roles.includes(role)) throw new RangeError(`Unknown role at member "${id}"`);
-	if (!Object.hasOwn(memberSections, section))
+	if (typeof section !== 'string' || !Object.hasOwn(memberSections, section))
 		throw new RangeError(`Unknown section at member "${id}"`);
 	return Object.freeze({
 		id,

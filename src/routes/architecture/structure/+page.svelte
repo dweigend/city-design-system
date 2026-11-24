@@ -19,6 +19,14 @@
 	import { structureLoadParams } from '../../../lib/world/city-structure';
 	import { townStudy } from './study';
 
+	const percent = new Intl.NumberFormat('en', { style: 'percent' });
+	const overloadLabels = [
+		'>100%',
+		...structureProjectionDefaults.utilizationOverloadRatios.map(
+			(ratio) => `${percent.format(ratio)}+`
+		)
+	];
+
 	const scenes = [
 		{ value: 'quarter', label: 'Town quarter' },
 		{ value: 'portal', label: 'Three-bay portal' },
@@ -158,10 +166,14 @@
 			label={`${scenes.find(({ value }) => value === scene)?.label}. ${displays.find(({ value }) => value === mode)?.label}.`}
 		/>
 		{#if mode === 'utilization'}
-			<figure class="scale-legend">
+			<figure class="scale-legend structure-legend">
 				<figcaption class="small">Nominal axial utilization</figcaption>
-				<div class="scale-ramp structure-scale" aria-hidden="true"></div>
-				<div class="scale-ticks small"><span>0%</span><span>50%</span><span>100%+</span></div>
+				<div class="structure-scale small">
+					<div><span class="scale-ramp" aria-hidden="true"></span><span>0–100%</span></div>
+					{#each overloadLabels as label (label)}
+						<div><span class="scale-ramp" aria-hidden="true"></span><span>{label}</span></div>
+					{/each}
+				</div>
 			</figure>
 		{/if}
 	</div>

@@ -15,22 +15,22 @@ export const settings = defineSettings({
 		principle: 'FORM-6'
 	},
 	secondaryAreaM2: {
-		value: 0.003,
+		value: 0.0135,
 		unit: 'm²',
 		meaning: 'Nominal steel area of the light section',
-		rationale: 'Representative thin-walled section for the gravity study'
+		rationale: 'Ideal welded square steel box, 160 mm outside with 25 mm plates'
 	},
 	primaryAreaM2: {
-		value: 0.021,
+		value: 0.057344,
 		unit: 'm²',
 		meaning: 'Nominal steel area of the primary section',
-		rationale: 'Representative heavier hollow section for the gravity study'
+		rationale: 'Ideal welded square steel box, 480 mm outside with 32 mm plates'
 	},
 	nominalStressKPa: {
-		value: 160000,
+		value: 210000,
 		unit: 'kPa',
 		meaning: 'Reference axial stress used to normalize the force estimate',
-		rationale: 'A fixed display reference across section classes and load cases'
+		rationale: 'Nominal axial reference near 60% of an assumed 355 MPa steel yield stress'
 	},
 	balanceToleranceRatio: {
 		value: 1e-9,

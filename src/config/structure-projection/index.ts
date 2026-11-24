@@ -50,6 +50,12 @@ export const settings = defineSettings({
 		meaning: 'Minimum pixel width of coloured force members',
 		principle: 'COLOR-7'
 	},
+	utilizationOverloadRatios: {
+		value: [1.5, 2],
+		unit: 'ratio',
+		meaning: 'Starts of the second and third overload bands',
+		principle: 'COLOR-7'
+	},
 	supportWidthM: {
 		value: 0.92,
 		unit: 'm',

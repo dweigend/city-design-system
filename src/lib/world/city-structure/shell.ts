@@ -5,7 +5,7 @@ import { levelHeight, type CityLattice, type LatticePoint } from '../../domain/c
 // Exact arithmetic: an exterior face has exactly one incident solid.
 const exteriorIncidence = 1;
 
-type Boundary = { roof: boolean; side: boolean };
+type Boundary = { roof: boolean; side: boolean; facadeDiagonal?: true };
 
 /** Stable key in the lattice's undirected edge namespace. */
 function edgeKey(a: string, b: string) {
@@ -38,7 +38,37 @@ function roofFace(points: readonly LatticePoint[]) {
 	);
 }
 
-/** Indexes member edges on exterior solid faces. Ground-only edges belong to the footing. */
+function addFacadeDiagonals(
+	{ cells, faces }: CityLattice,
+	nodes: ReadonlyMap<string, LatticePoint>,
+	edges: Map<string, Boundary>
+) {
+	const incidence = new Map<string, number>();
+	for (const { sideFaces } of cells) {
+		for (const id of sideFaces) incidence.set(id, (incidence.get(id) ?? 0) + 1);
+	}
+	for (const {
+		id,
+		corners: [a, b, c, d]
+	} of faces) {
+		if (incidence.get(id) !== exteriorIncidence) continue;
+		for (const [from, to] of [
+			[a, c],
+			[b, d]
+		]) {
+			const start = nodes.get(from);
+			const end = nodes.get(to);
+			if (!start || !end || from === to || (start.groundContact && end.groundContact)) continue;
+			const key = edgeKey(from, to);
+			const boundary = edges.get(key) ?? { roof: false, side: false };
+			boundary.facadeDiagonal = true;
+			edges.set(key, boundary);
+		}
+	}
+}
+
+/** Indexes exterior solid perimeters and diagonal pairs on exposed canonical bay sides.
+ * Ground-only edges belong to the footing. */
 export function shellEdges(lattice: CityLattice, nodes: ReadonlyMap<string, LatticePoint>) {
 	const edges = new Map<string, Boundary>();
 	for (const loop of exposedFaces(lattice)) {
@@ -54,6 +84,7 @@ export function shellEdges(lattice: CityLattice, nodes: ReadonlyMap<string, Latt
 			edges.set(key, edge);
 		}
 	}
+	addFacadeDiagonals(lattice, nodes, edges);
 	return edges;
 }
 
@@ -65,6 +96,8 @@ export function primarySection(
 	datumZ: number
 ) {
 	if (!boundary) return 'light';
+	if (role === 'brace' && boundary.facadeDiagonal) return 'heavy';
+	if (!boundary.roof && !boundary.side) return 'light';
 	if (role !== 'beam') return 'heavy';
 	const band = (elevation - datumZ) / levelHeight;
 	const level = Math.round(band);

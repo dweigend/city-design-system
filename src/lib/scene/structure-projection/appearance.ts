@@ -1,19 +1,27 @@
 import { defaults } from '../../../config/structure-projection';
 import type { Drawable, Surface } from '../surface';
 
-const utilizationColors = [
+const nominalColors = [
 	'--height-low',
 	'--structure-use-low',
 	'--structure-use-mid',
 	'--structure-use-high',
-	'--height-high'
+	'--structure-use-limit'
 ] as const;
 
-/** The shared warm scale carries 0–100% in five fixed bands, clipping above 100%. */
+const utilizationColors = [
+	...nominalColors,
+	'--structure-use-overload',
+	'--structure-use-overload-high',
+	'--structure-use-overload-severe'
+] as const;
+
+/** Fixed warm steps through 100%, then three violet overload bands. */
 export function utilizationBand(ratio: number | null) {
-	return ratio === null
-		? undefined
-		: Math.round(Math.min(1, ratio) * (utilizationColors.length - 1));
+	if (ratio === null) return undefined;
+	if (ratio <= 1) return Math.round(ratio * (nominalColors.length - 1));
+	const [high, severe] = defaults.utilizationOverloadRatios;
+	return nominalColors.length + Number(ratio >= high) + Number(ratio >= severe);
 }
 
 export function memberAppearance(

@@ -1,5 +1,10 @@
 import { expect, test } from 'bun:test';
-import { cityLatticesByPlan, createCityLattice, latticeVolumes } from '../../domain/city-volume';
+import {
+	cityLatticesByPlan,
+	createCityLattice,
+	latticeVolumes,
+	type CityColumn
+} from '../../domain/city-volume';
 import { gravityBalanceTolerance, runGravity } from '../../domain/structure';
 import { cityStructureSettings, createCityStructure, structureTownExample } from './index';
 
@@ -36,5 +41,83 @@ for (const model of cityLatticesByPlan[variant]) {
 		expect(Math.abs(result.appliedKN - result.reactedKN)).toBeLessThan(
 			result.appliedKN * gravityBalanceTolerance
 		);
+	});
+}
+
+function flatCell(x = 0): CityColumn {
+	const size = 60;
+	return {
+		planCellId: `cell/${x}`,
+		corners: [
+			[x, 0],
+			[x + size, 0],
+			[x + size, size],
+			[x, size]
+		].map(([u, v]) => ({
+			id: `${u}/${v}`,
+			position: [u, v, 0]
+		})),
+		neighbors: [null, null, null, null],
+		districtId: 'district/fixture',
+		densityRegionId: 'block/fixture',
+		kind: 'block',
+		levels: 3
+	};
+}
+
+test('keeps all twelve flat facade diagonals primary and shared-wall diagonals light', () => {
+	const build = (columns: readonly CityColumn[]) =>
+		createCityStructure(createCityLattice(columns, 0, 'square', 'braced'), 0).graph;
+	const isolated = build([flatCell()]);
+	const braces = isolated.members.filter(({ role }) => role === 'brace');
+	expect(braces).toHaveLength(12);
+	expect(braces.every(({ section }) => section === 'heavy')).toBe(true);
+
+	const joined = build([flatCell(), flatCell(60)]);
+	const wall = new Set(
+		joined.joints.filter(({ position }) => position[0] === 60).map(({ id }) => id)
+	);
+	const interior = joined.members.filter(
+		({ role, from, to }) => role === 'brace' && wall.has(from) && wall.has(to)
+	);
+	expect(interior).toHaveLength(3);
+	expect(interior.every(({ section }) => section === 'light')).toBe(true);
+});
+
+test('keeps facade braces primary on a real shoreline-clipped cell', () => {
+	const shore = new Set(layout.grid.vertices.filter(({ shore }) => shore).map(({ id }) => id));
+	const column = columns.find(({ corners }) => corners.some(({ id }) => shore.has(id)));
+	expect(column).toBeDefined();
+	if (!column) return;
+	const { graph } = createCityStructure(
+		createCityLattice([column], datumZ, variant, 'braced'),
+		datumZ
+	);
+	const braces = graph.members.filter(({ role }) => role === 'brace');
+	expect(braces.length).toBeGreaterThan(0);
+	expect(braces.every(({ section }) => section === 'heavy')).toBe(true);
+});
+
+for (const model of ['braced', 'centered'] as const) {
+	test(`${model} town utilization spreads across the reference range at nominal load`, () => {
+		const { graph, loads } = createCityStructure(
+			createCityLattice(columns, datumZ, variant, model),
+			datumZ
+		);
+		const estimates = runGravity(graph, loads).members.flatMap(({ utilization }) =>
+			utilization === null ? [] : [utilization]
+		);
+		expect(estimates.length).toBeGreaterThan(1000);
+		expect(estimates.filter((ratio) => ratio > 1).length / estimates.length).toBeLessThan(0.4);
+		for (const [start, end] of [
+			[0, 0.25],
+			[0.25, 0.5],
+			[0.5, 0.75],
+			[0.75, 1]
+		]) {
+			expect(
+				estimates.filter((ratio) => ratio >= start && ratio < end).length / estimates.length
+			).toBeGreaterThan(0.02);
+		}
 	});
 }
