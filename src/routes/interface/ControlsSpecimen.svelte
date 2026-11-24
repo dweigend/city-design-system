@@ -10,6 +10,8 @@
 	import { Switch } from '../../lib/ui/switch';
 	import { Tabs } from '../../lib/ui/tabs';
 	import { ToggleGroup } from '../../lib/ui/toggle-group';
+	import { SpecimenPicker } from '../../lib/ui/specimen-picker';
+	import { ToolBar } from '../../lib/ui/tool-bar';
 
 	const modes = [
 		{ value: 'all', label: 'All items' },
@@ -34,6 +36,26 @@
 		{ value: 'archive', label: 'Archive', disabled: true }
 	];
 
+	const drawTools = [
+		{ value: 'draw', label: 'Draw', icon: 'paintbrush', shortcut: 'B' },
+		{ value: 'erase', label: 'Erase', icon: 'eraser', shortcut: 'E' },
+		{ value: 'pick', label: 'Pick', icon: 'pointer', shortcut: 'V' }
+	] as const;
+	// Two hand-drawn isometric blocks: a cube and a slab, in the specimen's own units.
+	const block = (tone: `--${string}`, high: number) => ({
+		viewBox: '-9 -9 18 18',
+		faces: [
+			{ points: `0,${-high} 7,${-high - 4} 0,${-high - 8} -7,${-high - 4}`, tone, shade: 'top' },
+			{ points: `0,${-high} 7,${-high - 4} 7,-4 0,0`, tone, shade: 'lit' },
+			{ points: `0,${-high} -7,${-high - 4} -7,-4 0,0`, tone, shade: 'shadow' }
+		]
+	}) as const;
+	const blocks = [
+		{ value: 'tower', label: 'Tower', sketch: block('--mat-masonry', 4) },
+		{ value: 'slab', label: 'Slab', sketch: block('--cat-mobility', 0) }
+	];
+	let drawTool = $state('draw');
+	let blockChoice = $state('tower');
 	let mode = $state('all');
 	let field = $state('water');
 	let grid = $state(false);
@@ -112,6 +134,27 @@
 		<ToggleGroup label="View mode" items={modes} bind:value={mode} />
 	{/snippet}
 	{@render sample('ToggleGroup', 'Choose between a few mutually exclusive views.', toggles)}
+
+	{#snippet toolBar()}
+		<ToolBar
+			label="Drawing tools"
+			tools={drawTools}
+			bind:value={drawTool}
+			orientation="horizontal"
+			actions={[{ value: 'undo', label: 'Undo', icon: 'undo', shortcut: 'Ctrl+Z', onclick: clear }]}
+		/>
+		<p class="data">Tool · {drawTool}</p>
+	{/snippet}
+	{@render sample(
+		'ToolBar',
+		'Hold one active tool, with its symbol and key, beside a few quiet actions.',
+		toolBar
+	)}
+
+	{#snippet specimenPicker()}
+		<SpecimenPicker label="Block" items={blocks} bind:value={blockChoice} />
+	{/snippet}
+	{@render sample('SpecimenPicker', 'Choose an object by its drawing, not by its name.', specimenPicker)}
 
 	{#snippet switches()}
 		<div class="cluster control-sample-states">

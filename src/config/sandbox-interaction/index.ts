@@ -10,6 +10,14 @@ export const settings = defineSettings({
 		rationale:
 			'Leaves about ten of the 16.7 ms of a 60 Hz frame for input, the stage upload and drawing.'
 	},
+	showIntervalMs: {
+		value: 250,
+		unit: 'ms',
+		meaning: 'Shortest time between two showings of newly built houses while the queue is busy',
+		bounds: { exclusiveMin: 0 },
+		rationale:
+			'Showing re-renders the whole town; four steps a second read as progress and leave the frames between for input.'
+	},
 	reliefRadiusM: {
 		value: 60,
 		unit: 'm',

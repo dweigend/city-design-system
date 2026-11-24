@@ -526,7 +526,7 @@
 		padding: var(--space-2);
 		border-color: var(--line);
 	}
-	.control-specimen > svg { inline-size: 100%; block-size: 3.5rem; overflow: visible; }
+	.control-specimen > svg { inline-size: 100%; block-size: 4.5rem; overflow: visible; }
 	.control-specimen[data-state='checked'] { border-color: var(--ink); background: var(--paper-2); color: var(--ink); box-shadow: inset 0 0 0 var(--hair) var(--ink); }
 	@media (hover: hover) {
 		.control.control-specimen:not([data-disabled]):not(:disabled):hover { background: var(--paper-2); color: var(--ink); }

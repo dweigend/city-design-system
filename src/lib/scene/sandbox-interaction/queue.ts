@@ -63,3 +63,6 @@ export function createBuildQueue<T>(now: () => number, budgetMs: number = defaul
 		readWaiting: () => waiting.size
 	});
 }
+
+/** Shortest time in milliseconds between two showings of built products while the queue is busy. */
+export const showIntervalMs = defaults.showIntervalMs;

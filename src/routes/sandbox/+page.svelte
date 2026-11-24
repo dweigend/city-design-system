@@ -15,6 +15,7 @@
 		readPreviewHeight,
 		selectHouseDetail,
 		shareBlockBudget,
+		showIntervalMs,
 		type StrokeEffect
 	} from '../../lib/scene/sandbox-interaction';
 	import { projectFocus, type View, type Viewport } from '../../lib/scene/stage';
@@ -198,14 +199,23 @@
 		frameWork = queue.readWaiting() ? { run: pump } : undefined;
 	}
 
+	let shownAt = 0;
+	let unshown = false;
+
+	/** Builds within the frame budget; shows new houses at a calm interval and when all are done. */
 	function pump() {
-		if (queue.advance().length) compose();
-		return queue.readWaiting() > 0;
+		unshown = queue.advance().length > 0 || unshown;
+		const done = queue.readWaiting() === 0;
+		if (unshown && (done || performance.now() - shownAt >= showIntervalMs)) compose();
+		else waiting = queue.readWaiting();
+		return !done;
 	}
 
 	/** Shows each built house, or a plain body while it waits, plus garden and stroke marks. */
 	function compose() {
 		if (!town) return;
+		shownAt = performance.now();
+		unshown = false;
 		const projection = town.projection;
 		const shown: Drawable[] = [];
 		for (const [id, request] of requests) {
@@ -607,7 +617,7 @@
 					<span class="sandbox-hint">{hint} · Space-drag or two fingers to move · Scroll to zoom</span>
 				</p>
 				<div class="sandbox-hud-file cluster" role="group" aria-label="Document">
-					<IconButton label="Save" icon="download" size="s" disabled={loading} onclick={save} />
+					<IconButton label="Save" icon="download" disabled={loading} onclick={save} />
 					<FilePicker
 						label="Load"
 						icon="upload"
@@ -618,7 +628,6 @@
 					<IconButton
 						label="Clear"
 						icon="trash"
-						size="s"
 						disabled={loading || !history.placements}
 						onclick={clear}
 					/>
