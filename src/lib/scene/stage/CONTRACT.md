@@ -10,12 +10,15 @@ The optional landscape profile fits kilometer-scale geometry and draws only boun
 The terrain finish uses a bicubic field of true heights and grades when supplied, contouring every 2 m with a stronger index line every 10 m. The view fit uses visible bounds and accepts an optional focus box, bearing, elevation, fill and zoom. An optional elevation curve reads the fitted width in meters. Explicit strokes can set their own token, pixel width and opacity.
 The stage counts a new list of shapes as one geometry batch and also counts its individual drawables.
 Changing view, display, surface, size or theme preserves those geometries.
+Retained parts stay in the scene during `show`; only stale parts leave and new parts join.
+`setWork` runs a caller's budgeted task at the start of each frame while it returns true; a
+frame that only ran work and changed nothing keeps the last image.
 `read` returns detached state. `delete` releases the stage and may be repeated.
 
 The fixed house is available through `stageExample()`. See `/blocks` for its controls.
 
 A fit can specify the frame width and an offset along the image axes in meters. The stage
-reports the fitted width and meters per CSS pixel. A presentation can vary color, opacity,
+reports the fitted width, meters per CSS pixel and the point the camera looks at. A presentation can vary color, opacity,
 stroke width and vertical scale from that reading while retaining every drawable's geometry.
 The stage view binds pointer and keyboard navigation to those framing inputs.
 A wheel or pinch zoom keeps the displayed terrain point under the cursor at the same pixel, even

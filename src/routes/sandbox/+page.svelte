@@ -79,7 +79,7 @@
 	const serials = new WeakMap<HouseRequest, number>();
 	let serial = 0;
 	let requests = new Map<string, HouseRequest>();
-	const bodies = new Map<HouseRequest, Drawable>();
+	const bodies = new WeakMap<HouseRequest, Drawable>();
 	let viewport: Viewport | undefined;
 
 	let history = $state({ placements: 0, strokes: 0, position: 0 });
