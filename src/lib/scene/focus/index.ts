@@ -26,7 +26,9 @@ const choices = {
 	lattice: { label: 'Lattice', subject: ['lattice'] },
 	height: { label: 'Height', subject: ['detached', 'block', 'center'], analysis: 'height' },
 	landscape: { label: 'Terrain and water', subject: ['terrain', 'water'] },
-	plan: { label: 'Plan and crossings', subject: ['plan', 'water-cells', 'crossings'] }
+	plan: { label: 'Plan and crossings', subject: ['plan', 'water-cells', 'crossings'] },
+	paths: { label: 'Paths and rail', subject: ['lanes', 'walkways', 'transit'] },
+	rail: { label: 'Rail', subject: ['transit'] }
 } as const satisfies Record<
 	string,
 	Readonly<{ label: string; subject: readonly string[]; analysis?: 'height' }>
@@ -53,7 +55,9 @@ const policy = {
 		lattice: 'full',
 		height: 'full',
 		landscape: 'full',
-		plan: 'full'
+		plan: 'full',
+		paths: 'full',
+		rail: 'full'
 	},
 	water: {
 		all: 'full',
@@ -64,7 +68,9 @@ const policy = {
 		lattice: 'full',
 		height: 'full',
 		landscape: 'full',
-		plan: 'full'
+		plan: 'full',
+		paths: 'full',
+		rail: 'full'
 	},
 	detached: {
 		all: 'full',
@@ -75,7 +81,9 @@ const policy = {
 		lattice: 'transparent',
 		height: 'full',
 		landscape: 'silhouette',
-		plan: 'transparent'
+		plan: 'transparent',
+		paths: 'transparent',
+		rail: 'silhouette'
 	},
 	block: {
 		all: 'full',
@@ -86,7 +94,9 @@ const policy = {
 		lattice: 'transparent',
 		height: 'full',
 		landscape: 'silhouette',
-		plan: 'transparent'
+		plan: 'transparent',
+		paths: 'transparent',
+		rail: 'silhouette'
 	},
 	center: {
 		all: 'full',
@@ -97,7 +107,9 @@ const policy = {
 		lattice: 'transparent',
 		height: 'full',
 		landscape: 'silhouette',
-		plan: 'transparent'
+		plan: 'transparent',
+		paths: 'transparent',
+		rail: 'silhouette'
 	},
 	lattice: {
 		all: 'full',
@@ -108,7 +120,9 @@ const policy = {
 		lattice: 'full',
 		height: 'hidden',
 		landscape: 'hidden',
-		plan: 'hidden'
+		plan: 'hidden',
+		paths: 'hidden',
+		rail: 'hidden'
 	},
 	plan: {
 		all: 'transparent',
@@ -119,7 +133,9 @@ const policy = {
 		lattice: 'transparent',
 		height: 'transparent',
 		landscape: 'transparent',
-		plan: 'full'
+		plan: 'full',
+		paths: 'hidden',
+		rail: 'hidden'
 	},
 	'water-cells': {
 		all: 'hidden',
@@ -130,7 +146,9 @@ const policy = {
 		lattice: 'hidden',
 		height: 'hidden',
 		landscape: 'full',
-		plan: 'full'
+		plan: 'full',
+		paths: 'hidden',
+		rail: 'hidden'
 	},
 	crossings: {
 		all: 'full',
@@ -141,7 +159,48 @@ const policy = {
 		lattice: 'transparent',
 		height: 'transparent',
 		landscape: 'full',
-		plan: 'full'
+		plan: 'full',
+		paths: 'full',
+		rail: 'transparent'
+	},
+	lanes: {
+		all: 'full',
+		districts: 'full',
+		center: 'full',
+		block: 'full',
+		detached: 'full',
+		lattice: 'hidden',
+		height: 'hidden',
+		landscape: 'hidden',
+		plan: 'full',
+		paths: 'full',
+		rail: 'hidden'
+	},
+	walkways: {
+		all: 'full',
+		districts: 'full',
+		center: 'full',
+		block: 'full',
+		detached: 'full',
+		lattice: 'hidden',
+		height: 'hidden',
+		landscape: 'hidden',
+		plan: 'hidden',
+		paths: 'full',
+		rail: 'hidden'
+	},
+	transit: {
+		all: 'full',
+		districts: 'full',
+		center: 'full',
+		block: 'full',
+		detached: 'full',
+		lattice: 'hidden',
+		height: 'hidden',
+		landscape: 'hidden',
+		plan: 'hidden',
+		paths: 'full',
+		rail: 'full'
 	}
 } as const satisfies Record<string, Row>;
 
