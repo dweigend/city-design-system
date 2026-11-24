@@ -132,6 +132,22 @@ export const planOverlaySurfaces = Object.freeze({
 		color: '--path',
 		finish: 'matte',
 		stroke: { color: '--path', width: 3, opacity: 1 }
+	},
+	lanes: {
+		color: '--path-plan',
+		finish: 'matte',
+		flat: true,
+		stroke: { color: '--path', width: 1.2, opacity: 1 }
+	},
+	parcels: {
+		color: '--ink-2',
+		finish: 'matte',
+		stroke: { color: '--ink-2', width: 0.7, opacity: 0.74 }
+	},
+	'merged-units': {
+		color: '--public-ground',
+		finish: 'matte',
+		flat: true
 	}
 } as const satisfies SurfaceAssignment);
 

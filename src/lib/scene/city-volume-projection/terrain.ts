@@ -1,5 +1,6 @@
 import type { Vec3 } from '../../core/geometry';
 import { required } from '../../core/invariant';
+import type { ParcelPlan } from '../../domain/parcels';
 import type { TerrainGrid } from '../../domain/terrain-grid';
 import {
 	cityWindow,
@@ -11,6 +12,7 @@ import { landscape, type Drawable } from '../surface';
 import { terrainGridProjection } from '../terrain-grid-projection';
 import { projectValleyWindow } from '../valley-projection';
 import { pinGround } from './ground-anchors';
+import { projectParcelPlan } from './parcel-plan';
 import { projectWetPlan } from './plan-water';
 
 /** Projects the city window at true scale, welding the plan's sampled foundation corners
@@ -40,9 +42,13 @@ export function projectCityTerrain(city: CitySite, grid: TerrainGrid, plan = gri
 		autoHeightScale,
 		toLocal,
 		projectPlan: terrainGridProjection(shape, toLocal, footprint),
+		/** Projects the reserved plan geometry as layers that can be switched without new meshes. */
+		projectParcels: (parcels: ParcelPlan) => projectParcelPlan(shape, toLocal, parcels),
 		/** Projects the continuous plan, with separate strokes for wet edges and crossings. */
-		projectWetPlan: (crossings: readonly CityCrossing[]) =>
-			projectWetPlan(city, shape, toLocal, plan, crossings)
+		projectWetPlan: (
+			crossings: readonly CityCrossing[],
+			mergedUnits: ParcelPlan['mergedUnits'] = []
+		) => projectWetPlan(city, shape, toLocal, plan, crossings, mergedUnits)
 	};
 }
 

@@ -24,15 +24,17 @@ export function frontageFrame(lane: LaneInput, a: Vec2, b: Vec2): Frontage {
 	};
 }
 
+export function inwardStrip(frame: ReturnType<typeof edgeFrame>, depthM: number) {
+	return rectangle(frame, -depthM, frame.lengthM + depthM, -depthM, depthM);
+}
+
 export function reserveLanes(
 	outline: readonly Vec2[],
 	sides: readonly Frontage[],
 	toleranceM: number
 ) {
 	const gross: PlanPolygon = Object.freeze([outline]);
-	const buffers = sides.map(({ frame, depthM }) =>
-		rectangle(frame, -depthM, frame.lengthM + depthM, -depthM, depthM)
-	);
+	const buffers = sides.map(({ frame, depthM }) => inwardStrip(frame, depthM));
 	const netGround = subtract(gross, buffers, toleranceM);
 	const laneGround = netGround.length ? subtract(gross, netGround, toleranceM) : [gross];
 	return {

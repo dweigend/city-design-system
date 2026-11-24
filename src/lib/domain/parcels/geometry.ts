@@ -105,3 +105,17 @@ export function rectangle(
 		]
 	];
 }
+
+/** Intersections of a ring with a line perpendicular to the supporting edge at alongM. */
+export function lineHits(
+	ring: readonly Vec2[],
+	frame: ReturnType<typeof edgeFrame>,
+	alongM: number
+) {
+	return ring.flatMap((point, edge) => {
+		const [a, u] = frame.read(point);
+		const [b, v] = frame.read(ring[(edge + 1) % ring.length]);
+		if (a > alongM === b > alongM) return [];
+		return [{ edge, left: u + (v - u) * ((alongM - a) / (b - a)) }];
+	});
+}

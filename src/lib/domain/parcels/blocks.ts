@@ -1,8 +1,9 @@
 import { measurePolygon, type Vec2 } from '../../core/geometry';
 import { required } from '../../core/invariant';
 import { planEdgeId } from '../terrain-grid';
+import { realizeHoldings } from './holdings';
 import { frontageContacts, frontageFrame, reserveLanes } from './reserve';
-import type { LaneInput, ParcelBlock, ParcelPlanInput } from './types';
+import type { LaneInput, ParcelPlanInput } from './types';
 
 function ringSides(ring: readonly string[]) {
 	return ring.map((from, i) => {
@@ -80,7 +81,7 @@ export function prepareBlocks(input: ParcelPlanInput, lanes: ReadonlyMap<string,
 
 	type BlockSeed = NonNullable<ReturnType<typeof prepare>>;
 	const mergedUnits: BlockSeed[] = [];
-	const reserves = new Map<string, ParcelBlock>();
+	const reserves = new Map<string, ReturnType<typeof createBlock>>();
 	for (const { memberCellIds, plannedKind } of input.merges ?? []) {
 		const members = [...memberCellIds].sort();
 		if (members[0] === members[1] || members.some((id) => byCell.has(id))) continue;
@@ -108,10 +109,13 @@ export function prepareBlocks(input: ParcelPlanInput, lanes: ReadonlyMap<string,
 	}
 
 	function createBlock(
-		{ id, memberCellIds, plannedKind, nodeIds, outline, laneIds }: BlockSeed,
+		{ id, memberCellIds, plannedKind, nodeIds, outline, laneIds, frontage }: BlockSeed,
 		reserve: ReturnType<typeof reserveLanes>
 	) {
-		return Object.freeze({ id, memberCellIds, plannedKind, nodeIds, outline, laneIds, ...reserve });
+		const reserved = { id, memberCellIds, plannedKind, nodeIds, outline, laneIds, ...reserve };
+		const rule = required(input.holdingRules[plannedKind], 'holding rule');
+		const { block, parcels, portals } = realizeHoldings(reserved, frontage, rule, input.tolerance);
+		return { block: Object.freeze({ ...reserved, ...block }), parcels, portals };
 	}
 
 	function realize(block: BlockSeed) {

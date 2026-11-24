@@ -32,7 +32,7 @@
 		projectCityTerrain,
 		projectCityLattice
 	} from '../../lib/scene/city-volume-projection';
-	import { focusChoices, type FocusChoice } from '../../lib/scene/focus';
+	import { focusChoices, type FocusChoice, type Subsystem } from '../../lib/scene/focus';
 	import { projectFocus, type View, type Viewport } from '../../lib/scene/stage';
 	import { StageView } from '../../lib/scene/stage-view';
 	import { valleyParams } from '../../lib/domain/valley';
@@ -47,7 +47,8 @@
 		citySiteParams,
 		createCitySite,
 		readCityDistricts,
-		readCityGrid
+		readCityGrid,
+		readCityParcels
 	} from '../../lib/world/city-site';
 	import TerrainControls from '../TerrainControls.svelte';
 	import ChapterHeader from '../ChapterHeader.svelte';
@@ -166,14 +167,26 @@
 	const envelope = $derived(projectCityDistricts(columns, plan.datumZ, terrain, taperField, seed));
 	const lattice = $derived(createCityLattice(columns, plan.datumZ, gridVariant, latticeVariant));
 	const members = $derived(projectCityLattice(lattice, terrain, taperField));
-	const planLines = $derived(terrain.projectWetPlan(plan.selectedCrossings));
+	const holdings = $derived(readCityParcels(city, plan));
+	const planLines = $derived(terrain.projectWetPlan(plan.selectedCrossings, holdings.mergedUnits));
+	const parcelDrawables = $derived(terrain.projectParcels(holdings));
+	const parcelFocusRows = $derived<Subsystem[]>([
+		...(holdings.lanes.length ? ['lanes' as const] : []),
+		...(holdings.parcels.length ? ['parcels' as const] : []),
+		...(holdings.blocks.some(
+			({ courtFit, memberCellIds }) => courtFit === 'fit' || memberCellIds.length > 1
+		)
+			? ['merged-units' as const]
+			: [])
+	]);
 	const focusState = $derived(
 		cityFocus(
 			{
 				shares: step === '01' ? { detached: 0, block: 0, center: 0 } : districts.shares,
 				lattice: step === '03',
 				waterCells: planLines.some(({ id }) => id === 'water-plan'),
-				crossings: plan.selectedCrossings.length > 0
+				crossings: plan.selectedCrossings.length > 0,
+				parcels: parcelFocusRows
 			},
 			focus,
 			step === '01' ? 'plan' : 'all'
@@ -195,7 +208,7 @@
 		width: valueFromQuery('width') ? Math.max(120, valueFromQuery('width') ?? 120) : undefined,
 		offset: [valueFromQuery('x') ?? 0, valueFromQuery('y') ?? 0] as const
 	});
-	const ground = $derived([...terrain.drawables, ...planLines]);
+	const ground = $derived([...terrain.drawables, ...planLines, ...parcelDrawables]);
 	const tiles = $derived(step === '01' ? [] : envelope.drawables);
 	const wires = $derived(step === '03' ? members.drawables : []);
 	const drawables = $derived([...ground, ...tiles, ...wires]);
@@ -280,8 +293,8 @@
 			{drawables}
 			{view}
 			display="normal"
-			label={step === '01'
-				? 'City plan with water cells and pink bridge crossings'
+			label={focusState.active === 'parcels' || step === '01'
+				? 'City plan showing pedestrian lanes, bridges and holdings'
 				: step === '02'
 					? 'Stepped district heights above the city plan'
 					: 'Continuous carrier lattice under the stepped district envelope'}

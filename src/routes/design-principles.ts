@@ -459,7 +459,7 @@ const color: DesignPrinciple[] = [
 		title: 'Pink is for paths',
 		rule: 'Pink belongs to paths and people: walkways, stairs and bridges carry it, houses never do.',
 		reason:
-			'Paths stay opaque pink in every view. The accent of living maps to the lavender of living instead. The selected river crossings of a city plan are drawn in this path pink along their grid edges.',
+			'Paths stay opaque pink in every view. The accent of living maps to the lavender of living instead. The city plan shows pedestrian reservations and selected crossings in the path hue.',
 		decided: '2026-11-23'
 	},
 	{

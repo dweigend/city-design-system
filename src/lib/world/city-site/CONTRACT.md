@@ -16,3 +16,8 @@ samplers use world XY meters, Z up, and radians for the bearing.
   lattice planes for any growth step.
 
 The example reads the opening town for seed 1201 and uses its growth data to derive districts.
+
+`readCityParcels` reads the fixed holding program at the selected growth prefix.
+Parcel and block addresses belong to the plan. Use a block's `memberCellIds` to resolve its
+original cells and canonical bays. `readCityDistricts` gives the current density of those cells.
+A crossing's ID encodes its addressed path, independent of which of its head cells are active.

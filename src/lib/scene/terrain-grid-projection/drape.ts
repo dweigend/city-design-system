@@ -34,7 +34,9 @@ function clip(start: number[], end: number[]) {
 		if (a < -epsilon) from = Math.max(from, a / (a - b));
 		if (b < -epsilon) to = Math.min(to, a / (a - b));
 	}
-	if (to - from > epsilon) return [from, to];
+	// Keep even very short intervals until after checking both segment ends.
+	// Consecutive tiny triangles can otherwise leave an uncovered end.
+	if (to >= from) return [from, to];
 }
 
 export function drape({ positions, indices }: Extract<Shape, { kind: 'mesh' }>, bucketSize = 16) {
@@ -73,8 +75,13 @@ export function drape({ positions, indices }: Extract<Shape, { kind: 'mesh' }>, 
 		cuts.sort((a, b) => a.t - b.t);
 		if (!cuts.length || cuts[0].t > epsilon || cuts[cuts.length - 1].t < 1 - epsilon)
 			throw new RangeError('Grid edge falls outside the terrain mesh');
-		return cuts
-			.filter(({ t }, index) => index === 0 || t - cuts[index - 1].t > epsilon)
-			.map(({ t, z }) => [a[0] + t * (b[0] - a[0]), a[1] + t * (b[1] - a[1]), z]);
+		const interior = cuts.filter(
+			({ t }, index) => t > epsilon && t < 1 - epsilon && t - cuts[index - 1].t > epsilon
+		);
+		return [
+			[...a, cuts[0].z],
+			...interior.map(({ t, z }): Vec3 => [a[0] + t * (b[0] - a[0]), a[1] + t * (b[1] - a[1]), z]),
+			[...b, cuts[cuts.length - 1].z]
+		];
 	};
 }

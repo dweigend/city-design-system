@@ -1,5 +1,7 @@
 import { expect, test } from 'bun:test';
+import type { Vec2 } from '../../core/geometry';
 import { required } from '../../core/invariant';
+import { dryPlanEdges, type TerrainGrid } from '../terrain-grid';
 import { exampleGround, parcelExample } from './example';
 import { createParcelPlan } from './index';
 
@@ -40,6 +42,9 @@ test('a two-cell holding hides its seam and reads as one whole block', () => {
 	const result = prepared.read(memberCellIds);
 	expect(result.mergedUnits).toHaveLength(1);
 	expect(result.blocks).toHaveLength(1);
+	expect(result.parcels).toHaveLength(1);
+	expect(result.parcels[0].publicUse).toBe(true);
+	expect(result.portals[0].parcelId).toBe(result.parcels[0].id);
 	expect(result.blocks[0].memberCellIds).toEqual([...memberCellIds].sort());
 	expect(result.blocks[0].grossAreaM2).toBe(7200);
 	expect(result.blocks[0].laneAreaM2).toBeCloseTo(531);
@@ -69,4 +74,70 @@ test('preserves addresses, areas and incidence with rotated and reversed rings a
 	expect(createParcelPlan({ ...input, grid: reversed, lanes: reorderedLanes }).read()).toEqual(
 		createParcelPlan(input).read()
 	);
+});
+
+test('stops a frontage cut at the first exit of a re-entrant eight-sided block', () => {
+	const ring: readonly Vec2[] = [
+		[0, 0],
+		[60, 0],
+		[60, 18],
+		[22, 18],
+		[22, 43],
+		[60, 43],
+		[60, 60],
+		[0, 60]
+	];
+	const vertexIds = ring.map((_, i) => 'v/' + i);
+	const grid: TerrainGrid = {
+		vertices: ring.map(([x, y], i) => ({ id: vertexIds[i], position: [x, y, 0] })),
+		cells: [{ id: 'exhibit', vertexIds, neighbors: vertexIds.map(() => null) }],
+		boundary: vertexIds.map((from, i) => [from, vertexIds[(i + 1) % ring.length]])
+	};
+	const result = createParcelPlan({
+		...exampleGround(),
+		grid,
+		lanes: dryPlanEdges(grid, grid).map((edge) => ({
+			edge,
+			widthM: 3,
+			hierarchy: ['walkway'],
+			surface: 'walk'
+		})),
+		plannedKinds: { exhibit: 'exhibit' },
+		holdingRules: {
+			exhibit: { minimumFrontageM: 3, partition: { targetAreaM2: 2000, minimumAreaM2: 100 } }
+		}
+	}).read();
+	expect(result.parcels).toHaveLength(2);
+	expect(
+		result.parcels.some(({ outline }) => outline.some(([x, y]) => x === 30 && y === 16.5))
+	).toBe(true);
+	expect(
+		result.parcels.every(({ outline }) => !outline.some(([x, y]) => x === 30 && y >= 43))
+	).toBe(true);
+	expect(result.portals.every(({ frontageM }) => frontageM >= 3)).toBe(true);
+	expect(result.blocks[0].laneAreaM2 + result.blocks[0].accounting.parcelAreaM2).toBeCloseTo(
+		2650,
+		4
+	);
+});
+
+test('connects an inset court to a public lane with a three-meter passage', () => {
+	const input = exampleGround();
+	const result = createParcelPlan({
+		...input,
+		holdingRules: {
+			exhibit: {
+				minimumFrontageM: 3,
+				partition: { targetAreaM2: 320, minimumAreaM2: 100 },
+				court: { insetM: 12, passageWidthM: 3 }
+			}
+		}
+	}).read();
+	for (const { courtFit, publicGround, accounting } of result.blocks) {
+		expect(courtFit).toBe('fit');
+		expect(accounting.courtAreaM2).toBeCloseTo(1089);
+		expect(accounting.passageAreaM2).toBeCloseTo(36);
+		expect(publicGround.entrance?.frontageM).toBe(3);
+		expect(result.lanes.some(({ id }) => id === publicGround.entrance?.laneId)).toBe(true);
+	}
 });

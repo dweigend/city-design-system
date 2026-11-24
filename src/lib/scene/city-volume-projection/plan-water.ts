@@ -1,6 +1,7 @@
 import { distance, type Vec2, type Vec3 } from '../../core/geometry';
 import { required } from '../../core/invariant';
 import type { Shape } from '../../core/object';
+import type { ParcelPlan } from '../../domain/parcels';
 import { planEdges, type TerrainGrid } from '../../domain/terrain-grid';
 import type { CityCrossing, CitySite } from '../../world/city-site';
 import { terrainDrape } from '../terrain-grid-projection';
@@ -13,7 +14,10 @@ const emptyMesh = { kind: 'mesh', positions: [], indices: [] } as const;
 export const planOverlayIds = {
 	plan: 'dry-plan',
 	'water-cells': 'water-plan',
-	crossings: 'selected-crossings'
+	crossings: 'selected-crossings',
+	lanes: 'pedestrian-lanes',
+	parcels: 'holding-outlines',
+	'merged-units': 'larger-holdings'
 } as const;
 
 /** Projects the continuous plan as three overlays: dry plan edges, edges touching a water cell, and
@@ -23,19 +27,26 @@ export function projectWetPlan(
 	ground: Extract<Shape, { kind: 'mesh' }>,
 	toLocal: (x: number, y: number) => Vec2,
 	grid: TerrainGrid,
-	crossings: readonly CityCrossing[]
+	crossings: readonly CityCrossing[],
+	mergedUnits: ParcelPlan['mergedUnits']
 ): readonly Drawable[] {
 	const drape = terrainDrape(ground);
 	const vertices = new Map(grid.vertices.map(({ id, position: [x, y] }) => [id, [x, y] as Vec2]));
 	const dry: number[] = [];
 	const wet: number[] = [];
 	const markers: number[] = [];
+	const mergedByCell = new Map(
+		mergedUnits.flatMap(({ id, memberCellIds }) => memberCellIds.map((cell) => [cell, id] as const))
+	);
 	const covers = new Map(grid.cells.map(({ id, groundKind }) => [id, groundKind]));
 	const point = (id: string) => required(vertices.get(id), 'plan corner');
 	for (const {
 		nodeIds: [a, b],
 		cellIds
 	} of planEdges(grid)) {
+		const merged = mergedByCell.get(cellIds[0]);
+		if (merged !== undefined && cellIds.length === 2 && mergedByCell.get(cellIds[1]) === merged)
+			continue;
 		const water = cellIds.some((id) => covers.get(id) !== 'dry');
 		project(point(a), point(b), water ? wet : dry);
 	}

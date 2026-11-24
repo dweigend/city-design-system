@@ -1,12 +1,12 @@
 # Parcels
 
-`createParcelPlan` reads a fixed XY carrier, width reservations, ordered pair proposals
-and a holding program supplied by the caller. Coordinates and widths are in meters.
-Outer rings run counterclockwise and close implicitly. Hole rings run clockwise.
-A block ID encodes the sorted member addresses. A lane ID encodes the support address
-and its canonical pair of actual nodes. Neither key contains coordinates.
-The same published block and lane records survive selection of additional whole blocks.
-A protected lane cannot become a seam. A pair with disconnected or inaccessible net
-ground is declined before publication. The module makes no random draws.
-
-The six-cell exhibition example reserves space for two walkways.
+`createParcelPlan` takes a fixed XY carrier, width reservations, ordered pair proposals
+and a holding program. Its `read` method selects whole blocks. Rings close implicitly,
+with the outer ring counterclockwise and holes clockwise. Coordinates are in meters.
+Booleans use local integer coordinates with a quantum of one fourth of the linear tolerance.
+Each axis rounds to the nearest quantum with ties toward positive infinity.
+A block key encodes sorted member IDs. A lane key encodes support and actual end node IDs.
+A parcel key encodes its block and split path, starting with the canonical component ordinal.
+A portal key encodes its parcel, lane and entrance role. Published records persist through growth.
+Gross block area accounts for reserved lanes, court, passage, open ground and parcels.
+The module draws no random numbers. The exhibition example uses six cells and two walkways.

@@ -67,6 +67,7 @@ test('names the choices for the districts they show, not for houses', () => {
 		'Lattice',
 		'Height',
 		'Terrain and water',
+		'Parcels',
 		'Plan and crossings'
 	]);
 });

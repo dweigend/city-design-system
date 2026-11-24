@@ -1,9 +1,8 @@
 // City volume acceptance across all grids and lattices at town scale with selected size extremes.
-// Writes _lokal/r09b-river/city-study-morph/results.{json,csv} and prints a summary.
+// Writes _lokal/r10a-parcels/study/results.{json,csv} and prints a summary.
 // Run: heavy-slot --time 1800 -- bun scripts/city-study.ts
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
-import { required } from '../src/lib/core/invariant';
 import {
 	cityLatticesByPlan,
 	cityPlanVariants,
@@ -18,12 +17,14 @@ import {
 	createCitySite,
 	readCitySide,
 	readCityDistricts,
-	readCityGrid
+	readCityGrid,
+	readCityParcels
 } from '../src/lib/world/city-site';
 import { TerrainGrid } from '../src/lib/domain/terrain-grid';
 import { groundContactMetrics, groundMetrics, hubGroundMetrics } from './city-study-ground';
 import { districtMetrics, growthMetrics, latticeMetrics } from './city-study-metrics';
 import { shoreMetrics } from './city-study-shore';
+import { measureParcelTiming, parcelGrowthStable, parcelMetrics } from './city-study-parcels';
 import { planMetrics } from './city-study-plan';
 import { footprintMirrorShare, maximumMedianMirrorShare, mirrorSeeds } from './city-study-mirror';
 import { solidMetrics } from './city-study-solids';
@@ -32,7 +33,7 @@ import { footprintCompactnessRange } from './config/city-study';
 import { requireSlot } from './experiment-host';
 
 requireSlot();
-const out = resolve(import.meta.dir, '../_lokal/r09b-river/city-study-morph');
+const out = resolve(import.meta.dir, '../_lokal/r10a-parcels/study');
 mkdirSync(out, { recursive: true });
 
 /** Nominal outline lengths in meters of the three size classes. */
@@ -65,15 +66,38 @@ const hash = (value: unknown) => Bun.hash(JSON.stringify(value)).toString(16);
 
 const rows: Row[] = [];
 const shoreRows = [];
+const parcelRows = [];
+const parcelGrowthRows: Array<{
+	plan: string;
+	settlement: string;
+	size: number;
+	areaKm2: number;
+	crossingCount: number;
+	stable: boolean;
+}> = [];
 const started = performance.now();
 for (const { relief, runoff, seeds } of terrain) {
-	const sites = new Map(
-		seeds.map((seed) => [seed, createCitySite(undefined, { relief, runoff, seed })])
-	);
 	for (const plan of cityPlanVariants) {
 		const from = rows.length;
 		for (const seed of seeds) {
-			const city = required(sites.get(seed), 'study site');
+			const city = createCitySite(undefined, { relief, runoff, seed });
+			if (seed === citySiteParams.seed.default && relief === 0) {
+				let previous: ReturnType<typeof readCityParcels> | undefined;
+				for (const size of [600, 1400, 1600, 3200, 3400, sizes.largest]) {
+					const layout = readCityGrid(city, size, plan, seed);
+					const current = readCityParcels(city, layout);
+					parcelGrowthRows.push({
+						plan,
+						size,
+						areaKm2: layout.areaKm2,
+						crossingCount: layout.crossings.length,
+						settlement: readCityDistricts(city, layout, seed).settlement,
+						stable: previous === undefined || parcelGrowthStable(previous, current)
+					});
+					previous = current;
+				}
+			}
+
 			const replay = createCitySite(undefined, { relief, runoff, seed });
 			for (const [sizeClass, size] of Object.entries(sizes)) {
 				const [layout, gridMs] = time(() => readCityGrid(city, size, plan, seed));
@@ -94,6 +118,23 @@ for (const { relief, runoff, seeds } of terrain) {
 					sizeClass === 'largest' ? layout : readCityGrid(city, size + growthStep, plan, seed);
 				const planned = planMetrics(grid, (point) => readCitySide(city, point), layout);
 				const [districts, districtMs] = time(() => readCityDistricts(city, layout, seed, settings));
+				const parcelPlan = readCityParcels(city, layout);
+				const parcel = parcelMetrics(
+					layout,
+					parcelPlan,
+					districts,
+					earlier === layout ? parcelPlan : readCityParcels(city, earlier),
+					grown === layout ? parcelPlan : readCityParcels(city, grown)
+				);
+				if (
+					JSON.stringify(parcelPlan) !==
+					JSON.stringify(readCityParcels(replay, readCityGrid(replay, size, plan, seed)))
+				)
+					parcel.failures.push('replay');
+				parcelRows.push({ plan, seed, relief, runoff, size, sizeClass, ...parcel });
+				if (parcel.failures.length)
+					console.error('Parcel plan failed', { plan, seed, size, failures: parcel.failures });
+
 				const columns = readCityColumns(grid, districts);
 				const clone = JSON.parse(JSON.stringify(layout)) as typeof layout;
 				const again = readCityColumns(clone.grid, readCityDistricts(city, clone, seed, settings));
@@ -190,6 +231,8 @@ for (const { relief, runoff, seeds } of terrain) {
 		console.error(
 			`relief ${relief} runoff ${runoff} ${plan} done after ${((performance.now() - started) / 1000).toFixed(0)} s`
 		);
+		// A fresh site on each grid lets the previous carrier and its detailed holdings be collected.
+		Bun.gc(true);
 	}
 }
 
@@ -257,6 +300,13 @@ writeFileSync(
 	].join('\n') + '\n'
 );
 summarize(rows, out, sizes);
+writeFileSync(resolve(out, 'parcels.json'), JSON.stringify(parcelRows, null, 1) + '\n');
+writeFileSync(resolve(out, 'parcel-growth.json'), JSON.stringify(parcelGrowthRows, null, 1) + '\n');
+const timing = [sizes.town, sizes.largest].map((size) =>
+	measureParcelTiming(size, citySiteParams.seed.default)
+);
+writeFileSync(resolve(out, 'parcel-timing.json'), JSON.stringify(timing, null, 1) + '\n');
+console.log('Parcel timing', timing);
 const plans = rows.filter(({ lattice }) => lattice === 'box');
 function median(field: string) {
 	const values = plans.map((row) => Number(row[field])).sort((a, b) => a - b);
@@ -278,6 +328,8 @@ const medianMirror =
 console.log('Lowland mirror share', { min: shares[0], median: medianMirror, max: shares.at(-1) });
 if (
 	rows.some(({ pass }) => !pass) ||
+	parcelRows.some(({ failures }) => failures.length > 0) ||
+	parcelGrowthRows.some(({ stable }) => !stable) ||
 	parts > 3 ||
 	compactness < minimumCompactness ||
 	compactness > maximumCompactness ||

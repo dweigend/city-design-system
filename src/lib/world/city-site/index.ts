@@ -270,6 +270,7 @@ export function readCityGrid(
 		growth,
 		variant,
 		seed: params.seed,
+		candidateCellCount: candidates.cells.length,
 		plan: TerrainGrid.select(plan, [...planIds]),
 		crossings: Object.freeze(activeCrossings),
 		selectedCrossings: Object.freeze(

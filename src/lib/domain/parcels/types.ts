@@ -72,4 +72,42 @@ export type ParcelBlock = Readonly<{
 	laneAreaM2: number;
 	laneGround: readonly PlanPolygon[];
 	netGround: readonly PlanPolygon[];
+	parcelableGround: readonly PlanPolygon[];
+	courtFit: 'not-planned' | 'fit' | 'did-not-fit';
+	publicGround: Readonly<{
+		court: readonly PlanPolygon[];
+		passage: readonly PlanPolygon[];
+		open: readonly PlanPolygon[];
+		entrance?: CourtEntrance;
+	}>;
+	accounting: Readonly<{
+		parcelAreaM2: number;
+		passageAreaM2: number;
+		courtAreaM2: number;
+		openAreaM2: number;
+	}>;
 }>;
+
+/** A connected holding with an implicitly closed CCW outline and a permanent frontage portal. */
+export type Parcel = Readonly<{
+	id: string;
+	blockId: string;
+	splitPath: readonly number[];
+	plannedKind: string;
+	publicUse: boolean;
+	outline: readonly Vec2[];
+	areaM2: number;
+	portalId: string;
+}>;
+
+/** Contiguous contact between a parcel and the public side of an addressed lane. */
+export type ParcelPortal = Readonly<{
+	id: string;
+	parcelId: string;
+	laneId: string;
+	points: readonly [Vec2, Vec2];
+	frontageM: number;
+}>;
+
+/** An entrance where a public court passage meets an addressed lane. */
+export type CourtEntrance = Omit<ParcelPortal, 'parcelId'> & Readonly<{ blockId: string }>;

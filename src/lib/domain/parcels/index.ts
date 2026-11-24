@@ -4,12 +4,15 @@ import { laneAddress } from './reserve';
 import type { ParcelLane, ParcelPlanInput } from './types';
 
 export type {
+	CourtEntrance,
 	HoldingRule,
 	LaneInput,
 	MergeProposal,
+	Parcel,
 	ParcelBlock,
 	ParcelLane,
 	ParcelPlanInput,
+	ParcelPortal,
 	ParcelTolerance,
 	PlanPolygon
 } from './types';
@@ -36,8 +39,8 @@ export function createParcelPlan(input: ParcelPlanInput) {
 			Object.freeze({
 				id,
 				edgeId: edge.id,
-				nodeIds: edge.nodeIds,
-				provenance: edge.provenance,
+				nodeIds: Object.freeze([a, b] as const),
+				provenance: Object.freeze({ ...edge.provenance }),
 				points: Object.freeze([point(a), point(b)] as const),
 				lengthM: edge.lengthM,
 				widthM,
@@ -66,15 +69,18 @@ export function createParcelPlan(input: ParcelPlanInput) {
 					return [block.id, block] as const;
 				})
 			);
-			const blocks = [...selected.keys()]
+			const realized = [...selected.keys()]
 				.sort()
 				.map((id) => realize(required(selected.get(id), 'selected block')));
+			const blocks = realized.map(({ block }) => block);
 			const laneIds = new Set(blocks.flatMap(({ laneIds }) => laneIds));
 			return Object.freeze({
 				lanes: Object.freeze(
 					[...laneIds].sort().map((id) => required(lanes.get(id), 'selected lane'))
 				),
 				blocks: Object.freeze(blocks),
+				parcels: Object.freeze(realized.flatMap(({ parcels }) => parcels)),
+				portals: Object.freeze(realized.flatMap(({ portals }) => portals)),
 				mergedUnits: Object.freeze(pairs.filter(({ id }) => selected.has(id)))
 			});
 		}

@@ -6,7 +6,12 @@ import {
 	levelHeight,
 	readCityColumns
 } from '../../domain/city-volume';
-import { createCitySite, readCityDistricts, readCityGrid } from '../../world/city-site';
+import {
+	createCitySite,
+	readCityDistricts,
+	readCityGrid,
+	readCityParcels
+} from '../../world/city-site';
 import type { FocusChoice } from '../focus';
 import type { Drawable } from '../surface';
 import { drawnInPencil } from './blocks';
@@ -272,3 +277,28 @@ test('projects both the ground and water elevations from the alternate city samp
 		);
 	}
 });
+
+test('drapes occupied lane widths and holding outlines across pinned terrain faces', () => {
+	const site = createCitySite();
+	const layout = readCityGrid(site, 1800);
+	const terrain = projectCityTerrain(site, layout.grid, layout.plan);
+	const holdingsPlan = readCityParcels(site, layout);
+	const drawables = terrain.projectParcels(holdingsPlan);
+	const planStroke = (mergedUnits: typeof holdingsPlan.mergedUnits) =>
+		terrain
+			.projectWetPlan(layout.selectedCrossings, mergedUnits)
+			.find(({ id }) => id === 'dry-plan')?.strokeSegments?.length ?? 0;
+	expect(planStroke(holdingsPlan.mergedUnits)).toBeLessThan(planStroke([]));
+	const lanes = required(
+		drawables.find(({ id }) => id === 'pedestrian-lanes'),
+		'lane reserve'
+	);
+	const holdings = required(
+		drawables.find(({ id }) => id === 'holding-outlines'),
+		'holding outlines'
+	);
+	if (lanes.shape.kind !== 'mesh') throw new Error('Expected meshed lane widths');
+	expect(lanes.shape.indices.length).toBeGreaterThan(0);
+	expect(lanes.strokeSegments?.length ?? 0).toBeGreaterThan(0);
+	expect(holdings.strokeSegments?.length ?? 0).toBeGreaterThan(0);
+}, 30_000);
