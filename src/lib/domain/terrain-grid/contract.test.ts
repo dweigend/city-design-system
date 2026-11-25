@@ -4,6 +4,9 @@ import { distance, type Vec2, type Vec3 } from '../../core/geometry';
 import {
 	TerrainGrid,
 	planEdgeId,
+	planEdges,
+	readPlanCell,
+	readPlanCellRef,
 	planEdgeGraph,
 	planCellSide,
 	planVariants,
@@ -398,6 +401,75 @@ test('keeps the shoreline embedding bit-identical when carrier cells are reverse
 	const after = alignShore(cells, clearance, () => true);
 	expect(after).not.toEqual(cells);
 	expect(alignShore([...cells].reverse(), clearance, () => true)).toEqual([...after].reverse());
+});
+
+test('keeps Voronoi corner and shoreline keys under small perturbations and outline reordering', () => {
+	const outline = [
+		[-360, -360],
+		[360, -360],
+		[360, 360],
+		[-360, 360]
+	] as const;
+	const create = (dx: number, reverse: boolean) =>
+		TerrainGrid.createPlan(
+			{
+				seed: 1201,
+				variant: 'voronoi',
+				parameters: { cellSize: 60 },
+				site: { origin: [dx, 0], bearing: 0, outline: reverse ? [...outline].reverse() : outline },
+				heightAt: () => 0,
+				shore: {
+					clearanceAt: (x) => x - 8 - dx,
+					minimumEdge: 0.1,
+					minimumArea: 0.1
+				}
+			},
+			() => 'dry'
+		);
+	const first = create(0, false);
+	const moved = create(0.00001, true);
+	expect(moved.plan.cells).toEqual(first.plan.cells);
+	expect(planEdges(moved.grid).map(({ id }) => id)).toEqual(
+		planEdges(first.grid).map(({ id }) => id)
+	);
+	expect(moved.grid.vertices.map(({ id }) => id)).toEqual(first.grid.vertices.map(({ id }) => id));
+	expect(moved.plan.vertices[0].position).not.toEqual(first.plan.vertices[0].position);
+	expect(
+		first.plan.vertices.every(({ id }) =>
+			/^bisector\/\["-?\d+,-?\d+","-?\d+,-?\d+","-?\d+,-?\d+"\]$/.test(id)
+		)
+	).toBe(true);
+	const cut = first.grid.vertices.filter(({ shore }) => shore);
+	expect(cut.length).toBeGreaterThan(0);
+	expect(
+		cut.every(({ id, shore }) => id.startsWith('shore/') && shore?.planEdgeId.includes('bisector/'))
+	).toBe(true);
+});
+
+test('scopes overlapping local IDs to their carrier and editable site', () => {
+	const create = (variant: 'square' | 'triangle', scope = 'river') =>
+		TerrainGrid.create({
+			...options,
+			variant,
+			scope,
+			site: { origin: [0, 0], bearing: 0, width: 200, length: 200 }
+		});
+	const square = create('square');
+	const triangle = create('triangle');
+	const id = 'cell/-4,-4/0';
+	const cell = required(
+		square.cells.find((row) => row.id === id),
+		'square cell'
+	);
+	expect(triangle.cells.some((row) => row.id === id)).toBe(true);
+	const ref = JSON.parse(JSON.stringify(readPlanCellRef(square, id))) as unknown;
+	const selection = JSON.parse(JSON.stringify(TerrainGrid.select(square, [id]))) as TerrainGrid;
+	expect(readPlanCell(selection, ref)).toEqual({
+		status: 'resolved',
+		value: { ...cell, neighbors: cell.neighbors.map(() => null) }
+	});
+	expect(readPlanCell(triangle, ref)).toEqual({ status: 'different-world' });
+	expect(readPlanCell(create('square', 'other river'), ref)).toEqual({ status: 'different-world' });
 });
 
 test('names Voronoi corners by site incidence across geometry changes', () => {

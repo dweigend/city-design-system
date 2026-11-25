@@ -400,6 +400,47 @@ test('rejects a flat two-point graph edge before recording a stair', () => {
 	expect(doc.readPlacements()).toEqual([]);
 });
 
+test('rejects foreign plans despite a matching local cell key and rejects mismatched save metadata', () => {
+	const {
+		town: { site, columns }
+	} = example();
+	const squareLayout = readCityGrid(site, 2200, 'square');
+	const triangleLayout = readCityGrid(site, 2200, 'triangle');
+	const square = createSandboxWorld(site, squareLayout, columns);
+	const triangle = createSandboxWorld(site, triangleLayout, columns);
+	const id = squareLayout.plan.cells.find(({ id }) =>
+		triangleLayout.plan.cells.some((cell) => cell.id === id)
+	)?.id;
+	if (!id) throw new Error('Expected an overlapping local address');
+	const ref = createWorldReference(square.world.id, 'plan-cell', id);
+	expect(square.resolveReference(ref).status).toBe('resolved');
+	expect(
+		triangle.resolveReference(createWorldReference(triangle.world.id, 'plan-cell', id)).status
+	).toBe('resolved');
+	expect(triangle.resolveReference(JSON.parse(JSON.stringify(ref)))).toEqual({
+		status: 'different-world'
+	});
+	const saved = square.createDocument().serialize();
+	const { planScope, ...legacyIdentity } = square.world;
+	expect(square.restore(saved).world.planScope).toBe(planScope);
+	expect(planScope).toBe(squareLayout.plan.identity.scope);
+	expect(square.restore(createSandboxDocument(legacyIdentity).serialize()).world).toEqual(
+		square.world
+	);
+	expect(() => triangle.restore(saved)).toThrow('different world');
+	expect(() =>
+		square.restore(
+			saved.replace(
+				JSON.stringify(square.world.planScope),
+				JSON.stringify(triangle.world.planScope)
+			)
+		)
+	).toThrow('different world');
+	expect(() =>
+		createSandboxWorld(site, { ...squareLayout, plan: triangleLayout.plan }, columns)
+	).toThrow('different plan');
+}, 20_000);
+
 test('owns each placement cache by document even when worlds and placement IDs coincide', () => {
 	const first = createSandboxDocument(testWorld);
 	const second = createSandboxDocument(testWorld);

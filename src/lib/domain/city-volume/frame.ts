@@ -15,6 +15,8 @@ import { cleanFaces, closeSolid, prismFaces, type LatticeSolid } from './solid';
 /** Stable addresses for full levels, joints and undirected members. Joint positions are world
  * XYZ meters, with Z up. Lists are detached and deeply frozen in plan/level traversal order. */
 export type CityLattice = Readonly<{
+	datumZ: number;
+	levelHeightM: number;
 	cells: readonly LatticeBay[];
 	faces: readonly BayFace[];
 	bayCorners: readonly LatticePoint[];
@@ -151,6 +153,8 @@ export function createFrame(
 		}
 	);
 	return Object.freeze({
+		datumZ,
+		levelHeightM,
 		...addresses,
 		nodes: Object.freeze([...nodes.values()]),
 		edges: Object.freeze([...edges.values()]),

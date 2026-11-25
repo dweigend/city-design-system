@@ -133,15 +133,16 @@ export function readSandboxIdentity(
 	]);
 	return {
 		id: JSON.stringify([
-			planAddressRevision,
+			layout.plan.identity.variant === 'voronoi' ? 'city-plan/2' : planAddressRevision,
 			layout.seed,
-			layout.variant,
+			layout.plan.identity.variant,
 			coarseCellSize,
 			site.origin,
 			site.frame.bearing,
 			valley ? ['valley', valley.seed] : ['custom', customTerrainId ?? customTerrainRevision],
 			...houseSignature(houseRecipe)
 		]),
+		planScope: layout.plan.identity.scope,
 		seed: layout.seed,
 		registryRevision: cityAssetRegistryRevision,
 		terrainRevision,

@@ -6,7 +6,13 @@ import { required } from '../../core/invariant';
 import { defineParams, resolveParams } from '../../core/params';
 import { Random, uint32Limit } from '../../core/random';
 import { carrier, freeQuad, ringMean, type Candidate, type Carrier, type Node } from './carrier';
-import { encodePair } from '../../core/ref';
+import {
+	createWorldReference,
+	encodeKey,
+	encodePair,
+	readWorldReference,
+	type ReferenceResolution
+} from '../../core/ref';
 import { createPlanarTopology, readPlanarSubset } from '../../core/topology';
 import { meetsQuality, quality } from './metrics';
 import { insideOutline } from './outline';
@@ -56,8 +62,12 @@ export type TerrainGridCell = Readonly<{
 /** Cover read from the site sampler. Water is a fallback for samplers without a water type. */
 export type GroundKind = 'dry' | 'river' | 'tributary' | 'lake' | 'water';
 
+/** Carrier family and canonical namespace for local plan addresses. */
+export type PlanIdentity = Readonly<{ variant: PlanVariant; scope: string }>;
+
 /** Detached, deeply frozen cells, incident vertices, and oriented boundary edges with land to the left. */
 export type TerrainGrid = Readonly<{
+	identity: PlanIdentity;
 	cells: readonly TerrainGridCell[];
 	vertices: readonly TerrainGridVertex[];
 	boundary: readonly (readonly [from: string, to: string])[];
@@ -123,6 +133,8 @@ export const planCellSide: Readonly<Record<PlanVariant, number>> = Object.freeze
 export type TerrainGridOptions = Readonly<{
 	seed: number;
 	site: TerrainGridSite;
+	/** Distinguishes independently editable sites with identical carrier inputs. */
+	scope?: string;
 	variant?: PlanVariant;
 	heightAt: (x: number, y: number) => number | undefined;
 	parameters?: Readonly<{ cellSize?: number }>;
@@ -242,6 +254,7 @@ function samples(
 }
 
 function toTerrainGrid(
+	identity: PlanIdentity,
 	candidates: readonly Candidate[],
 	height: (node: Node) => number | undefined,
 	properties: (cell: Candidate) => Pick<TerrainGridCell, 'groundKind' | 'centerHeight'>
@@ -269,6 +282,7 @@ function toTerrainGrid(
 		return Object.freeze({ id, vertexIds, neighbors, ...properties(cell) });
 	});
 	return Object.freeze({
+		identity,
 		cells: Object.freeze(cells),
 		vertices: Object.freeze([...vertices.values()]),
 		boundary
@@ -278,6 +292,7 @@ function toTerrainGrid(
 function generateGrid(
 	{
 		site,
+		scope,
 		seed,
 		heightAt,
 		parameters,
@@ -320,6 +335,18 @@ function generateGrid(
 	);
 	ground.datumHeight(...site.origin);
 	const bearing = contourBearing(site, ground.datumHeight);
+	const identity = Object.freeze({
+		variant,
+		scope: encodeKey([
+			'terrain-plan/1',
+			scope ?? null,
+			variant,
+			seed,
+			cellSize,
+			...site.origin,
+			site.bearing
+		])
+	});
 	const includes = insideOutline(outline);
 	const accepted = [];
 	const layout = [];
@@ -373,12 +400,13 @@ function generateGrid(
 		}
 		accepted.push(cell);
 	}
-	const grid = toTerrainGrid(accepted, ground.height, (cell) => ({
+	const grid = toTerrainGrid(identity, accepted, ground.height, (cell) => ({
 		centerHeight: ground.read(...ringMean(cell.corners)),
 		...(cover ? { groundKind: 'dry' as const } : {})
 	}));
 	const plan = cover
 		? toTerrainGrid(
+				identity,
 				layout,
 				({ xy }) => ground.datumHeight(...xy),
 				({ id }) => ({
@@ -437,10 +465,29 @@ function validSurface(
 function select(grid: TerrainGrid, ids: readonly string[]): TerrainGrid {
 	const { faces, boundary, hasVertex } = readPlanarSubset(grid.cells, ids);
 	return Object.freeze({
+		identity: grid.identity,
 		cells: faces,
 		vertices: Object.freeze(grid.vertices.filter(({ id }) => hasVertex(id))),
 		boundary
 	});
+}
+
+/** Scopes a local cell key for exchange with a consumer of the same plan. */
+export function readPlanCellRef(grid: TerrainGrid, cellId: string) {
+	return createWorldReference(grid.identity.scope, 'plan-cell', cellId);
+}
+
+/** Reads a cell from a serialized reference in this plan's namespace. */
+export function readPlanCell(
+	grid: TerrainGrid,
+	input: unknown
+): ReferenceResolution<TerrainGridCell> {
+	const ref = readWorldReference(input);
+	if (!ref) return { status: 'invalid-reference' };
+	if (ref.world !== grid.identity.scope) return { status: 'different-world' };
+	if (ref.kind !== 'plan-cell') return { status: 'unsupported-kind' };
+	const value = grid.cells.find(({ id }) => id === ref.key);
+	return value ? { status: 'resolved', value } : { status: 'missing' };
 }
 
 /** Factory and selection of immutable terrain grids. */

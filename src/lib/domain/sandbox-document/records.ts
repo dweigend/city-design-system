@@ -5,6 +5,7 @@ import { defaults } from '../../../config/sandbox-document';
 
 export type WorldIdentity = Readonly<{
 	id: string;
+	planScope?: string;
 	seed?: number;
 	terrainRevision: string;
 	topologyRevision: string;
@@ -59,9 +60,11 @@ export function seedValue(value: unknown) {
 }
 
 export function worldIdentity(input: unknown): WorldIdentity {
-	const { id, seed, terrainRevision, topologyRevision, registryRevision } = record(input);
+	const { id, planScope, seed, terrainRevision, topologyRevision, registryRevision } =
+		record(input);
 	return Object.freeze({
 		id: name(id),
+		...(planScope === undefined ? {} : { planScope: name(planScope) }),
 		...(seed === undefined ? {} : { seed: seedValue(seed) }),
 		terrainRevision: name(terrainRevision),
 		topologyRevision: name(topologyRevision),

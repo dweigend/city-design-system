@@ -1,20 +1,28 @@
 import { defaults } from '../../../config/terrain-grid';
-import { distance, type Vec2 } from '../../core/geometry';
+import type { Vec2 } from '../../core/geometry';
 import { encodeKey } from '../../core/ref';
 import type { Carrier } from './carrier';
 import { axes } from './site';
 
-function bisect(polygon: readonly Vec2[], [x, y]: Vec2, [u, v]: Vec2) {
+type CutCorner = Readonly<{ at: Vec2; incoming: string }>;
+
+function bisect(polygon: readonly CutCorner[], [x, y]: Vec2, [u, v]: Vec2, cut: string) {
 	const signed = ([a, b]: Vec2) => (a - (x + u) / 2) * (u - x) + (b - (y + v) / 2) * (v - y);
-	const ring: Vec2[] = [];
+	const ring: CutCorner[] = [];
 	for (const [i, a] of polygon.entries()) {
 		const b = polygon[(i + 1) % polygon.length];
-		const da = signed(a);
-		const db = signed(b);
-		if (da <= 0) ring.push(a);
+		const da = signed(a.at);
+		const db = signed(b.at);
+		if (da <= 0) {
+			const previous = polygon[(i + polygon.length - 1) % polygon.length];
+			ring.push(da === 0 && signed(previous.at) > 0 ? { ...a, incoming: cut } : a);
+		}
 		if ((da < 0 && db > 0) || (da > 0 && db < 0)) {
 			const t = da / (da - db);
-			ring.push([a[0] + t * (b[0] - a[0]), a[1] + t * (b[1] - a[1])]);
+			ring.push({
+				at: [a.at[0] + t * (b.at[0] - a.at[0]), a.at[1] + t * (b.at[1] - a.at[1])],
+				incoming: da < 0 ? b.incoming : cut
+			});
 		}
 	}
 	return ring;
@@ -23,19 +31,8 @@ function bisect(polygon: readonly Vec2[], [x, y]: Vec2, [u, v]: Vec2) {
 /** Bisector edges shorter than this fraction of the cell size collapse to their midpoint. */
 const shortestEdge = defaults.voronoiMinimumEdgeRatio;
 
-// Weld independently evaluated bisectors to one position at the existing submicron precision.
+// Keep the previous embedding precision. The clipping constraints provide the addresses.
 const bisectorPrecision = defaults.voronoiBisectorPrecision;
-type GeneratingSite = { id: string; point: Vec2 };
-
-function cornerAddress(point: Vec2, sites: readonly GeneratingSite[]) {
-	const distances = sites.map((site) => ({ id: site.id, radius: distance(site.point, point) }));
-	const nearest = Math.min(...distances.map(({ radius }) => radius));
-	const incident = distances
-		.filter(({ radius }) => radius - nearest <= 1 / bisectorPrecision)
-		.map(({ id }) => id)
-		.sort();
-	return 'bisector/' + encodeKey(incident);
-}
 
 type Ring = Readonly<{ id: string; corners: readonly string[] }>;
 
@@ -107,28 +104,30 @@ export const voronoi: Carrier = function* (site, outline, bearing, size, random)
 			i++
 		) {
 			const center = seedPoint(i, j);
-			const generators = [{ id: `${i},${j}`, point: center }];
-			let ring: Vec2[] = [
+			const generator = `${i},${j}`;
+			const bounds: Vec2[] = [
 				[i - defaults.voronoiSearchRadius, j - defaults.voronoiSearchRadius],
 				[i + defaults.voronoiSearchRadius, j - defaults.voronoiSearchRadius],
 				[i + defaults.voronoiSearchRadius, j + defaults.voronoiSearchRadius],
 				[i - defaults.voronoiSearchRadius, j + defaults.voronoiSearchRadius]
 			];
+			// Only complete cells survive the search halo and whole-cell site crop.
+			let ring = bounds.map((at, side) => ({ at, incoming: `guard/${side}` }));
 			// Fixed local competitors keep every cell independent of the crop.
 			for (let v = -defaults.voronoiSearchRadius; v <= defaults.voronoiSearchRadius; v++) {
 				for (let u = -defaults.voronoiSearchRadius; u <= defaults.voronoiSearchRadius; u++) {
 					if (!u && !v) continue;
 					const point = seedPoint(i + u, j + v);
-					generators.push({ id: `${i + u},${j + v}`, point });
-					ring = bisect(ring, center, point);
+					ring = bisect(ring, center, point, `${i + u},${j + v}`);
 				}
 			}
-			const corners = ring.map((point) => {
-				const id = cornerAddress(point, generators);
+			const corners = ring.map(({ at, incoming }, index) => {
+				const outgoing = ring[(index + 1) % ring.length].incoming;
+				const id = 'bisector/' + encodeKey([generator, incoming, outgoing].sort());
 				if (!points.has(id))
 					points.set(
 						id,
-						point.map((value) => Math.round(value * bisectorPrecision) / bisectorPrecision) as [
+						at.map((value) => Math.round(value * bisectorPrecision) / bisectorPrecision) as [
 							number,
 							number
 						]

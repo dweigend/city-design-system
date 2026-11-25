@@ -133,6 +133,8 @@ export function createPlaneLattice(
 			);
 	}
 	return Object.freeze({
+		datumZ,
+		levelHeightM,
 		...addresses,
 		nodes: Object.freeze([...used.values()]),
 		edges: Object.freeze([...edges.values()]),

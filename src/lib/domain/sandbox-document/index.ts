@@ -28,7 +28,7 @@ export {
 	type SandboxEdit,
 	/** A rebuildable placement with its stable slot ID, scoped host, and registry revision. */
 	type SandboxPlacement,
-	/** World ID, optional seed, and the terrain, topology, and registry revisions for saved edits. */
+	/** World ID, optional plan scope and seed, and the snapshot revisions for saved edits. */
 	type WorldIdentity
 };
 
@@ -321,7 +321,10 @@ export function restoreSandboxDocument(
 		throw new SandboxDataError('Invalid sandbox format or history position');
 	const saved = worldIdentity(world);
 	const identity = expectedWorld ? worldIdentity(expectedWorld) : saved;
-	if (saved.id !== identity.id)
+	if (
+		saved.id !== identity.id ||
+		(saved.planScope !== undefined && saved.planScope !== identity.planScope)
+	)
 		throw new SandboxDataError('This document belongs to a different world');
 	if (
 		saved.registryRevision !== identity.registryRevision &&

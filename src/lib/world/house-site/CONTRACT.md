@@ -15,3 +15,15 @@ to face and opening derivation after the occupied spans of its houses are known.
 The house recipe selects the subgrid, sizes the coarse level and its storeys, and can assign
 uses and construction phases. Terrain-aware placement clips the common datum stack at the first
 boundary at or above the sampled terrain, leaving at least one storey below the common roof.
+
+## Fine cells in a coarse bay
+
+Pass a lattice, bay ID and world scope to `readFineCells`. The resolver uses the lattice datum
+and the storey heights in the supplied recipe. Each result carries a GRID-1 corner quad, a
+storey ref, a fine-cell ref and six outward-wound faces in world meters. Neighbors use the same
+face key and corner positions with opposite winding. The datum index stays in the ref when
+storey heights change within a band.
+
+The resolver emits whole storey prisms inside the canonical bay and one of its model solids.
+Storeys cut by a terrain cap, a faceted fill boundary or a seam between model solids are omitted.
+The example reads the shared side of two adjacent bays with mixed-height storeys.

@@ -476,6 +476,7 @@ test('cell-array order cannot change the settlement class at the town threshold'
 			neighbors: [null, null, null, null]
 		})),
 		vertices: rings.flat(),
+		identity: { variant: 'square' as const, scope: 'test-plan' },
 		boundary: []
 	};
 	const growth = { rankedCellIds: plan.cells.map(({ id }) => id), futureFringe: [] };

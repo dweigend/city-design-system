@@ -23,8 +23,17 @@ revisions. Each separately editable world with otherwise identical inputs needs 
 scope. The default valley adapter identifies a generated plan, so copies of the same
 generated plan share its namespace.
 
+The document also stores the scope from the generated plan. The city checks that both the
+uncut plan and buildable subset belong to the selected carrier before opening a sandbox.
+Voronoi saves from the earlier corner rule belong to the previous address namespace.
+
 The placement cache attaches to one document. It stages each delta and rebuilds incoming
 placements and any neighbors whose party-wall exposure changed.
+
+The exchange example reopens one `sandbox/3` save in separate plan and spatial readers. It
+passes rail and ground survey records alongside the save and resolves parcel, house, grove,
+lane, bridge, storey and part refs against the shared world. The rail record encodes the straight
+line's infinite radius as `unbounded`.
 
 ## Survival
 

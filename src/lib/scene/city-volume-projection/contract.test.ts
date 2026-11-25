@@ -106,7 +106,16 @@ test('omits the lattice drawable when there are no bays', () => {
 	const { frame } = example();
 	expect(
 		projectCityLattice(
-			{ cells: [], faces: [], bayCorners: [], nodes: [], edges: [], solids: [] },
+			{
+				datumZ: 0,
+				levelHeightM: 7,
+				cells: [],
+				faces: [],
+				bayCorners: [],
+				nodes: [],
+				edges: [],
+				solids: []
+			},
 			frame
 		).drawables
 	).toEqual([]);
@@ -264,7 +273,12 @@ test('projects both the ground and water elevations from the alternate city samp
 			? { height: 240, waterKind: 'river', waterClearance: x, waterHeight: 245 }
 			: { height: 240, waterKind: null, waterClearance: x }
 	);
-	const { drawables } = projectCityTerrain(site, { vertices: [], cells: [], boundary: [] });
+	const { drawables } = projectCityTerrain(site, {
+		vertices: [],
+		cells: [],
+		identity: { variant: 'square' as const, scope: 'test-plan' },
+		boundary: []
+	});
 	expect(site.valley).toBeNull();
 	for (const [id, z] of [
 		['ground', 240],
@@ -322,6 +336,7 @@ test('projects the interior of a public fill across a ten-meter terrain peak', (
 	const grid: TerrainGrid = {
 		vertices: outline.map(([x, y], i) => ({ id: String(i), position: [x, y, 0] })),
 		cells: [{ id: 'a', vertexIds: ['0', '1', '2', '3'], neighbors: [null, null, null, null] }],
+		identity: { variant: 'square' as const, scope: 'test-plan' },
 		boundary: []
 	};
 	const plan = createParcelPlan({

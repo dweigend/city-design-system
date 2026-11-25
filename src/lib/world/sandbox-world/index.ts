@@ -293,7 +293,11 @@ export function createSandboxWorld(
 			if (!reference) return { status: 'invalid-reference' };
 			if (reference.world !== identity.id) return { status: 'different-world' };
 			if (reference.kind === 'storey' || reference.kind === 'house-part') {
-				if (document && document.world.id !== identity.id) return { status: 'different-world' };
+				if (
+					document &&
+					(document.world.id !== identity.id || document.world.planScope !== identity.planScope)
+				)
+					return { status: 'different-world' };
 				if (
 					document &&
 					(document.world.registryRevision !== identity.registryRevision ||

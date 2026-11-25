@@ -77,7 +77,12 @@ test('classifies 250 cells at the town threshold in rank order', () => {
 	const growth = { rankedCellIds: cells.map(({ id }) => id), futureFringe: [] };
 	const read = (ordered: typeof cells) => {
 		const { areaKm2, settlement } = createCityDistricts(
-			{ cells: ordered, vertices, boundary: [] },
+			{
+				cells: ordered,
+				vertices,
+				identity: { variant: 'square' as const, scope: 'test-plan' },
+				boundary: []
+			},
 			core,
 			1201,
 			undefined,

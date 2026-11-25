@@ -1,6 +1,13 @@
 /** Module: Places houses on addressed city parcels. */
 
 export {
+	/** Reads closed fine cells contained in an addressed coarse bay and its model fill. */
+	readFineCells,
+	/** A datum-addressed storey prism and its outward face loops. */
+	type BayFineCell
+} from './fine-cells';
+
+export {
 	/** Places one seeded house in an addressed private parcel. */
 	createParcelHouse,
 	/** Builds a placed house. */

@@ -379,9 +379,16 @@ export type CityGrid = ReturnType<typeof readCityGrid>;
  * Main lane paths describe the fixed full guides. The lane intervals and blocks are active. */
 export function readCityParcels(
 	city: CitySite,
-	layout: Pick<CityGrid, 'growth' | 'seed' | 'variant'>
+	layout: Pick<CityGrid, 'growth' | 'seed' | 'variant'> & Partial<Pick<CityGrid, 'plan' | 'grid'>>
 ) {
-	const { parcels, mainLanes } = carrier(city, layout.variant, layout.seed);
+	const { parcels, mainLanes, plan } = carrier(city, layout.variant, layout.seed);
+	for (const grid of [layout.plan, layout.grid]) {
+		if (
+			grid &&
+			(grid.identity?.scope !== plan.identity.scope || grid.identity.variant !== layout.variant)
+		)
+			throw new RangeError('City layout belongs to a different plan');
+	}
 	return Object.freeze({ ...parcels.read(layout.growth.rankedCellIds), mainLanes });
 }
 

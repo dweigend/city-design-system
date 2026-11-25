@@ -16,6 +16,7 @@ function input(
 	const grid: TerrainGrid = {
 		vertices: ring.map(([x, y], i) => ({ id: vertexIds[i], position: [x, y, 0] })),
 		cells: [{ id: 'holding', vertexIds, neighbors: vertexIds.map(() => null) }],
+		identity: { variant: 'square' as const, scope: 'test-plan' },
 		boundary: []
 	};
 	const side = planEdgeId(vertexIds[laneSide], vertexIds[(laneSide + 1) % vertexIds.length]);

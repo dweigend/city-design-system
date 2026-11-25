@@ -91,6 +91,7 @@ test('stops a frontage cut at the first exit of a re-entrant eight-sided block',
 	const grid: TerrainGrid = {
 		vertices: ring.map(([x, y], i) => ({ id: vertexIds[i], position: [x, y, 0] })),
 		cells: [{ id: 'exhibit', vertexIds, neighbors: vertexIds.map(() => null) }],
+		identity: { variant: 'square' as const, scope: 'test-plan' },
 		boundary: vertexIds.map((from, i) => [from, vertexIds[(i + 1) % ring.length]])
 	};
 	const result = createParcelPlan({

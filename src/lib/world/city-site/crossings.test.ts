@@ -181,6 +181,7 @@ test('main-lane router refuses edges rejected by a custom walkability predicate'
 			{ id: 'c0', vertexIds: ['v0', 'v1', 'v3', 'v5'], neighbors: [null, 'c1', null, null] },
 			{ id: 'c1', vertexIds: ['v1', 'v2', 'v4', 'v3'], neighbors: [null, null, null, 'c0'] }
 		],
+		identity: { variant: 'square' as const, scope: 'test-plan' },
 		boundary: []
 	};
 	const guide: readonly Vec2[] = [
@@ -227,9 +228,14 @@ function crossingProbe(
 			? { height: 0, waterClearance, waterKind: 'river', waterHeight: 1 }
 			: { height: 0, waterClearance, waterKind: null };
 	};
-	const built = { vertices: builtVertices, cells: builtCells, boundary: [] };
+	const built = {
+		vertices: builtVertices,
+		cells: builtCells,
+		identity: { variant: 'square' as const, scope: 'test-plan' },
+		boundary: []
+	};
 	return channelCrossings(
-		{ vertices, cells, boundary: [] },
+		{ vertices, cells, identity: { variant: 'square' as const, scope: 'test-plan' }, boundary: [] },
 		built,
 		sample,
 		[0, 0],

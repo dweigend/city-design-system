@@ -13,6 +13,9 @@ const normal: Vec3 = /* Exact arithmetic: positive Z axis. */ [0, 0, 1];
 type Edge = CityLattice['edges'][number];
 type Ordered<T> = Readonly<{ value: T; order: number }>;
 type BayGeometry = Readonly<{
+	bay: LatticeBay;
+	floor: readonly LatticePoint[];
+	ceiling: readonly LatticePoint[];
 	solids: readonly LatticeSolid[];
 	joints: ReadonlyMap<string, LatticePoint>;
 	members: readonly Edge[];
@@ -78,10 +81,21 @@ function indexBays(lattice: CityLattice) {
 		orderedJoints.sort(byOrder);
 		members.sort(byOrder);
 		return {
+			bay,
+			floor: readFace(bay.floorFace),
+			ceiling: readFace(bay.ceilingFace),
 			solids,
 			joints: new Map(orderedJoints.map(({ value }) => [value.id, value])),
 			members: members.map(({ value }) => value)
 		};
+	}
+
+	function readFace(id: string) {
+		return Object.freeze(
+			required(faceCorners.get(id), 'bay cap').map(
+				(corner) => required(joints.get(corner), 'bay cap joint').value
+			)
+		);
 	}
 
 	const geometries = new Map<string, BayGeometry>();
@@ -114,10 +128,25 @@ function bayGeometry(lattice: CityLattice, id: string) {
 	return index(id);
 }
 
-/** Reads the owned solids, addressed joints and member connections of one lattice bay. */
+/** Reads a canonical bay and its caps, owned solids, addressed joints and member connections. */
 export function readLatticeBay(lattice: CityLattice, id: string) {
-	const { solids, joints, members } = bayGeometry(lattice, id);
-	return { solids: [...solids], joints: new Map(joints), members: [...members] };
+	const { bay, floor, ceiling, solids, joints, members } = bayGeometry(lattice, id);
+	return {
+		bay,
+		floor,
+		ceiling,
+		solids: [...solids],
+		joints: new Map(joints),
+		members: [...members],
+		/** Outward triangles grouped by solid, using the same fan as its metric mesh. */
+		get solidTriangles() {
+			return solids.map(({ faces }) =>
+				faces.flatMap((face) =>
+					fanTriangles(face.map((id) => required(joints.get(id), 'solid joint')))
+				)
+			);
+		}
+	};
 }
 
 // Exact arithmetic: the vertex table stores packed XYZ triples, independently for each solid.
