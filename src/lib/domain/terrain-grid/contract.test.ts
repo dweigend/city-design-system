@@ -578,3 +578,13 @@ test('applies the caller’s outline distance limit from the site datum', () => 
 	const grid = TerrainGrid.create({ ...input, site: { ...input.site, maxOutlineDistanceM: 4200 } });
 	expect(grid.cells.length).toBeGreaterThan(60);
 });
+
+test('welds Voronoi corners without looping when scaled bucket indices exceed safe integers', () => {
+	const far: Vec2 = [1e8, 1e8];
+	const welded = weldVoronoiRings([
+		{ id: 'a', corners: [{ at: far, cuts: ['a', 'b', 'c'] }] },
+		{ id: 'b', corners: [{ at: [far[0] + 1e-8, far[1]], cuts: ['b', 'c', 'd'] }] }
+	]);
+	expect(welded.rings[0].corners).toEqual(['bisector/["a","b","c","d"]']);
+	expect(welded.rings[1].corners).toEqual(['bisector/["a","b","c","d"]']);
+});

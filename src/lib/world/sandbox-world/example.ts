@@ -1,13 +1,20 @@
-import type { Vec2 } from '../../core/geometry';
+import type { Vec2, Vec3 } from '../../core/geometry';
 import { required } from '../../core/invariant';
+import type { PlaceableObject } from '../../core/object';
 import {
 	createWorldReference,
+	encodeKey,
 	equalRefs,
 	readWorldReference,
 	type Ref,
 	type ReferenceResolution
 } from '../../core/ref';
-import { readCellStoreys, type CellStorey, type FineCell } from '../../domain/cell-space';
+import {
+	readCellStoreys,
+	readStoreyKey,
+	type CellStorey,
+	type FineCell
+} from '../../domain/cell-space';
 import { readHousePartRefs, type HousePartRef } from '../../domain/house-court';
 import { readHostReference, type SandboxPlacement } from '../../domain/sandbox-document';
 import { buildAsset, readGrovePlan } from '../asset-registry';
@@ -30,14 +37,64 @@ function resolved<T>(result: ReferenceResolution<T>) {
 }
 
 type StoreyGeometry = CellStorey & Pick<FineCell, 'quad'>;
+type PartSpan = Readonly<{
+	bottomZ: number;
+	topZ: number;
+	footprints: readonly (readonly Vec2[])[];
+}>;
 
-function readPartSpan(part: HousePartRef, storey: (ref: Ref<'storey'>) => StoreyGeometry) {
-	const slices = part.storeyRefs.map(storey);
-	return {
-		bottomZ: Math.min(...slices.map(({ bottomZ }) => bottomZ)),
-		topZ: Math.max(...slices.map(({ topZ }) => topZ)),
-		footprints: slices.map(({ quad }) => quad)
-	};
+function sameXY([ax, ay]: readonly [number, number, ...number[]], [bx, by]: Vec2) {
+	return Math.hypot(ax - bx, ay - by) <= 1e-6;
+}
+
+function quadOrientation(quad: readonly Vec2[]) {
+	let area = 0;
+	for (let i = 0; i < quad.length; i++) {
+		const [x0, y0] = quad[i];
+		const [x1, y1] = quad[(i + 1) % quad.length];
+		area += x0 * y1 - x1 * y0;
+	}
+	return area >= 0 ? 1 : -1;
+}
+
+/** Reads the vertical elevation bands of a cell's built exterior walls directly from 3D wall meshes. */
+function readBuiltWallBands(
+	object: PlaceableObject,
+	quad: readonly Vec2[]
+): readonly (readonly [number, number])[] {
+	const sign = quadOrientation(quad);
+	const bands = new Map<string, readonly [number, number]>();
+	for (const { slot, shape } of object.parts) {
+		if (slot !== 'wall' || shape.kind !== 'mesh') continue;
+		const { positions, indices } = shape;
+		const vertex = (index: number): Vec3 => [
+			positions[index * 3],
+			positions[index * 3 + 1],
+			positions[index * 3 + 2]
+		];
+		for (let i = 0; i < indices.length; i += 3) {
+			const a = vertex(indices[i]);
+			const b = vertex(indices[i + 1]);
+			const c = vertex(indices[i + 2]);
+			const bottomZ = Math.min(a[2], b[2], c[2]);
+			const topZ = Math.max(a[2], b[2], c[2]);
+			if (topZ <= bottomZ) continue;
+			const ab = [b[0] - a[0], b[1] - a[1], b[2] - a[2]];
+			const ac = [c[0] - a[0], c[1] - a[1], c[2] - a[2]];
+			const nx = ab[1] * ac[2] - ab[2] * ac[1];
+			const ny = ab[2] * ac[0] - ab[0] * ac[2];
+			for (let e = 0; e < quad.length; e++) {
+				const p = quad[e];
+				const q = quad[(e + 1) % quad.length];
+				const onEdge = (point: Vec3) => sameXY(point, p) || sameXY(point, q);
+				if (!onEdge(a) || !onEdge(b) || !onEdge(c)) continue;
+				const outwardDot = nx * (q[1] - p[1]) * sign - ny * (q[0] - p[0]) * sign;
+				if (outwardDot <= 0) continue;
+				bands.set(`${bottomZ}|${topZ}`, [bottomZ, topZ]);
+			}
+		}
+	}
+	return [...bands.values()].sort(([a], [b]) => a - b);
 }
 
 function readGroveCanopies(
@@ -178,25 +235,63 @@ export function boundaryExample() {
 	function readSpatial(exchange: Exchange) {
 		const consumer = createSandboxWorld(site, layout, columns);
 		const document = consumer.restore(exchange.document);
+		const builtHouses = new Map<string, PlaceableObject>();
+		const wallBandsByCell = new Map<string, readonly (readonly [number, number])[]>();
+		const houseFor = (houseId: string) => {
+			const cached = builtHouses.get(houseId);
+			if (cached) return cached;
+			const parcelId = houseId.startsWith('house/') ? houseId.slice('house/'.length) : houseId;
+			const placement = required(
+				document.readPlacement({ kind: 'parcel', id: parcelId }),
+				'spatial house placement'
+			);
+			const object = consumer.build(placement);
+			builtHouses.set(object.id, object);
+			return object;
+		};
 		return exchange.refs.map((encoded) => {
 			const ref = required(readWorldReference(encoded), 'exchange ref');
 			if (ref.kind === 'placement') {
 				const placement = resolved(document.resolveReference(ref));
 				const host = consumer.resolveHost(placement.host);
 				const object = buildAsset(placement.assetId, host, placement.params, placement.seed);
+				if (placement.host.kind === 'parcel') builtHouses.set(object.id, object);
 				return { ref, object, geometry: placement };
 			}
 			const sample = exchange.survey.find((row) => equalRefs(row.ref, ref));
 			const geometry = sample?.geometry ?? resolved(consumer.resolveReference(ref, document));
-			const span =
-				'storeyRefs' in geometry
-					? readPartSpan(geometry, (storey) => {
-							const value = resolved(consumer.resolveReference(storey, document));
-							if (!('bottomZ' in value)) throw new Error('Expected spatial storey elevations');
-							return value;
-						})
-					: undefined;
-			return { ref, object: undefined, geometry, span };
+			if (ref.kind === 'house-part') {
+				if (!('storeyRefs' in geometry) || !geometry.cellId || geometry.storeyRefs.length !== 1)
+					throw new Error('Expected a single-storey wall part');
+				const [houseId] = JSON.parse(ref.key) as [string, string];
+				const parcelId = houseId.startsWith('house/') ? houseId.slice('house/'.length) : houseId;
+				const placement = required(
+					document.readPlacement({ kind: 'parcel', id: parcelId }),
+					'wall house placement'
+				);
+				const placed = consumer.resolveHouse(placement);
+				if (placed?.status !== 'placed') throw new Error('Expected a placed house');
+				const cell = required(
+					placed.house.cells.find(({ id }) => id === geometry.cellId),
+					'wall occupancy cell'
+				);
+				const storey = resolved(consumer.resolveReference(geometry.storeyRefs[0], document));
+				if (!('quad' in storey)) throw new Error('Expected spatial storey footprint');
+				const bandKey = encodeKey([houseId, geometry.cellId]);
+				let bands = wallBandsByCell.get(bandKey);
+				if (!bands) {
+					bands = readBuiltWallBands(houseFor(houseId), storey.quad);
+					wallBandsByCell.set(bandKey, bands);
+				}
+				const band = required(bands[storey.storey - cell.fromStorey], 'built wall elevation band');
+				const span: PartSpan = {
+					bottomZ: band[0],
+					topZ: band[1],
+					footprints: [storey.quad]
+				};
+				return { ref, object: undefined, geometry, span };
+			}
+			return { ref, object: undefined, geometry, span: undefined };
 		});
 	}
 
@@ -205,17 +300,45 @@ export function boundaryExample() {
 		const document = consumer.restore(exchange.document);
 		const parcels = new Map(consumer.holdings.parcels.map((parcel) => [parcel.id, parcel]));
 		const storeys = new Map<string, StoreyGeometry>();
-		const parts = new Map<string, HousePartRef>();
+		const parts = new Map<string, Readonly<{ geometry: HousePartRef; span: PartSpan }>>();
 		for (const placement of document.readPlacements()) {
 			const placed = consumer.resolveHouse(placement);
 			if (placed?.status !== 'placed') continue;
 			const cells = new Map(placed.space.cells.map(({ id, quad }) => [id, quad]));
+			const storeyRefs = new Map<string, Ref<'storey'>>();
 			for (const { ref, ...storey } of readCellStoreys(placed.space, consumer.world.id)) {
 				const quad = required(cells.get(storey.cellId), 'plan storey footprint');
 				storeys.set(ref.key, { ...storey, quad });
+				storeyRefs.set(ref.key, ref);
 			}
-			for (const part of readHousePartRefs(placed.house, consumer.world.id))
-				parts.set(part.ref.key, part);
+			for (const cell of placed.house.cells) {
+				for (let storey = cell.fromStorey; storey < cell.toStorey; storey++) {
+					const datumIndex = placed.space.datumIndex + storey;
+					const storeyKey = readStoreyKey(placed.space.id, cell.id, datumIndex);
+					const row = required(storeys.get(storeyKey), 'plan storey');
+					const storeyRef = required(storeyRefs.get(storeyKey), 'plan storey ref');
+					const partId = `${cell.id}/envelope/datum/${datumIndex}`;
+					const key = encodeKey([placed.house.id, partId]);
+					const program = cell.program?.find((entry) => entry.key === storeyKey);
+					parts.set(key, {
+						geometry: {
+							ref: createWorldReference(consumer.world.id, 'house-part', key),
+							partId,
+							slot: 'wall',
+							cellId: cell.id,
+							storeySpan: [datumIndex, datumIndex + 1],
+							storeyRefs: [storeyRef],
+							body: true,
+							...(program ? { program: { phase: program.phase, use: program.use } } : {})
+						},
+						span: {
+							bottomZ: row.bottomZ,
+							topZ: row.topZ,
+							footprints: [row.quad]
+						}
+					});
+				}
+			}
 		}
 		const readStorey = (ref: Ref) => required(storeys.get(ref.key), 'plan storey');
 		return exchange.refs.map((encoded) => {
@@ -231,8 +354,8 @@ export function boundaryExample() {
 			}
 			if (ref.kind === 'storey') return { ref, geometry: readStorey(ref) };
 			if (ref.kind === 'house-part') {
-				const geometry = required(parts.get(ref.key), 'plan house part');
-				return { ref, geometry, span: readPartSpan(geometry, readStorey) };
+				const entry = required(parts.get(ref.key), 'plan house part');
+				return { ref, geometry: entry.geometry, span: entry.span };
 			}
 			const sample = exchange.survey.find((row) => equalRefs(row.ref, ref));
 			const geometry =

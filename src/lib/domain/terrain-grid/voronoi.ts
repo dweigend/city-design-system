@@ -73,15 +73,19 @@ function coincides([x, y]: Vec2, [u, v]: Vec2) {
 	return Math.max(Math.abs(x - u), Math.abs(y - v)) <= tolerance;
 }
 
+const bucketOffsets = /* Exact arithmetic: 3x3 neighbor bucket offsets. */ [-1, 0, 1] as const;
+
 /** Position buckets find coincident occurrences across cell rings. The complete incident
  * set names each weld. Coordinates are used only for the embedding and to find candidates. */
 export function weldVoronoiRings(cells: readonly CellCorners[]) {
 	const buckets = new Map<string, Weld[]>();
 	function weld({ at, cuts }: Corner) {
 		const [x, y] = at.map((value) => Math.floor(value * bisectorPrecision));
-		for (let v = y - 1; v <= y + 1; v++)
-			for (let u = x - 1; u <= x + 1; u++) {
-				const match = buckets.get(encodeKey([u, v]))?.find((entry) => coincides(entry.at, at));
+		for (const dy of bucketOffsets)
+			for (const dx of bucketOffsets) {
+				const match = buckets
+					.get(encodeKey([x + dx, y + dy]))
+					?.find((entry) => coincides(entry.at, at));
 				if (!match) continue;
 				for (const cut of cuts) match.cuts.add(cut);
 				return match;
