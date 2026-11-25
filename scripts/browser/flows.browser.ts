@@ -5,11 +5,15 @@ import { expect, type Locator, type Page } from '@playwright/test';
 import { readFile } from 'node:fs/promises';
 import { distinctPixels, journeys, open, readyStages } from './fixtures';
 
+// SwiftShader can take more than 15 seconds to present the whole town after stage startup.
+const townSwiftShaderTimeoutMs = 45_000;
+
 const routes = [
 	['/', 0],
 	['/landscape', 1],
 	['/city', 1],
 	['/paths', 1],
+	['/paths/valley', 1],
 	['/supply', 0],
 	['/architecture', 1],
 	['/architecture/structure', 1],
@@ -26,6 +30,8 @@ const routes = [
 // client startup failures and blank frames that module tests cannot see. No app hooks are added.
 for (const [route, count] of routes) {
 	journeys(`opens ${route} and renders its stages`, async ({ page }) => {
+		const townSwiftShader = route === '/town' && process.env.CI === 'true';
+		if (townSwiftShader) page.setDefaultTimeout(townSwiftShaderTimeoutMs);
 		await open(page, route);
 		if (!count) return;
 		// The town review builds every house on the main thread before its stage appears.
@@ -38,7 +44,8 @@ for (const [route, count] of routes) {
 			).toBeGreaterThan(0);
 			await expect
 				.poll(() => distinctPixels(canvas), {
-					message: 'The stage should show more than one color'
+					message: 'The stage should show more than one color',
+					timeout: townSwiftShader ? townSwiftShaderTimeoutMs : undefined
 				})
 				.toBe(true);
 		}
@@ -346,6 +353,10 @@ journeys('paints, erases, uses history and reloads the saved sandbox', async ({ 
 // Town review controls must preserve combined URL selections across reloads without rebuilding
 // house geometry on focus switches. Catches broken shallow routing or dropped query params.
 journeys('preserves town review focus, frame and view across reloads', async ({ page }) => {
+	if (process.env.CI === 'true') {
+		journeys.setTimeout(120_000);
+		page.setDefaultTimeout(townSwiftShaderTimeoutMs);
+	}
 	await open(page, '/town');
 	await expect(page.getByRole('status')).toHaveCount(0, { timeout: 60_000 });
 	const canvas = (await readyStages(page, 1)).first();

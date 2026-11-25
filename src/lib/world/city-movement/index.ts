@@ -10,6 +10,13 @@ import { cityRail, type CityRailOptions } from './rail';
 import { stairSurvey } from './stairs';
 import { walkways } from './walkways';
 
+export {
+	/** Returns the first selected crossing's ordered head IDs, or an empty list without a crossing. */
+	readCityCrossingHeads,
+	/** Sets up two along-valley catchments and a terrain envelope around the first supplied head. */
+	createCityRailSurvey
+} from './survey';
+
 /** City adapter kinds. Chapter views may attach their own presentation to them. */
 export type { CityMovementKind } from './links';
 
@@ -19,7 +26,7 @@ export const walkwayLevelOffsets = defaults.walkwayLevelOffsets;
 /** Caller-selected rail survey origin, station catchment centres and terrain upper bounds. */
 export type { CityRailOptions } from './rail';
 
-/** Grade bound used by the Paths valley fixture to envelope its terrain samples. */
+/** Grade allowance for bounding valley terrain and water between rail survey probes. */
 export const cityRailTerrainSlopeBound = defaults.railTerrainSlopeBoundRatio;
 /** Along-valley spacing available to callers laying out town station catchments. */
 export const cityRailCatchmentSpacingM = defaults.railCatchmentSpacingM;

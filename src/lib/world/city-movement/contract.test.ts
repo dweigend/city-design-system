@@ -1,11 +1,18 @@
 import { expect, test } from 'bun:test';
 import { columnRoof, levelHeight } from '../../domain/city-volume';
+import { createMovementNetwork } from '../../domain/movement-network';
 import { railConstraints } from '../../domain/transit-line';
 import { citySiteParams, readCityParcels } from '../city-site';
 import { defaults } from '../../../config/city-movement';
 import { required } from '../../core/invariant';
 import { walkwayClearance } from './clearance';
 import { cityMovementExample } from './example';
+import {
+	createCityRailSurvey,
+	readCityCrossingHeads,
+	readCityMovement,
+	readCityRail
+} from './index';
 
 for (const variant of [
 	'square',
@@ -165,6 +172,28 @@ test('the valley guideway keeps its bearings on dry ground at relief 0.5', () =>
 	expect(rail?.stations).toHaveLength(2);
 	for (const { base } of rail?.piers ?? [])
 		expect(site.valley.readGround(base[0], base[1]).cover).toBe('dry');
+});
+
+test('the shared valley survey docks the two named stations to the default town grid', () => {
+	const { site, layout, columns } = cityMovementExample();
+	const heads = readCityCrossingHeads(layout);
+	expect(heads).toEqual(['base/-1,2', 'edge/base/-1,2|base/0,1']);
+	const survey = createCityRailSurvey(site, layout, heads);
+	const rail = required(readCityRail(site, layout, columns, survey), 'valley rail');
+	expect(rail.stations.map(({ id }) => id)).toEqual(['upstream', 'downstream']);
+
+	const { network } = readCityMovement(site, layout, columns, 0, rail, heads);
+	const station = rail.stations[0];
+	const platformId = 'station/upstream';
+	expect(network.readNode(platformId)?.position).toEqual(station.position);
+	const route = network.readRoute(station.approachId, platformId);
+	expect(route?.edges.map(({ id }) => id)).toEqual(['station-stair/upstream', 'dock/upstream']);
+
+	const disconnected = createMovementNetwork(
+		network.nodes,
+		network.edges.filter(({ id }) => id !== 'dock/upstream')
+	);
+	expect(disconnected.readRoute(station.approachId, platformId)).toBeUndefined();
 });
 
 test('organic seed 1201 stairs clear the column at the primary crossing', () => {

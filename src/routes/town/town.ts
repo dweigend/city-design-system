@@ -11,6 +11,8 @@ import {
 import { projectStructure } from '../../lib/scene/structure-projection';
 import type { Drawable } from '../../lib/scene/surface';
 import {
+	createCityRailSurvey,
+	readCityCrossingHeads,
 	readCityMovement,
 	readCityRail,
 	type CityMovementKind
@@ -20,7 +22,6 @@ import { createCityStructure } from '../../lib/world/city-structure';
 import { townHouseRecipe } from '../../lib/world/house-site';
 import { readQuery } from '../architecture/query';
 import { townSheet, townStage } from '../architecture/town';
-import { crossingHeads, railDemo } from '../paths/demo';
 import { createTownParks } from './parks';
 
 const choices = {
@@ -80,7 +81,7 @@ const movementDrawing: Record<CityMovementKind, MovementDrawing> = {
 };
 
 /** Builds the default town once: the Architecture whole-town sheet with its salience rule, the
- * Paths walking network and rail, and the primary structure of the district lattice. */
+ * walking network and rail, and the primary structure of the district lattice. */
 export function createTownReview() {
 	const town = townStage(undefined, townHouseRecipe);
 	const { setup } = readQuery(new URLSearchParams());
@@ -96,8 +97,8 @@ export function createTownReview() {
 	const columns = [...town.columns.values()];
 	const { site, layout, terrain } = town;
 	const recipe = site.recipe ?? riverCityRecipe;
-	const heads = crossingHeads(layout);
-	const rail = readCityRail(site, layout, columns, railDemo(site, layout, heads));
+	const heads = readCityCrossingHeads(layout);
+	const rail = readCityRail(site, layout, columns, createCityRailSurvey(site, layout, heads));
 	const movement = readCityMovement(site, layout, columns, 0, rail, heads);
 	const paths = projectMovement(movement.network, movementDrawing, terrain).drawables;
 	const transit = projectTransitLine(rail, terrain).drawables;
