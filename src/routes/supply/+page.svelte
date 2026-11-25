@@ -45,8 +45,8 @@
 			fit: picture.fit,
 			label:
 				measures === 'sponge'
-					? 'Two mixed-use houses with green roofs, a planted retention basin, a cistern and a power cabinet'
-					: 'Two mixed-use houses with bare roofs, a concrete swale, a cistern and a power cabinet'
+					? 'Two mixed-use houses with green roofs and a planted retention basin, each connected to water from the cistern and power from the cabinet'
+					: 'Two mixed-use houses with bare roofs and a concrete swale, each connected to water from the cistern and power from the cabinet'
 		}}
 	>
 		{#snippet controls()}
