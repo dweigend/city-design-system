@@ -22,6 +22,7 @@ const configOwners = {
 	'lib/domain/valley': 'hydrology',
 	'lib/world/city-site': 'city-site|lanes|parcels',
 	'lib/world/house-site': 'house-site',
+	'lib/world/story-valley': 'story-valley',
 	'lib/world/asset-registry': 'grove|sculpture',
 	'lib/domain/transit-line': 'transit-line',
 	'lib/world/city-movement': 'city-movement',

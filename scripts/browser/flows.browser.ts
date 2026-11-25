@@ -21,7 +21,7 @@ const routes = [
 	['/interface', 0],
 	['/blocks', 1],
 	['/content', 0],
-	['/story', 0],
+	['/story', 1],
 	['/sandbox', 1],
 	['/town', 1]
 ] as const;
@@ -86,6 +86,87 @@ for (const [route, count] of routes) {
 		if (route === '/town')
 			await expect(page.getByRole('status')).toHaveCount(0, { timeout: 60_000 });
 	});
+}
+
+for (const viewport of [
+	{ width: 1440, height: 900 },
+	{ width: 390, height: 844 }
+]) {
+	for (const colorScheme of ['light', 'dark'] as const) {
+		journeys(
+			`renders the /story timeline at ${viewport.width}px in ${colorScheme} mode`,
+			async ({ page }) => {
+				await page.setViewportSize(viewport);
+				await page.emulateMedia({ colorScheme });
+				await open(page, '/story');
+				const canvas = (await readyStages(page, 1)).first();
+				await expect(canvas).toHaveAttribute('data-stage-theme', colorScheme);
+				const original = await canvas.elementHandle();
+				const frameWidth = await canvas.getAttribute('data-stage-width');
+				expect(frameWidth).toBeTruthy();
+				const hero = page.getByRole('region', { name: 'Valley through time' });
+				const date = hero.getByRole('status');
+				const years = hero.getByRole('radiogroup', { name: 'Valley year' });
+				for (const [year, milestone] of [
+					['1955', 'First settlement'],
+					['1985', 'Crossing and expansion'],
+					['2012', 'Riverside infill'],
+					['2030', 'Handover']
+				]) {
+					const radio = years.getByRole('radio', { name: year, exact: true });
+					const previousCount = Number(await canvas.getAttribute('data-stage-drawables'));
+					if (year !== '1955') {
+						await radio.click();
+						await expect
+							.poll(async () => Number(await canvas.getAttribute('data-stage-drawables')))
+							.toBeGreaterThan(previousCount);
+					}
+					await expect(radio).toBeChecked();
+					expect(await canvas.getAttribute('data-stage-width')).toBe(frameWidth);
+					await expect(date).toHaveText(`${year} ${milestone}`);
+					await expect(date).toBeInViewport({ ratio: 1 });
+					await expect(canvas).toHaveAttribute(
+						'aria-label',
+						`River valley in ${year} · ${milestone}`
+					);
+					expect(await date.evaluate((element) => element.scrollWidth <= element.clientWidth)).toBe(
+						true
+					);
+					expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(
+						viewport.width
+					);
+					await expect.poll(() => distinctPixels(canvas)).toBe(true);
+					if (
+						year === '1955' ||
+						year === '2030' ||
+						(viewport.width === 1440 && colorScheme === 'light')
+					) {
+						await hero.screenshot({
+							path: journeys.info().outputPath(`story-${year}-${viewport.width}-${colorScheme}.png`)
+						});
+					}
+				}
+				await expect(page.locator('canvas')).toHaveCount(1);
+				expect(await canvas.evaluate((element, initial) => element === initial, original)).toBe(
+					true
+				);
+				const citation = page.getByRole('region', {
+					name: 'Transformation of Tour Bois-le-Prêtre'
+				});
+				await expect(
+					citation.getByRole('link', { name: '2021 Pritzker Architecture Prize' })
+				).toBeVisible();
+				await expect(citation).toContainText('Lacaton & Vassal with Frédéric Druot');
+				await expect(citation).toContainText(
+					/Retained lower storey riverside-hall\/storey\/.*1955/
+				);
+				await expect(citation).toContainText(/First added storey riverside-hall\/storey\/.*2030/);
+				await years.getByRole('radio', { name: '2030' }).press('Home');
+				await expect(years.getByRole('radio', { name: '1955' })).toBeFocused();
+				await expect(date).toContainText('First settlement');
+			}
+		);
+	}
 }
 
 async function choose(page: Page, control: string, option: string) {

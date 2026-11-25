@@ -427,6 +427,17 @@
 		background: color-mix(in oklab, var(--paper) 92%, transparent);
 	}
 	.chapter-viewer-subject { margin-inline-end: auto; }
+	.story-hero .chapter-viewer-hud { justify-content: flex-start; }
+	.story-date { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0 var(--space-2); }
+	@media (max-width: 720px) {
+		.story-hero .chapter-viewer:not(:fullscreen) > .frame { block-size: clamp(15rem, 70vw, 30rem); }
+		.story-hero .chapter-viewer-hud {
+			display: grid;
+			grid-template-columns: minmax(0, 1fr) auto;
+		}
+		.story-hero .chapter-viewer-hud > .control-icon-button { grid-column: 2; grid-row: 1; }
+		.story-hero .control-segments { grid-column: 1 / -1; justify-self: start; }
+	}
 	.surfaces-hero .chapter-viewer-hud { align-items: end; justify-content: flex-start; }
 	.surfaces-hero .chapter-viewer-hud > .control-icon-button { margin-inline-start: auto; }
 	.surfaces-finish {
