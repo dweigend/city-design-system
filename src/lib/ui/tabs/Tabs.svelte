@@ -12,12 +12,14 @@
 		value: string;
 		/** Render a section by ID, for example {#snippet panel(section)}. */
 		panel: Snippet<[string]>;
+		/** Place the tab list and panels separately within the same tab group. */
+		layout?: Snippet<[Snippet, Snippet]>;
 	}
 
-	let { label, items, value = $bindable(), panel }: Props = $props();
+	let { label, items, value = $bindable(), panel, layout }: Props = $props();
 </script>
 
-<Primitive.Root class="control-tabs" bind:value>
+{#snippet tabList()}
 	<Primitive.List class="control-tabs-list" aria-label={label}>
 		{#each items as item, index (item.value)}
 			<Primitive.Trigger class="control control-tab" value={item.value} disabled={item.disabled}>
@@ -28,9 +30,21 @@
 			</Primitive.Trigger>
 		{/each}
 	</Primitive.List>
+{/snippet}
+
+{#snippet panels()}
 	{#each items as item (item.value)}
 		<Primitive.Content class="control-tab-panel" value={item.value}>
 			{@render panel(item.value)}
 		</Primitive.Content>
 	{/each}
+{/snippet}
+
+<Primitive.Root class="control-tabs" bind:value>
+	{#if layout}
+		{@render layout(tabList, panels)}
+	{:else}
+		{@render tabList()}
+		{@render panels()}
+	{/if}
 </Primitive.Root>

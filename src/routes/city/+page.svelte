@@ -32,10 +32,11 @@
 		readCityFit,
 		readCityPlanDrawables,
 		readCityStep,
+		readCityStepDrawables,
 		readCityStepFocus,
-		readCitySubject
+		readCitySubject,
+		readCitySubjectPoints
 	} from './city';
-	import { StageView } from '../../lib/scene/stage-view';
 	import { valleyParams } from '../../lib/domain/valley';
 	import { cityHeightScaleM } from '../../lib/scene/surface';
 	import { Button } from '../../lib/ui/button';
@@ -57,9 +58,11 @@
 	} from '../../lib/world/city-site';
 	import TerrainControls from '../TerrainControls.svelte';
 	import ChapterHeader from '../ChapterHeader.svelte';
+	import ChapterViewer from '../ChapterViewer.svelte';
 	import { chapterAt } from '../chapters';
 
 	const chapter = chapterAt('/city');
+	const portalTo = '.city-hero .chapter-viewer';
 	const { choices: focusChoices } = cityFocusPreset;
 	const format = new Intl.NumberFormat('en', { maximumFractionDigits: 2 });
 	const views = [
@@ -163,6 +166,7 @@
 		readCityDistricts(city, plan, seed, { height: $height, complexity: $complexity })
 	);
 	const columns = $derived(readCityColumns(plan.grid, districts));
+	// Only the step's drawable readers consume these projections. Framing uses column corners.
 	const taperField = $derived(createCityTaper(columns, plan.datumZ, recipe.levelHeightM));
 	const envelope = $derived(
 		projectCityDistricts(
@@ -185,7 +189,13 @@
 		readCityStepFocus(step, districts.shares, [...planLines, ...parcelDrawables], focus)
 	);
 	const relief = $derived(city.valley.parameters.relief);
-	const subject = $derived(readCitySubject(view, relief, envelope.points()));
+	const subject = $derived(
+		readCitySubject(
+			view,
+			relief,
+			readCitySubjectPoints(columns, plan.datumZ, terrain, recipe.levelHeightM)
+		)
+	);
 	const cityFit = $derived(
 		readCityFit(relief, subject, valueFromQuery('width'), [
 			valueFromQuery('x') ?? 0,
@@ -193,8 +203,13 @@
 		])
 	);
 	const ground = $derived([...terrain.drawables, ...planLines, ...parcelDrawables]);
-	const tiles = $derived(step === '01' ? [] : envelope.drawables);
-	const wires = $derived(step === '03' ? members.drawables : []);
+	const { tiles, wires } = $derived(
+		readCityStepDrawables(
+			step,
+			() => envelope.drawables,
+			() => members.drawables
+		)
+	);
 	const drawables = $derived([...ground, ...tiles, ...wires]);
 	const heightFactor = $derived(
 		cityProfile(
@@ -224,6 +239,31 @@
 	function setViewport(value: Viewport) {
 		viewport = value;
 	}
+	const stage = {
+		get drawables() {
+			return drawables;
+		},
+		get view() {
+			return view;
+		},
+		display: 'normal' as const,
+		get label() {
+			if (focusState.active === 'parcels' || step === '01')
+				return 'City plan showing pedestrian lanes, bridges and holdings';
+			if (step === '02') return 'Stepped district heights above the city plan';
+			return 'Continuous carrier lattice under the stepped district envelope';
+		},
+		landscape: true,
+		interactive: true,
+		get presentation() {
+			return presentation;
+		},
+		onViewport: setViewport,
+		// Keep focus and presentation changes from invalidating StageView's navigation fit.
+		get fit() {
+			return cityFit;
+		}
+	};
 
 	const measurements = $derived([
 		{
@@ -270,106 +310,80 @@
 	<title>{chapter.title} · City Design System</title>
 </svelte:head>
 
-<ChapterHeader number={chapter.number} title={chapter.title} {lead} />
+<Tabs label="City steps" items={steps} bind:value={step}>
+	{#snippet layout(tabList, panels)}
+		<ChapterHeader title={chapter.title} />
+		<section class="chapter-hero city-hero" aria-label="City plan, districts and lattice">
+			<ChapterViewer resetKey={page.url.search} {stage}>
+				{#snippet controls()}
+					{@render tabList()}
+					<div class="city-view-settings">
+						<Select
+							label="Plan grid"
+							items={grids}
+							{portalTo}
+							bind:value={
+								() => gridVariant,
+								(value) =>
+									(gridVariant =
+										cityPlanVariants.find((variant) => variant === value) ?? cityPlanVariants[0])
+							}
+						/>
+						{#if step === '03'}
+							<Select
+								label="Lattice"
+								items={frames}
+								{portalTo}
+								bind:value={
+									() => latticeVariant,
+									(value) =>
+										(selectedLattice =
+											compatible.find((variant) => variant === value) ?? compatible[0])
+								}
+							/>
+						{/if}
+						<Select
+							label="Focus"
+							items={focusState.items}
+							{portalTo}
+							bind:value={
+								() => focusState.active,
+								(value) => (focus = focusChoices.find((choice) => choice === value))
+							}
+						/>
+						<div class="control-choice">
+							<ToggleGroup
+								label="View"
+								showLabel
+								items={views}
+								bind:value={() => view, (value) => (view = value === 'plan' ? 'plan' : 'iso')}
+							/>
+						</div>
+					</div>
+				{/snippet}
+			</ChapterViewer>
+		</section>
 
-<section class="grid grid-aside" aria-label="City plan, districts and lattice">
-	<div class="city-stage">
-		<StageView
-			{drawables}
-			{view}
-			display="normal"
-			label={focusState.active === 'parcels' || step === '01'
-				? 'City plan showing pedestrian lanes, bridges and holdings'
-				: step === '02'
-					? 'Stepped district heights above the city plan'
-					: 'Continuous carrier lattice under the stepped district envelope'}
-			landscape
-			interactive
-			{presentation}
-			onViewport={setViewport}
-			fit={cityFit}
-		/>
-		<div class="cluster">
-			<ToggleGroup
-				label="View"
-				items={views}
-				bind:value={() => view, (value) => (view = value === 'plan' ? 'plan' : 'iso')}
-			/>
-			<Select
-				label="Focus"
-				items={focusState.items}
-				bind:value={
-					() => focusState.active,
-					(value) => (focus = focusChoices.find((choice) => choice === value))
-				}
-			/>
-		</div>
-		{#if step !== '01'}
-			<div class="cluster">
-				<div class="control-choice">
-					<ToggleGroup label="Profile" showLabel items={profiles} bind:value={profile} />
-				</div>
-			</div>
-			{#if focusState.analysis === 'height'}
-				<ScaleLegend
-					label="Column height in meters"
-					values={['0', String(cityHeightScaleM / 2), String(cityHeightScaleM)]}
-					unit="m"
-				/>
-			{/if}
-		{/if}
-		<dl class="data cluster city-measurements">
-			{#each measurements as { label, value, unit } (label)}
-				<div>
-					<dt>{label}</dt>
-					<dd>
-						{value}{#if unit}&nbsp;{unit}{/if}
-					</dd>
-				</div>
-			{/each}
-		</dl>
-	</div>
-
-	<div class="stack">
-		<Select
-			label="Plan grid"
-			items={grids}
-			bind:value={
-				() => gridVariant,
-				(value) =>
-					(gridVariant =
-						cityPlanVariants.find((variant) => variant === value) ?? cityPlanVariants[0])
-			}
-		/>
-		{#if step === '03'}
-			<Select
-				label="Lattice"
-				items={frames}
-				bind:value={
-					() => latticeVariant,
-					(value) =>
-						(selectedLattice = compatible.find((variant) => variant === value) ?? compatible[0])
-				}
-			/>
-		{/if}
-		<TerrainControls schema={valleyParams} bind:values={terrainSettings} />
-		<Tabs label="City steps" items={steps} bind:value={step}>
-			{#snippet panel(active)}
-				<div class="stack">
-					{#if active === '01'}
-						<p>
-							The 60 m grid continues across water. Edges in the water hue mark water cells, and
-							pink lines show the selected bridges along grid edges or straight between bank nodes.
-						</p>
-					{:else if active === '02'}
-						<p>
-							A village keeps two storeys. A town adds six-storey blocks. Only a city of several
-							square kilometres grows a center, falling in steps from its peak to the block eaves.
-						</p>
-					{:else}
-						<p>The coarse lattice rises on shared 7 m levels. Plots and finer grids follow.</p>
+		<div class="chapter-notes stack">
+			{@render panels()}
+			<details class="city-specialist-panel">
+				<summary>Terrain and profile</summary>
+				<div class="city-parameters">
+					<TerrainControls schema={valleyParams} bind:values={terrainSettings} />
+					{#if step !== '01'}
+						<div class="control-choice">
+							<ToggleGroup label="Profile" showLabel items={profiles} bind:value={profile} />
+						</div>
 					{/if}
-					<Button label="New city" onclick={drawSeed} />
+				</div>
+			</details>
+		</div>
+	{/snippet}
+
+	{#snippet panel(active)}
+		<div class="grid grid-aside">
+			<div class="stack city-edit">
+				<div class="city-parameters">
 					<Slider
 						label={sizeParam.label}
 						min={sizeParam.min}
@@ -404,7 +418,43 @@
 						/>
 					{/if}
 				</div>
-			{/snippet}
-		</Tabs>
-	</div>
-</section>
+				<Button label="New city" onclick={drawSeed} />
+			</div>
+			<div class="stack">
+				<p class="lead">{lead}</p>
+				{#if active === '01'}
+					<p>
+						The 60 m grid continues across water. Edges in the water hue mark water cells, and pink
+						lines show the selected bridges along grid edges or straight between bank nodes.
+					</p>
+				{:else if active === '02'}
+					<p>
+						A village keeps two storeys. A town adds six-storey blocks. Only a city of several
+						square kilometres grows a center, falling in steps from its peak to the block eaves.
+					</p>
+				{:else}
+					<p>The coarse lattice rises on shared 7 m levels. Plots and finer grids follow.</p>
+				{/if}
+				{#if active !== '01' && focusState.analysis === 'height'}
+					<ScaleLegend
+						label="Column height in meters"
+						values={['0', String(cityHeightScaleM / 2), String(cityHeightScaleM)]}
+						unit="m"
+					/>
+				{/if}
+				{#if active === step}
+					<dl class="data cluster city-measurements">
+						{#each measurements as { label, value, unit } (label)}
+							<div>
+								<dt>{label}</dt>
+								<dd>
+									{value}{#if unit}&nbsp;{unit}{/if}
+								</dd>
+							</div>
+						{/each}
+					</dl>
+				{/if}
+			</div>
+		</div>
+	{/snippet}
+</Tabs>

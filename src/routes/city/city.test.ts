@@ -1,13 +1,18 @@
-import { expect, test } from 'bun:test';
+import { expect, mock, test } from 'bun:test';
 import { get, derived } from 'svelte/store';
 import { cityVolumeParams, createCityLattice, readCityColumns } from '../../lib/domain/city-volume';
-import { cityElevation, projectCityTerrain } from '../../lib/scene/city-volume-projection';
+import {
+	cityElevation,
+	projectCityDistricts,
+	projectCityTerrain
+} from '../../lib/scene/city-volume-projection';
 import {
 	citySiteParams,
 	createCitySite,
 	readCityDistricts,
 	readCityGrid,
 	readCityParcels,
+	riverCityRecipe,
 	type CitySite
 } from '../../lib/world/city-site';
 import {
@@ -15,12 +20,14 @@ import {
 	readCityFit,
 	readCityPlanDrawables,
 	readCityStep,
+	readCityStepDrawables,
 	readCityStepFocus,
-	readCitySubject
+	readCitySubject,
+	readCitySubjectPoints
 } from './city';
 
 test('chooses step-appropriate focus and recognizes the water-plan overlay', () => {
-	const shares = { detached: 0.4, block: 0.6, center: 0 };
+	const shares = { detached: 0.4, block: 0.4, center: 0.2 };
 	const water = [{ id: 'water-plan' }];
 	const overlays = [...water, { id: 'dry-plan' }];
 	const offersLandscape = (drawables: typeof overlays) =>
@@ -34,7 +41,68 @@ test('chooses step-appropriate focus and recognizes the water-plan overlay', () 
 	expect(readCityStepFocus('02', shares, overlays, 'lattice').active).toBe('all');
 	expect(readCityStepFocus('03', shares, overlays, 'lattice').active).toBe('lattice');
 	expect(readCityStepFocus('03', shares, overlays, 'height').analysis).toBe('height');
+
+	const withHoldings = [...overlays, { id: 'holding-outlines' }, { id: 'larger-holdings' }];
+	const choices = (step: '01' | '02' | '03') =>
+		readCityStepFocus(step, shares, withHoldings).items.map(({ value }) => value);
+	const districts = ['center', 'block', 'detached'] as const;
+	const ground = ['landscape', 'parcels', 'plan'] as const;
+	expect(choices('01')).toEqual(['all', ...ground]);
+	expect(choices('02')).toEqual(['all', ...districts, 'height', ...ground]);
+	expect(choices('03')).toEqual(['all', 'districts', ...districts, 'lattice', 'height', ...ground]);
 });
+
+test('projects districts and lattice only on the steps that display them', () => {
+	const projectDistricts = mock(() => []);
+	const projectLattice = mock(() => []);
+	readCityStepDrawables('01', projectDistricts, projectLattice);
+	expect(projectDistricts).not.toHaveBeenCalled();
+	expect(projectLattice).not.toHaveBeenCalled();
+	readCityStepDrawables('02', projectDistricts, projectLattice);
+	expect(projectDistricts).toHaveBeenCalledTimes(1);
+	expect(projectLattice).not.toHaveBeenCalled();
+	readCityStepDrawables('03', projectDistricts, projectLattice);
+	expect(projectDistricts).toHaveBeenCalledTimes(2);
+	expect(projectLattice).toHaveBeenCalledTimes(1);
+});
+
+test.each([
+	['organic', 0.5, 4000],
+	['square', 0, 8000],
+	['hex', 1, 800]
+] as const)(
+	'lightweight %s framing matches the district envelope',
+	(grid, relief, size) => {
+		const seed = 42;
+		const city = createCitySite(undefined, { seed, relief });
+		const plan = readCityGrid(city, size, grid, seed);
+		const columns = readCityColumns(plan.grid, readCityDistricts(city, plan, seed));
+		const { levelHeightM } = city.recipe ?? riverCityRecipe;
+		const terrain = projectCityTerrain(city, plan.grid, plan.plan);
+		const envelope = projectCityDistricts(
+			columns,
+			plan.datumZ,
+			terrain,
+			undefined,
+			seed,
+			undefined,
+			levelHeightM
+		);
+		expect(columns.length).toBeGreaterThan(0);
+		for (const view of ['iso', 'plan'] as const) {
+			const full = readCitySubject(view, relief, envelope.points());
+			const light = readCitySubject(
+				view,
+				relief,
+				readCitySubjectPoints(columns, plan.datumZ, terrain, levelHeightM)
+			);
+			expect(light).toBeDefined();
+			// The extreme vertices are identical. Interior wall levels cannot extend the frame.
+			expect(light).toEqual(full);
+		}
+	},
+	30_000
+);
 
 test('city slider drafts generate once on commit and match direct query inputs', () => {
 	const seed = 42;
@@ -93,7 +161,10 @@ test('city slider drafts generate once on commit and match direct query inputs',
 			plan.selectedCrossings,
 			holdings
 		);
-		const focus = readCityStepFocus('03', districts.shares, [...planLines, ...parcelDrawables]);
+		const overlays = [...planLines, ...parcelDrawables];
+		const focus = (['01', '02', '03'] as const).map((step) =>
+			readCityStepFocus(step, districts.shares, overlays)
+		);
 		return {
 			gridCells: plan.grid.cells,
 			planCells: plan.plan.cells,
@@ -103,7 +174,7 @@ test('city slider drafts generate once on commit and match direct query inputs',
 			mergedUnits: holdings.mergedUnits,
 			planLines,
 			parcelDrawables,
-			focus: { active: focus.active, items: focus.items },
+			focus: focus.map(({ active, items }) => ({ active, items })),
 			measurements: {
 				area: plan.areaKm2,
 				cellCount: plan.plan.cells.length,

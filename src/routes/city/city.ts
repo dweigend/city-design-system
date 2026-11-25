@@ -1,6 +1,7 @@
 import { writable, type Readable, type Writable } from 'svelte/store';
 import type { Vec2, Vec3 } from '../../lib/core/geometry';
 import { resolveParams, type ParameterSchema } from '../../lib/core/params';
+import { columnRoof, type CityColumn } from '../../lib/domain/city-volume';
 import {
 	cityCameraBearingRad,
 	cityCameraMinimumWidthM,
@@ -10,9 +11,11 @@ import {
 	cityFrameFillPerRelief,
 	type CityContent,
 	type FocusChoice,
+	type CityDrawable,
 	type projectCityTerrain
 } from '../../lib/scene/city-volume-projection';
 import { projectFocus, type View, type ViewFit } from '../../lib/scene/stage';
+import type { Drawable } from '../../lib/scene/surface';
 
 type CityTerrainProjection = ReturnType<typeof projectCityTerrain>;
 
@@ -58,6 +61,18 @@ export function readCityStep(value: string | null): CityStep {
 	return value === '01' || value === '02' ? value : '03';
 }
 
+/** Reads only the visible geometry for the step, using lazy projection readers. */
+export function readCityStepDrawables(
+	step: CityStep,
+	readEnvelope: () => readonly CityDrawable[],
+	readMembers: () => readonly Drawable[]
+) {
+	return {
+		tiles: step === '01' ? [] : readEnvelope(),
+		wires: step === '03' ? readMembers() : []
+	};
+}
+
 /** The Plan step has no district content and defaults to Plan and crossings. Overlay IDs
  * stay with the projection, including the water-cell overlay in the Plan focus. */
 export function readCityStepFocus(
@@ -80,6 +95,32 @@ export function readCityStepFocus(
 
 function cityCamera(relief: number) {
 	return { bearing: cityCameraBearingRad, elevation: cityElevation(relief) };
+}
+
+/** Streams the local XYZ vertices in meters that bound the untapered envelope. Interior walls
+ * start on neighboring roof corners. All intermediate wall vertices lie on the segments between
+ * roof and floor, so only roof corners and exposed ground corners can extend the projected bounds. */
+export function* readCitySubjectPoints(
+	columns: readonly CityColumn[],
+	datumZ: number,
+	terrain: Pick<CityTerrainProjection, 'toLocal'>,
+	levelHeightM: number
+): IterableIterator<Vec3> {
+	for (const column of columns) {
+		const { corners, neighbors } = column;
+		const roof = columnRoof(column, datumZ, levelHeightM);
+		for (const [
+			index,
+			{
+				position: [x, y, z]
+			}
+		] of corners.entries()) {
+			const local = terrain.toLocal(x, y);
+			yield [...local, roof];
+			const previous = index === 0 ? neighbors.length - 1 : index - 1;
+			if (neighbors[index] === null || neighbors[previous] === null) yield [...local, z];
+		}
+	}
 }
 
 /** Measures the city envelope in the initial view plane, independent of width and offset. */

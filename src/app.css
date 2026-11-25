@@ -396,7 +396,7 @@
 		th[scope='row'] { inline-size: 6.5rem; }
 	}
 
-	.page > .chapter-hero {
+	.page > .chapter-hero, .city-hero {
 		margin-block-start: var(--space-3);
 		padding-block-start: 0;
 		border: 0;
@@ -427,6 +427,55 @@
 		background: color-mix(in oklab, var(--paper) 92%, transparent);
 	}
 	.chapter-viewer-subject { margin-inline-end: auto; }
+	.page > .control-tabs:has(> .city-hero) { inline-size: 100%; }
+	.city-hero .chapter-viewer-hud { align-items: end; }
+	.city-hero .control-tabs-list { margin-inline-end: auto; }
+	.city-hero .control-tab { justify-content: center; white-space: nowrap; }
+	.city-hero .control-tab > .data { display: none; }
+	.city-view-settings {
+		display: flex;
+		flex-wrap: wrap;
+		align-items: end;
+		gap: var(--space-2) var(--space-3);
+	}
+	.city-view-settings > .control-select-field { min-inline-size: 0; }
+	.city-view-settings .control-with-icon { text-align: start; }
+	.city-view-settings .control-select-field > .label { color: var(--ink-2); }
+	.control-tabs:has(> .city-hero) > .chapter-notes > .control-tab-panel { padding: 0; }
+	.city-edit { justify-items: start; gap: var(--space-3); }
+	.city-parameters {
+		display: grid;
+		grid-template-columns: repeat(auto-fit, minmax(min(100%, 18rem), 1fr));
+		gap: var(--space-3) var(--space-6);
+		inline-size: 100%;
+	}
+	.city-specialist-panel { border-block-start: var(--hair) solid var(--line); }
+	.city-specialist-panel > summary {
+		align-content: center;
+		min-block-size: var(--ctl-m);
+		font-size: var(--text-s);
+		cursor: pointer;
+	}
+	@media (hover: hover) {
+		.city-specialist-panel > summary:hover { text-decoration: underline; }
+	}
+	.city-specialist-panel > .city-parameters { margin-block: var(--space-2) var(--space-4); }
+	.city-specialist-panel .control-choice { justify-items: start; }
+	@media (max-width: 720px) {
+		.city-hero .chapter-viewer:not(:fullscreen) > .frame { block-size: clamp(20rem, 46svh, 34rem); }
+		.city-hero .chapter-viewer-hud {
+			display: grid;
+			grid-template-columns: minmax(0, 1fr) auto;
+		}
+		.city-hero .control-tabs-list { margin-inline-end: 0; }
+		.city-hero .chapter-viewer-hud > .control-icon-button { grid-area: 1 / 2; }
+		.city-view-settings {
+			grid-column: 1 / -1;
+			display: grid;
+			grid-template-columns: repeat(2, minmax(0, 1fr));
+		}
+		.city-view-settings > .control-choice { justify-items: start; }
+	}
 	.chapter-aspects {
 		display: grid;
 		margin: var(--space-4) 0 0;

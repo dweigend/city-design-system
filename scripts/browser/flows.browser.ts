@@ -108,6 +108,27 @@ async function renderedChange(canvas: Locator, change: () => Promise<void>) {
 	await expect.poll(async () => (await canvas.screenshot(hideHud)).equals(before)).toBe(false);
 }
 
+async function expectStageIdle(page: Page, canvas: Locator) {
+	const framesAtIdle = Number(await canvas.getAttribute('data-stage-frames'));
+	const idleRafs = await page.evaluate(
+		() =>
+			new Promise<number>((resolve) => {
+				const original = window.requestAnimationFrame.bind(window);
+				let scheduled = 0;
+				window.requestAnimationFrame = (callback) => {
+					scheduled++;
+					return original(callback);
+				};
+				window.setTimeout(() => {
+					window.requestAnimationFrame = original;
+					resolve(scheduled);
+				}, 200);
+			})
+	);
+	expect(idleRafs).toBe(0);
+	expect(Number(await canvas.getAttribute('data-stage-frames'))).toBe(framesAtIdle);
+}
+
 // Changing the camera must render without rebuilding geometry (R07). This catches replacement
 // of GPU drawables that headless checks cannot observe. Uses the existing stage metrics.
 journeys('switches landscape camera without rebuilding drawables', async ({ page }) => {
@@ -183,26 +204,6 @@ journeys('keeps the landscape stage and controls through fullscreen and exit', a
 	}
 
 	const hud = page.locator('.chapter-viewer-hud');
-	async function expectIdle() {
-		const framesAtIdle = Number(await canvas.getAttribute('data-stage-frames'));
-		const idleRafs = await page.evaluate(
-			() =>
-				new Promise<number>((resolve) => {
-					const original = window.requestAnimationFrame.bind(window);
-					let scheduled = 0;
-					window.requestAnimationFrame = (callback) => {
-						scheduled++;
-						return original(callback);
-					};
-					window.setTimeout(() => {
-						window.requestAnimationFrame = original;
-						resolve(scheduled);
-					}, 200);
-				})
-		);
-		expect(idleRafs).toBe(0);
-		expect(Number(await canvas.getAttribute('data-stage-frames'))).toBe(framesAtIdle);
-	}
 	async function expectFloatingBottomHud() {
 		const canvasBox = await canvas.boundingBox();
 		const hudBox = await hud.boundingBox();
@@ -218,14 +219,14 @@ journeys('keeps the landscape stage and controls through fullscreen and exit', a
 	await expectSameStage(true, previousFrame);
 	await expect(plan).toBeInViewport({ ratio: 1 });
 	await expectFloatingBottomHud();
-	await expectIdle();
+	await expectStageIdle(page, canvas);
 	await plan.click();
 	await expect(canvas).toHaveAttribute('data-stage-view', 'plan');
 	previousFrame = Number(await canvas.getAttribute('data-stage-frames'));
 	await exit.click();
 	await expect(enter).toBeFocused();
 	await expectSameStage(false, previousFrame);
-	await expectIdle();
+	await expectStageIdle(page, canvas);
 
 	await page.setViewportSize({ width: 390, height: 844 });
 	previousFrame = Number(await canvas.getAttribute('data-stage-frames'));
@@ -240,7 +241,7 @@ journeys('keeps the landscape stage and controls through fullscreen and exit', a
 	await expectSameStage(false, previousFrame);
 	await expect(plan).toBeChecked();
 	await expect(canvas).toHaveAttribute('data-stage-view', 'plan');
-	await expectIdle();
+	await expectStageIdle(page, canvas);
 });
 
 // A delayed first import must not replace the latest selection. Exercise the real chunks,
@@ -445,6 +446,113 @@ journeys('switches city steps and focuses on parcels', async ({ page }) => {
 		'City plan showing pedestrian lanes, bridges and holdings'
 	);
 });
+
+for (const viewport of [
+	{ width: 1440, height: 900 },
+	{ width: 390, height: 844 }
+]) {
+	journeys(
+		`keeps the city hero and fullscreen HUD usable at ${viewport.width}px`,
+		async ({ page }) => {
+			await page.setViewportSize(viewport);
+			await page.emulateMedia({ colorScheme: viewport.width === 390 ? 'dark' : 'light' });
+			await open(page, '/city?seed=42&step=01');
+			const canvas = (await readyStages(page, 1)).first();
+			const hero = page.locator('.city-hero');
+			const tabs = hero.getByRole('tablist', { name: 'City steps' });
+			const plan = tabs.getByRole('tab', { name: 'Plan', exact: true });
+			const lattice = tabs.getByRole('tab', { name: 'Lattice', exact: true });
+			const enter = hero.getByRole('button', { name: 'Enter fullscreen' });
+			const exit = hero.getByRole('button', { name: 'Exit fullscreen' });
+			const focus = hero.getByRole('combobox', { name: 'Focus', exact: true });
+			const disclosure = page.locator('.city-specialist-panel > summary');
+			const terrainSliders = ['Meander', 'Relief', 'Runoff'].map((name) =>
+				page.getByRole('slider', { name, exact: true })
+			);
+			const profile = page.getByRole('radiogroup', { name: 'Profile' });
+			const view = hero.getByRole('radiogroup', { name: 'View' });
+			const overflow = () => page.evaluate(() => document.documentElement.scrollWidth);
+
+			for (const control of [
+				canvas,
+				tabs,
+				hero.getByRole('combobox', { name: 'Plan grid' }),
+				focus,
+				view,
+				enter
+			]) {
+				await expect(control).toBeInViewport({ ratio: 1 });
+			}
+			expect((await canvas.boundingBox())?.width).toBeGreaterThan(viewport.width * 0.85);
+			expect(await overflow()).toBe(viewport.width);
+			expect(await page.evaluate(() => scrollY)).toBe(0);
+			await expect(plan).toHaveAttribute('aria-selected', 'true');
+			for (const slider of terrainSliders) await expect(slider).toBeHidden();
+			await disclosure.click();
+			for (const slider of terrainSliders) await expect(slider).toBeVisible();
+			await expect(profile).toHaveCount(0);
+			await tabs.getByRole('tab', { name: 'Districts' }).click();
+			await expect(profile.getByRole('radio', { name: 'Auto' })).toBeChecked();
+			await profile.getByRole('radio', { name: 'True scale' }).click();
+			await expect(profile.getByRole('radio', { name: 'True scale' })).toBeChecked();
+			await disclosure.click();
+			for (const slider of terrainSliders) await expect(slider).toBeHidden();
+			await expect(profile).toBeHidden();
+			await lattice.click();
+			await page.evaluate(() => window.scrollTo(0, 0));
+			await expect(hero.getByRole('combobox', { name: 'Lattice' })).toBeInViewport({ ratio: 1 });
+			await expect(enter).toBeInViewport({ ratio: 1 });
+			expect(await overflow()).toBe(viewport.width);
+
+			await view.getByRole('radio', { name: 'Plan' }).click();
+			await expect(canvas).toHaveAttribute('data-stage-view', 'plan');
+			await renderedChange(canvas, () => canvas.press('ArrowRight'));
+			await enter.focus();
+			const pannedFrame = await canvas.screenshot();
+			const original = await canvas.elementHandle();
+			const builds = await canvas.getAttribute('data-stage-drawable-builds');
+			const frames = async () => Number(await canvas.getAttribute('data-stage-frames'));
+			async function expectSameStage(previousFrame: number) {
+				await expect.poll(frames).toBeGreaterThan(previousFrame);
+				await expect(page.locator('canvas')).toHaveCount(1);
+				expect(
+					await original.evaluate((element) => element === document.querySelector('canvas'))
+				).toBe(true);
+				await expect(canvas).toHaveAttribute('data-stage-drawable-builds', builds ?? '');
+				await expect(canvas).toHaveAttribute('data-stage-view', 'plan');
+			}
+
+			const fullscreen = hero.locator('.chapter-viewer:fullscreen');
+			let before = await frames();
+			await enter.click();
+			await expect(fullscreen.locator('canvas')).toHaveCount(1);
+			// Headless Chromium initially enters fullscreen at its virtual display size.
+			await page.setViewportSize(viewport);
+			await expect
+				.poll(() => page.evaluate(() => ({ width: innerWidth, height: innerHeight })))
+				.toEqual(viewport);
+			await expectSameStage(before);
+			const canvasBox = await canvas.boundingBox();
+			const hudBox = await fullscreen.locator('.chapter-viewer-hud').boundingBox();
+			if (!canvasBox || !hudBox) throw new Error('Expected fullscreen canvas and HUD boxes');
+			expect(hudBox.x).toBeGreaterThan(canvasBox.x);
+			expect(hudBox.x + hudBox.width).toBeLessThan(canvasBox.x + canvasBox.width);
+			expect(hudBox.y).toBeGreaterThan(canvasBox.y + canvasBox.height / 2);
+			expect(hudBox.y + hudBox.height).toBeLessThan(canvasBox.y + canvasBox.height);
+			await expectStageIdle(page, canvas);
+
+			await choose(page, 'Focus', 'Parcels');
+			await choose(page, 'Focus', 'All');
+			before = await frames();
+			await exit.click();
+			await expect(enter).toBeFocused();
+			await expect(fullscreen).toHaveCount(0);
+			await expectSameStage(before);
+			await expectStageIdle(page, canvas);
+			expect((await canvas.screenshot()).equals(pannedFrame)).toBe(true);
+		}
+	);
+}
 
 // Readouts must follow the pointer, while drawable builds wait for a commit.
 // Taper must render during the gesture and reuse existing geometry.

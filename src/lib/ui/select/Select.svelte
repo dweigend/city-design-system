@@ -10,10 +10,12 @@
 		items: readonly { value: string; label: string; disabled?: boolean }[];
 		/** Bind the selected ID, for example bind:value={field}. */
 		value: string;
+		/** Portal container, for example the viewer that enters fullscreen. */
+		portalTo?: string | Element;
 	}
 
 	const id = $props.id();
-	let { label, items, value = $bindable() }: Props = $props();
+	let { label, items, value = $bindable(), portalTo }: Props = $props();
 	const selectedLabel = $derived(items.find((item) => item.value === value)?.label ?? 'Choose…');
 </script>
 
@@ -24,7 +26,7 @@
 			{selectedLabel}
 			<Icon name="chevron-down" />
 		</Primitive.Trigger>
-		<Primitive.Portal>
+		<Primitive.Portal to={portalTo}>
 			<Primitive.Content
 				class="control-popup control-options"
 				align="start"
