@@ -186,11 +186,21 @@ function programFace(ctx: Context, cell: FineCell, storey: number, face: HouseFa
 	return face && program ? { ...face, program } : face;
 }
 
+function flushAcross(ctx: Context, cell: FineCell, i: number, storey: number): boolean {
+	const acrossId = cell.sides[i].neighbour;
+	if (!builtAt(ctx, acrossId, storey)) return false;
+	const across = ctx.space.cells.find(({ id }) => id === acrossId);
+	return (
+		programAt(ctx, cell, storey)?.phase !== 'addition' &&
+		(!across || programAt(ctx, across, storey)?.phase !== 'addition')
+	);
+}
+
 /** Runs of storeys over which one cell side is exposed, as [from, to). */
 function exposedRuns(ctx: Context, cell: FineCell, i: number, from: number, to: number) {
 	const runs: [number, number][] = [];
 	for (let storey = from; storey < to; storey += 1) {
-		if (builtAt(ctx, cell.sides[i].neighbour, storey)) continue;
+		if (flushAcross(ctx, cell, i, storey)) continue;
 		const last = runs.at(-1);
 		if (last && last[1] === storey && !ctx.occupancy.get(cell.id)?.program?.length)
 			last[1] = storey + 1;

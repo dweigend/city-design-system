@@ -21,6 +21,7 @@ import {
 	createHouseCourt,
 	createHouseAssembly,
 	createHouseObject,
+	houseFaces,
 	houseFigures,
 	houseSlots,
 	houseStyles,
@@ -594,4 +595,31 @@ test('keeps occupied body refs through clipping, extension and shell regrouping'
 			.filter(({ body }) => body)
 			.map(({ ref }) => ref.key);
 	expect(bodyKeys(regrouped)).toEqual(bodyKeys(complete));
+});
+
+test('adjacent inset addition cells expose their facing walls for envelope cladding', () => {
+	const plan = createCellSpace(
+		parcel('inset-pair', [
+			[0, 0],
+			[20, 0],
+			[20, 20],
+			[0, 20]
+		]),
+		0
+	);
+	const space = createCellSpaceStoreys(plan, { baseZ: 0, datumIndex: 0, storeyCount: 2 });
+	const inputs = { height: 7, width: 32, complexity: 0, seed: 3 };
+	const retained = createHouseCourt(space, inputs, houseStyles.neutral, {
+		storeyProgram: () => ({ phase: 'retained', use: 'public' })
+	});
+	const addition = createHouseCourt(space, inputs, houseStyles.neutral, {
+		storeyProgram: () => ({ phase: 'addition', use: 'office' })
+	});
+	const retainedWalls = houseFaces(space, retained, 'full', houseStyles.neutral).filter(
+		({ place }) => place === 'wall'
+	);
+	const additionWalls = houseFaces(space, addition, 'full', houseStyles.neutral).filter(
+		({ place }) => place === 'wall'
+	);
+	expect(additionWalls.length).toBeGreaterThan(retainedWalls.length);
 });

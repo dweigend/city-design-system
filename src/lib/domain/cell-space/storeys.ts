@@ -26,19 +26,19 @@ export function createMixedStoreyBoundaries(
 	const bands = heights.length;
 	let cycle = Math.floor(first / bands);
 	let band = first - cycle * bands;
-	let offset = cycle * cycleHeightM;
-	for (let index = 0; index < band; index++) offset += heights[index];
-	const boundaries = [datumZ + offset];
+	let elevation = datumZ + cycle * cycleHeightM;
+	for (let index = 0; index < band; index++) elevation += heights[index];
+	const boundaries = [elevation];
 	for (let index = 0; index < count; index++) {
 		if (band + 1 === bands) {
 			cycle++;
 			band = /* Exact arithmetic: the first band of the next cycle. */ 0;
-			offset = cycle * cycleHeightM;
+			elevation = datumZ + cycle * cycleHeightM;
 		} else {
-			offset += heights[band];
+			elevation += heights[band];
 			band++;
 		}
-		boundaries.push(datumZ + offset);
+		boundaries.push(elevation);
 	}
 	return boundaries;
 }

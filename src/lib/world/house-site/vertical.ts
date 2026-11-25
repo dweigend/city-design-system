@@ -38,7 +38,16 @@ export function createParcelStoreySizing(
 		first,
 		end - first
 	);
-	const match = groundZ === undefined ? 0 : boundaries.findIndex((height) => height >= groundZ);
+	const match =
+		groundZ === undefined
+			? 0
+			: boundaries.findIndex((height) => {
+					const tolerance =
+						/* Exact arithmetic: bounded rounding slack across repeated mixed cycles. */ 16 *
+						Number.EPSILON *
+						Math.max(Math.abs(height), Math.abs(groundZ), levelHeightM);
+					return height + tolerance >= groundZ;
+				});
 	const lastStorey = boundaries.length - 2;
 	const start = match < 0 ? lastStorey : Math.min(match, lastStorey);
 	const datumIndex = first + start;

@@ -267,3 +267,36 @@ test('creates only the active stack at a distant datum index', () => {
 		floor + 14
 	]);
 });
+
+test('keeps boundary 16 of repeated fractional heights when clipped at the stack elevation', () => {
+	const repeated = Array.from({ length: 16 }, (_, i) => (i % 2 === 0 ? 0.1 : 0.2));
+	const full = createStoreyStack({ baseZ: 0, storeyCount: 16, storeyHeightsM: repeated });
+	const ground = full.storeyElevationsM[16];
+	const placed = createParcelHouse(
+		{
+			...parcelAtDatumZero(10),
+			recipe: { vertical: { storeyHeightsM: [0.1, 0.2] } },
+			groundAt: () => ground
+		},
+		{ seed: 3 }
+	);
+	if (placed.status !== 'placed') throw new Error(placed.reason);
+	expect(placed.space.datumIndex).toBe(16);
+});
+
+test('keeps exact intra-cycle heights when a distant cycle lands near elevation zero', () => {
+	const site = parcelAtDatumZero(2);
+	const datumZ = -700_000_000;
+	const placed = createParcelHouse(
+		{
+			...site,
+			datumZ,
+			groundAt: () => 0,
+			recipe: { vertical: { storeyHeightsM: [4.2, 2.8] } }
+		},
+		{ seed: 3 }
+	);
+	if (placed.status !== 'placed') throw new Error(placed.reason);
+	expect(placed.space.datumIndex).toBe(200_000_000);
+	expect(placed.space.storeyElevationsM).toEqual([0, 4.2, 7, 11.2, 14]);
+});

@@ -307,7 +307,9 @@ function projectPlain(
 				slot,
 				surface && role
 					? {
-							...(material ? readModelSurface(material, 'normal') : board),
+							...(material
+								? readModelSurface(material, 'normal', readLevelDetail('plain').grain)
+								: board),
 							stroke: surface.stroke
 						}
 					: surface

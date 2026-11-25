@@ -179,3 +179,26 @@ test('paints an explicit wall patch alongside a house made with the wall role', 
 	expect(drawing.find(({ id }) => id === 'wall/face')?.color).toBe('--model-white');
 	expect(drawing.find(({ id }) => id === 'wall/mark')?.color).toBe('--model-ink');
 });
+
+test('programmed plain LOD suppresses surface grain even without a tone override', () => {
+	const house = createHouseCourt(
+		space,
+		{ height: 14, width: 24, complexity: 0, seed: 2 },
+		houseStyles.organic,
+		{
+			storeyProgram: (index) =>
+				index < 2 ? { phase: 'retained', use: 'public' } : { phase: 'addition', use: 'housing' }
+		}
+	);
+	const plain = projectProgrammedHouse(
+		{ space, house, style: houseStyles.organic },
+		'full',
+		[],
+		[],
+		houseMaterials.organic,
+		'full',
+		{ level: 'plain', budget: 0 }
+	);
+	expect(plain.drawables.some(({ useColor }) => useColor === houseUseColors.housing)).toBe(true);
+	expect(plain.drawables.every(({ grain }) => !grain)).toBe(true);
+});
