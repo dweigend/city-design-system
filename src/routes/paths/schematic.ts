@@ -6,9 +6,11 @@ import {
 	type MovementLink,
 	type MovementNode
 } from '../../lib/domain/movement-network';
+import type { TransitLine } from '../../lib/domain/transit-line';
 import {
 	projectMovement,
 	projectMovementRoute,
+	projectTransitLine,
 	type MovementDrawing,
 	type PathsFrame
 } from '../../lib/scene/paths-projection';
@@ -201,6 +203,38 @@ function nodeMarks(active: readonly MovementNode[]): Drawable {
 	};
 }
 
+// Fixed, city-independent elevated guideway crossing both banks north of the yard, with one station beside east-quay.
+const transitZ = walkwayLevels[1].heightM;
+const transitY = 31;
+const schematicTransitLine: TransitLine = {
+	points: [
+		[-56, transitY, transitZ],
+		[48, transitY, transitZ]
+	],
+	piers: [-46, -15, 15, 44].map((x) => ({
+		top: [x, transitY, transitZ],
+		base: [x, transitY, 0]
+	})),
+	stations: [
+		{
+			id: 'quay-station',
+			approachId: 'east-quay',
+			position: [29, transitY, transitZ],
+			base: [29, transitY, 0],
+			stationM: 85
+		}
+	],
+	wetRuns: 1,
+	lengthM: 104,
+	gradeRatio: 0,
+	minimumRadiusM: Infinity
+};
+
+const transitDrawables: readonly Drawable[] = projectTransitLine(
+	schematicTransitLine,
+	frame
+).drawables;
+
 /** Builds a fresh movement graph and scene for levels up to the selected level, in meters. */
 export function createSchematic(level: WalkwayLevel) {
 	const active = nodes.filter((node) => node.level === 'ground' || node.level <= level);
@@ -210,8 +244,101 @@ export function createSchematic(level: WalkwayLevel) {
 		network,
 		elevatedEdges: network.edges.filter(({ kind }) => kind === 'stair' || kind === 'walkway')
 			.length,
-		drawables: [...context, ...drawables, nodeMarks(active)]
+		drawables: [...context, ...transitDrawables, ...drawables, nodeMarks(active)]
 	};
+}
+
+export type SchematicSelection =
+	| Readonly<{
+			kind: 'node';
+			value: string;
+			id: string;
+			levelLabel: string;
+			connections: readonly string[];
+			drawable: Drawable;
+	  }>
+	| Readonly<{
+			kind: 'edge';
+			value: string;
+			id: string;
+			edgeKind: Kind;
+			from: string;
+			to: string;
+			lengthM: number;
+			drawable: Drawable;
+	  }>;
+
+/** Lists keyboard-selectable graph nodes and edges currently active in the schematic. */
+export function readSchematicElements(schematic: ReturnType<typeof createSchematic>) {
+	const { nodes: activeNodes, edges: activeEdges } = schematic.network;
+	return [
+		{ value: 'none', label: 'None' },
+		...activeNodes.map(({ id }) => ({ value: `node:${id}`, label: `Node · ${id}` })),
+		...activeEdges.map(({ id }) => ({ value: `edge:${id}`, label: `Edge · ${id}` }))
+	];
+}
+
+/** Highlights and describes one active node or edge, returning undefined when absent at this level. */
+export function readSchematicSelection(
+	schematic: ReturnType<typeof createSchematic>,
+	value: string
+): SchematicSelection | undefined {
+	if (value.startsWith('node:')) {
+		const id = value.slice('node:'.length);
+		const node = schematic.network.nodes.find((item) => item.id === id);
+		if (!node) return undefined;
+		const body = mesh();
+		body.pier(node.position, node.position[2] + 2.4, 1.8);
+		return {
+			kind: 'node',
+			value,
+			id: node.id,
+			levelLabel:
+				node.level === 'ground' ? 'Ground (0 m)' : `Level ${node.level} (+${node.position[2]} m)`,
+			connections: schematic.network.edges
+				.filter(({ nodeIds }) => nodeIds[0] === id || nodeIds[1] === id)
+				.map((edge) => edge.id),
+			drawable: {
+				id: `inspect-node-${id}`,
+				shape: required(body.shape(), 'inspected schematic node'),
+				color: '--blueprint',
+				finish: 'matte',
+				flat: true
+			}
+		};
+	}
+	if (value.startsWith('edge:')) {
+		const id = value.slice('edge:'.length);
+		const edge = schematic.network.edges.find((item) => item.id === id);
+		if (!edge) return undefined;
+		const [from, to] = edge.nodeIds;
+		const byId = new Map(schematic.network.nodes.map((node) => [node.id, node]));
+		const a = required(byId.get(from)?.position, 'inspected edge start');
+		const b = required(byId.get(to)?.position, 'inspected edge end');
+		const lift = 0.9;
+		const body = mesh();
+		body.pier(a, a[2] + 1.8, 1.3);
+		body.pier(b, b[2] + 1.8, 1.3);
+		return {
+			kind: 'edge',
+			value,
+			id: edge.id,
+			edgeKind: edge.kind,
+			from,
+			to,
+			lengthM: edge.lengthM,
+			drawable: {
+				id: `inspect-edge-${id}`,
+				shape: required(body.shape(), 'inspected schematic edge'),
+				color: '--blueprint',
+				finish: 'matte',
+				flat: true,
+				stroke: { color: '--blueprint', width: 2.5, opacity: 1 },
+				strokeSegments: [a[0], a[1], a[2] + lift, b[0], b[1], b[2] + lift]
+			}
+		};
+	}
+	return undefined;
 }
 
 /** Measures and highlights the least-distance route in the current schematic. */

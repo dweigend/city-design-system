@@ -1011,9 +1011,17 @@ for (const viewport of [
 
 				await renderedChange(canvas, () => choose(page, 'Route', 'Gate → Quay'));
 				await expect(metrics).toHaveText(['12', '14', '6', '138.1 m', '14 m', '2']);
+				await renderedChange(canvas, () => choose(page, 'Inspect', 'Edge · upper-deck'));
+				await expect(page.locator('.paths-inspection')).toContainText(
+					'Edge upper-deck (walkway) · upper-entry ↔ upper-exit'
+				);
 				await choose(page, 'Route', 'Gate → Court');
 				await renderedChange(canvas, () => choose(page, 'Walkway level', 'Ground only'));
 				await expect(metrics).toHaveText(ground);
+				await expect(page.locator('.paths-inspection')).toHaveCount(0);
+				await expect(page.getByRole('combobox', { name: 'Inspect', exact: true })).toHaveText(
+					'None'
+				);
 
 				const options = page.getByRole('combobox', { name: 'Route', exact: true });
 				await options.focus();

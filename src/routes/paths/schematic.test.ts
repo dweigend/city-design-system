@@ -1,6 +1,12 @@
 import { describe, expect, test } from 'bun:test';
 import { shapeArrays } from '../../lib/scene/stage';
-import { createSchematic, readSchematicRoute, routePairs } from './schematic';
+import {
+	createSchematic,
+	readSchematicElements,
+	readSchematicRoute,
+	readSchematicSelection,
+	routePairs
+} from './schematic';
 
 const cases = [
 	{
@@ -107,4 +113,40 @@ describe('Paths teaching schematic', () => {
 			}
 		}
 	);
+
+	test('projects a city-independent transit line and inspects active nodes and edges', () => {
+		const level2 = createSchematic(2);
+		expect(level2.drawables.some(({ id }) => id === 'rail-guideway')).toBe(true);
+		expect(level2.drawables.some(({ id }) => id === 'rail-stations')).toBe(true);
+
+		const items = readSchematicElements(level2);
+		expect(items.some(({ value }) => value === 'node:upper-entry')).toBe(true);
+		expect(items.some(({ value }) => value === 'edge:upper-deck')).toBe(true);
+
+		const node = readSchematicSelection(level2, 'node:upper-entry');
+		expect(node).toMatchObject({
+			kind: 'node',
+			id: 'upper-entry',
+			levelLabel: 'Level 2 (+14 m)'
+		});
+		const edge = readSchematicSelection(level2, 'edge:upper-deck');
+		expect(edge).toMatchObject({
+			kind: 'edge',
+			id: 'upper-deck',
+			edgeKind: 'walkway',
+			from: 'upper-entry',
+			to: 'upper-exit'
+		});
+
+		// Lowering the walkway level clears selections that are no longer active.
+		const ground = createSchematic(0);
+		expect(readSchematicSelection(ground, 'node:upper-entry')).toBeUndefined();
+		expect(readSchematicSelection(ground, 'edge:upper-deck')).toBeUndefined();
+		expect(readSchematicSelection(ground, 'edge:river-bridge')).toMatchObject({
+			kind: 'edge',
+			id: 'river-bridge',
+			from: 'west-landing',
+			to: 'east-landing'
+		});
+	});
 });
