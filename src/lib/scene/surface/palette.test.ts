@@ -66,6 +66,23 @@ test('every model tone stays the configured distance from every flow colour in b
 		}
 });
 
+test('public-space focus stays distinct from path pink, flow colors and model surfaces', () => {
+	const own = oklab(lightTheme, '--house-public');
+	if (!own) throw new Error('Expected a literal public-space color');
+	expect(lightTheme).toMatch(/--path:\s*var\(--cat-business\)/);
+	for (const theme of [lightTheme, dark]) {
+		for (const token of [...flows, ...tones('--body-living'), '--cat-foliage']) {
+			const other = oklab(theme, token) ?? oklab(lightTheme, token);
+			if (!other) throw new Error('Missing palette token ' + token);
+			expect({
+				token,
+				apart:
+					Math.hypot(...own.map((component, i) => component - other[i])) >= functionColourDistance
+			}).toEqual({ token, apart: true });
+		}
+	}
+});
+
 test('model materials use model tones only, and the transparency view is neutral', () => {
 	for (const family of familyNames)
 		for (const slot of readFamily(family).slots) {

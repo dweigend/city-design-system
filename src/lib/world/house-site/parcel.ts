@@ -38,6 +38,8 @@ const { contactToleranceM, cornerSineRatio } = defaults;
 
 /** Selects vertical sizing and the plan subdivision of a parcel house. */
 export type ParcelHouseRecipe = Readonly<{
+	/** Stable revision for custom program or subdivision code used by a sandbox world. */
+	key?: string;
 	vertical?: CityVerticalRecipeInput;
 	subgridId?: string;
 	subgridOptions?: CellSubgridOptions;

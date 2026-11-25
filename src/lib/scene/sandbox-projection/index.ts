@@ -108,23 +108,34 @@ export function createSandboxProjection(site: CitySite, layout: CityGrid, holdin
 				throw new RangeError('No sandbox materials for ' + style.id);
 			const plain = detail.level === 'plain';
 			const placement = { translation: offset, radians: -bearing };
+			const faces = plain ? [] : houseFaces(space, house, 'full', style, adjoiningWalls);
+			const materials = houseMaterials[style.id as HouseStyleName];
+			const options = {
+				budget: detail.budget,
+				placement,
+				level: detail.level,
+				seed: house.inputs.seed,
+				plainTone: detail.tone
+			};
 			if (house.cells.some(({ program }) => program?.length))
 				return address(
-					projectProgrammedHouse(placed, plain ? 'block' : 'full', adjoiningWalls, placement),
+					projectProgrammedHouse(
+						placed,
+						plain ? 'block' : 'full',
+						adjoiningWalls,
+						faces,
+						materials,
+						'full',
+						options
+					).drawables,
 					placementId
 				);
 			const { drawables } = projectCladHouse(
 				createParcelHouseObject(placed, plain ? 'block' : 'full', adjoiningWalls),
-				plain ? [] : houseFaces(space, house, 'full', style, adjoiningWalls),
-				houseMaterials[style.id as HouseStyleName],
+				faces,
+				materials,
 				'full',
-				{
-					budget: detail.budget,
-					placement,
-					level: detail.level,
-					seed: house.inputs.seed,
-					plainTone: detail.tone
-				}
+				options
 			);
 			return address(drawables, placementId);
 		},

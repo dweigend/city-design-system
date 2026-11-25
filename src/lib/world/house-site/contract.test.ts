@@ -231,3 +231,39 @@ test('keeps a boundary supplied as the sum of fractional storey heights', () => 
 	expect(placed.space.datumIndex).toBe(3);
 	expect(placed.space.storeyHeightsM).toEqual([0.1, 0.2, 0.3]);
 });
+
+test('creates only the active stack at a distant datum index', () => {
+	const site = parcelAtDatumZero(2);
+	const floor = 700_000_000;
+	const columns = new Map(
+		[...site.columns].map(([id, column]) => [
+			id,
+			{
+				...column,
+				groundAtHub: floor,
+				corners: column.corners.map(({ id, position: [x, y] }) => ({
+					id,
+					position: [x, y, floor] as const
+				}))
+			}
+		])
+	);
+	const placed = createParcelHouse(
+		{
+			...site,
+			columns,
+			groundAt: () => floor,
+			recipe: { vertical: { storeyHeightsM: [4.2, 2.8] } }
+		},
+		{ seed: 3 }
+	);
+	if (placed.status !== 'placed') throw new Error(placed.reason);
+	expect(placed.space.datumIndex).toBe(200_000_000);
+	expect(placed.space.storeyElevationsM).toEqual([
+		floor,
+		floor + 4.2,
+		floor + 7,
+		floor + 11.2,
+		floor + 14
+	]);
+});

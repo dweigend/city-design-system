@@ -41,6 +41,7 @@
 	--ground-sage: oklch(0.76 0.035 145);
 	--ground-clay: oklch(0.72 0.055 47);
 	--body-living: oklch(0.7 0.14 288);
+	--house-public: oklch(0.58 0.18 318);
 	--signal: oklch(0.575 0.18 33);
 	--cat-hazard: oklch(0.47 0.165 12);
 	--ana-zug: oklch(0.56 0.095 195);
@@ -696,19 +697,11 @@
 	[data-flow='food'] { --flow: var(--cat-nature); }
 	[data-flow='material'] { --flow: var(--cat-living); }
 	.house-uses { margin: 0; padding: 0; list-style: none; }
-	[data-house-use='public'] { --use: var(--path); }
-	[data-house-use='workshop'] { --use: var(--cat-living); }
-	[data-house-use='office'] { --use: var(--cat-mobility); }
-	[data-house-use='housing'] { --use: var(--body-living); }
-	[data-house-use='city-farm'] { --use: var(--cat-nature); }
-	[data-house-use='greenhouse'] { --use: var(--cat-foliage); }
-	[data-house-use]::before {
-		content: '';
+	.house-uses [data-tone] {
 		display: inline-block;
 		inline-size: 0.75em;
 		block-size: 0.75em;
 		margin-inline-end: var(--space-1);
-		background: var(--use);
 	}
 	[data-flow] td:nth-of-type(1) { background: oklch(from var(--flow) var(--step-1)); }
 	[data-flow] td:nth-of-type(2) { background: oklch(from var(--flow) var(--step-2)); }
@@ -746,6 +739,10 @@
 	[data-tone='ground-sage'] { --tone: var(--ground-sage); }
 	[data-tone='ground-clay'] { --tone: var(--ground-clay); }
 	[data-tone='body-living'] { --tone: var(--body-living); }
+	[data-tone='house-public'] { --tone: var(--house-public); }
+	[data-tone='cat-living'] { --tone: var(--cat-living); }
+	[data-tone='cat-mobility'] { --tone: var(--cat-mobility); }
+	[data-tone='cat-nature'] { --tone: var(--cat-nature); }
 	[data-tone='signal'] { --tone: var(--signal); }
 	[data-tone='cat-hazard'] { --tone: var(--cat-hazard); }
 	[data-tone='ana-zug'] { --tone: var(--ana-zug); }

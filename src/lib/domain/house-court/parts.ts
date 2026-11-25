@@ -1,12 +1,20 @@
 import type { Vec2 } from '../../core/geometry';
-import { boxParts, faceParts, groundStoreyRuns, type HousePart, type StoreyRun } from './part-refs';
+import { required } from '../../core/invariant';
+import {
+	boxParts,
+	lazyFaceParts,
+	groundStoreyRuns,
+	slicePartId,
+	type HousePart,
+	type StoreyRun
+} from './part-refs';
 import { defaults } from '../../../config/house-court';
 import { readStoreyElevation, readStoreyHeight, type FineCell } from '../cell-space';
 import { side, type Box } from './boxes';
 import { extrusion, type Faces } from './solids';
-import { builtAt, type Context } from './context';
+import { builtAt, envelopeRing, type Context } from './context';
 import type { HouseCell } from './occupancy';
-import { shellFaces, shells, shellStoreyRuns } from './shells';
+import { envelopeSlices, shellFaces, shells, shellStoreyRuns } from './shells';
 import { entranceGround } from './access';
 import { cellSolids, type CellSolid } from './fills';
 import { entranceSide } from './graph';
@@ -84,12 +92,27 @@ export function plates(context: Context): HousePart[] {
 /** The closed envelope of all built cell storeys in the given slot, one mesh per shell: storeys
  * that touch only along an edge go to separate shells, so every shell is two-manifold. The first
  * shell keeps the ID `<space>/envelope`, later ones append `/<index>`. */
-export function envelope(context: Context, slot: string): HousePart[] {
+export function envelope(context: Context, slot: string, references = false): HousePart[] {
+	if (references) {
+		const cells = new Map(context.space.cells.map((cell) => [cell.id, cell]));
+		return envelopeSlices(context).flatMap((run) => {
+			const [id, from, to] = run;
+			return lazyFaceParts(
+				slicePartId(id, 'envelope', context.space.datumIndex + from),
+				slot,
+				[run],
+				() =>
+					extrusion(
+						envelopeRing(context, required(cells.get(id), 'envelope cell'), from),
+						level(context, from),
+						level(context, to)
+					),
+				{ body: true }
+			);
+		});
+	}
 	const layered = context.house.cells.some(({ program }) => program?.length);
 	return shells(context, layered).flatMap((members, k) => {
-		const faces = shellFaces(context, members).map(({ joints }) =>
-			joints.map(({ position }) => position)
-		);
 		const runs = shellStoreyRuns(context, members);
 		const [cell, from] = runs[0];
 		const prefix = `${context.space.id}/envelope`;
@@ -98,7 +121,14 @@ export function envelope(context: Context, slot: string): HousePart[] {
 			: k
 				? `${prefix}/${k}`
 				: prefix;
-		return faceParts(id, slot, faces, runs);
+		return lazyFaceParts(
+			id,
+			slot,
+			runs,
+			() =>
+				shellFaces(context, members).map(({ joints }) => joints.map(({ position }) => position)),
+			{ body: true }
+		);
 	});
 }
 
@@ -140,17 +170,21 @@ function signedArea(outline: readonly Vec2[]) {
 /** The parapet rim of the merged envelope (MAT-13): along every wall exposed at the top storey,
  * in the given slot, as one mesh. */
 export function envelopeRims(context: Context, slot: string): HousePart[] {
-	const rims: Faces = [];
+	const rims: (() => Faces)[] = [];
 	const runs: StoreyRun[] = [];
 	eachBuilt(context, (cell, house) => {
 		cell.quad.forEach((_, i) => {
 			if (exposed(context, cell, i, house.toStorey - 1)) {
-				rims.push(...rim(cell.quad, i, level(context, house.toStorey)));
+				rims.push(() =>
+					rim(envelopeRing(context, cell, house.toStorey - 1), i, level(context, house.toStorey))
+				);
 				runs.push([cell.id, house.toStorey - 1, house.toStorey]);
 			}
 		});
 	});
-	return faceParts(`${context.space.id}/rims`, slot, rims, runs);
+	return lazyFaceParts(`${context.space.id}/rims`, slot, runs, () =>
+		rims.flatMap((make) => make())
+	);
 }
 
 /** The parapet rim of every flat-topped body without a roof solid, in the body's slot. */
@@ -163,11 +197,8 @@ export function solidRims(context: Context, solids: readonly CellSolid[]): House
 	return [...tops.values()].flatMap((s) => {
 		if (!s.flat || roofed.has(s.cell.id)) return [];
 		const z = level(context, s.toStorey);
-		return faceParts(
-			`${s.key}/rims`,
-			s.slot,
-			s.outline.flatMap((_, i) => rim(s.outline, i, z)),
-			[[s.cell.id, s.toStorey - 1, s.toStorey]]
+		return lazyFaceParts(`${s.key}/rims`, s.slot, [[s.cell.id, s.toStorey - 1, s.toStorey]], () =>
+			s.outline.flatMap((_, i) => rim(s.outline, i, z))
 		);
 	});
 }
@@ -224,7 +255,7 @@ export function openingRects(
 	i: number,
 	storey: number
 ): WallRect[] {
-	const wall = side(cell.quad, i);
+	const wall = side(envelopeRing(context, cell, storey), i);
 	const run = openingRun(context, wall.length, storey);
 	return Array.from({ length: run.count }, (_, k) =>
 		openingRect(((k + 0.5) / run.count) * wall.length, run)
@@ -241,7 +272,7 @@ export function openingStoreys(context: Context, house: HouseCell): number {
 }
 
 function openingsOnSide(context: Context, cell: FineCell, i: number, storey: number): Box[] {
-	const wall = side(cell.quad, i);
+	const wall = side(envelopeRing(context, cell, storey), i);
 	const run = openingRun(context, wall.length, storey);
 	const base = level(context, storey);
 	const visible = exposedWall(context.adjoiningWalls, wall, base, level(context, storey + 1));

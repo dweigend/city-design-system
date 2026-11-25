@@ -38,6 +38,8 @@ export type CellSpace = StoreyStack &
 		id: string;
 		kind?: 'strip';
 		houseRules?: CellSpaceHouseRules;
+		/** The sizing supplied an index in a shared datum, including index zero. */
+		datumAnchored?: true;
 		cells: readonly FineCell[];
 		storeys: readonly CellStorey[];
 	}>;

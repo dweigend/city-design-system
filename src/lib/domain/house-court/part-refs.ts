@@ -6,7 +6,12 @@ import type { Vec3 } from '../../core/geometry';
 import type { HouseOccupancy, StoreyProgram } from './occupancy';
 
 export type StoreyRun = readonly [cellId: string, fromStorey: number, toStorey: number];
-export type HousePart = Part & Readonly<{ runs: readonly StoreyRun[] }>;
+export type HousePart = Part &
+	Readonly<{
+		runs: readonly StoreyRun[];
+		programRun?: StoreyRun;
+		body?: boolean;
+	}>;
 
 export const groundStorey = /* Exact arithmetic: zero-based ground storey index. */ 0;
 
@@ -24,6 +29,7 @@ export type HousePartAddress = Readonly<{
 	storeySpan: readonly [number, number];
 	storeyKeys: readonly string[];
 	program?: StoreyProgram;
+	body?: boolean;
 }>;
 
 /** Part and storey addresses resolved in one supplied world. */
@@ -38,24 +44,41 @@ function shapeParts<T>(
 	mesh: (source: readonly T[]) => Shape
 ): HousePart[] {
 	if (!source.length) return [];
+	return lazyParts(id, slot, runs, () => mesh(source));
+}
+
+function lazyParts(
+	id: string,
+	slot: string,
+	runs: readonly StoreyRun[],
+	build: () => Shape,
+	flags?: Pick<HousePart, 'body' | 'programRun'>
+): HousePart[] {
+	if (!runs.length) return [];
+	let shape: Shape | undefined;
 	return [
 		{
 			id,
 			slot,
 			runs,
+			...flags,
 			get shape() {
-				return mesh(source);
+				return (shape ??= build());
 			}
 		}
 	];
 }
 
-export const faceParts = (
+export const lazyFaceParts = (
 	id: string,
 	slot: string,
-	faces: readonly (readonly Vec3[])[],
-	runs: readonly StoreyRun[]
-) => shapeParts(id, slot, faces, runs, faceMesh);
+	runs: readonly StoreyRun[],
+	faces: () => readonly (readonly Vec3[])[],
+	flags?: Pick<HousePart, 'body' | 'programRun'>
+) => lazyParts(id, slot, runs, () => faceMesh(faces()), flags);
+
+export const slicePartId = (cell: string, kind: 'body' | 'envelope', datumIndex: number) =>
+	`${cell}/${kind}/datum/${datumIndex}`;
 
 export const boxParts = (
 	id: string,
@@ -76,7 +99,7 @@ export function partAddresses(
 		)
 	);
 	return Object.freeze(
-		parts.map(({ id, slot, runs }) => {
+		parts.map(({ id, slot, runs, programRun, body }) => {
 			const keys = new Set<string>();
 			let from = Infinity;
 			let to = -Infinity;
@@ -88,13 +111,16 @@ export function partAddresses(
 					keys.add(readStoreyKey(space.id, cell, space.datumIndex + storey));
 			}
 			const storeyKeys = [...keys];
-			const program = programs.get(storeyKeys[0]);
+			const programKey =
+				programRun && readStoreyKey(space.id, programRun[0], space.datumIndex + programRun[1]);
+			const program = programs.get(programKey ?? storeyKeys[0]);
 			const uniform =
 				program &&
-				storeyKeys.every((key) => {
-					const other = programs.get(key);
-					return other?.phase === program.phase && other.use === program.use;
-				});
+				(programKey ||
+					storeyKeys.every((key) => {
+						const other = programs.get(key);
+						return other?.phase === program.phase && other.use === program.use;
+					}));
 			return Object.freeze({
 				key: encodeKey([houseId, id]),
 				partId: id,
@@ -102,6 +128,7 @@ export function partAddresses(
 				cellId: runs.every(([cell]) => cell === cellId) ? cellId : null,
 				storeySpan: Object.freeze<[number, number]>([from, to]),
 				storeyKeys: Object.freeze(storeyKeys),
+				...(body ? { body } : {}),
 				...(uniform ? { program: Object.freeze(program) } : {})
 			});
 		})

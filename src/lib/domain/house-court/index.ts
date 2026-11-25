@@ -5,6 +5,7 @@ export { cellRoles, type CellRole } from './roles';
 
 /** Inputs, per-cell occupancy and the occupancy rule of a house around a court. */
 export type { HouseCell, HouseInputs, HouseSite, HouseStorey, StoreyProgram } from './occupancy';
+/** Local addresses and world-scoped references for house parts. */
 export type { HousePartAddress, HousePartRef } from './part-refs';
 
 /** Scale of a cell space, shared court access and the style row as one house applies it. */

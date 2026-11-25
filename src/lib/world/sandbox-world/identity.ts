@@ -3,11 +3,31 @@ import type { MovementNetwork } from '../../domain/movement-network';
 import type { ParcelPlan } from '../../domain/parcels';
 import type { WorldIdentity } from '../../domain/sandbox-document';
 import type { TerrainGrid } from '../../domain/terrain-grid';
-import { coarseCellSize, type CityGrid, type CitySite } from '../city-site';
+import { coarseCellSize, riverCityRecipe, type CityGrid, type CitySite } from '../city-site';
 import { cityAssetRegistryRevision } from '../asset-registry';
+import type { ParcelHouseRecipe } from '../house-site';
 
 // Bump when a generator can reuse a local key for a different feature.
 const planAddressRevision = 'city-plan/1';
+
+function houseSignature({ vertical, subgridId, subgridOptions, key }: ParcelHouseRecipe) {
+	const count = vertical?.storeysPerLevel ?? riverCityRecipe.storeysPerLevel;
+	const level = vertical?.levelHeightM ?? riverCityRecipe.levelHeightM;
+	const heights =
+		vertical?.storeyHeightsM ?? Array<number>(count).fill(vertical?.storeyHeightM ?? level / count);
+	const subgrid = subgridId ?? 'frontage-strip';
+	const rounds = subgridOptions?.refinementRounds ?? null;
+	if (
+		!key &&
+		subgrid === 'frontage-strip' &&
+		rounds === null &&
+		level === riverCityRecipe.levelHeightM &&
+		count === riverCityRecipe.storeysPerLevel &&
+		heights.every((height) => height === riverCityRecipe.storeyHeightM)
+	)
+		return [];
+	return [fingerprint(['parcel-houses/1', level, heights, subgrid, rounds, key ?? null])];
+}
 
 // Exact arithmetic: FNV-1a over UTF-8, reduced to its unsigned 64-bit state at each step.
 function fingerprint(snapshot: unknown) {
@@ -87,6 +107,7 @@ export function readSandboxIdentity(
 	holdings: ParcelPlan,
 	columns: ReadonlyMap<string, CityColumn>,
 	network: MovementNetwork,
+	houseRecipe: ParcelHouseRecipe,
 	customTerrainRevision?: string,
 	customTerrainId?: string
 ): WorldIdentity {
@@ -118,7 +139,8 @@ export function readSandboxIdentity(
 			coarseCellSize,
 			site.origin,
 			site.frame.bearing,
-			valley ? ['valley', valley.seed] : ['custom', customTerrainId ?? customTerrainRevision]
+			valley ? ['valley', valley.seed] : ['custom', customTerrainId ?? customTerrainRevision],
+			...houseSignature(houseRecipe)
 		]),
 		seed: layout.seed,
 		registryRevision: cityAssetRegistryRevision,

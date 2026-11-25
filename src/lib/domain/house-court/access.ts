@@ -1,5 +1,11 @@
 import { distance, type Vec2 } from '../../core/geometry';
-import { boxParts, faceParts, groundStorey, groundStoreyRuns, type HousePart } from './part-refs';
+import {
+	boxParts,
+	lazyFaceParts,
+	groundStorey,
+	groundStoreyRuns,
+	type HousePart
+} from './part-refs';
 import { defaults } from '../../../config/house-court';
 import { readStoreyElevation, readStoreyHeight, type FineCell } from '../cell-space';
 import { side, type Box } from './boxes';
@@ -232,8 +238,14 @@ export function entranceSteps(context: Context, slot: string): HousePart[] {
 	const lane = context.space.baseZ - rise;
 	const base = Math.min(context.house.site.groundZ ?? Infinity, lane - plotThicknessM);
 	const steps = ground.treads.length;
-	const faces = ground.treads.flatMap((outline, k) =>
-		outline.length >= 3 ? extrusion(outline, base, lane + ((k + 1) * rise) / steps) : []
+	const treads = ground.treads.flatMap((outline, k) =>
+		outline.length >= 3 ? [{ outline, k }] : []
 	);
-	return faceParts(`${ground.cell.id}/steps`, slot, faces, groundStoreyRuns(ground.cell.id));
+	return treads.length
+		? lazyFaceParts(`${ground.cell.id}/steps`, slot, groundStoreyRuns(ground.cell.id), () =>
+				treads.flatMap(({ outline, k }) =>
+					extrusion(outline, base, lane + ((k + 1) * rise) / steps)
+				)
+			)
+		: [];
 }

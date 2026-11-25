@@ -29,6 +29,7 @@ import {
 } from '../surface';
 import { houseLevels } from './levels';
 import { planHouseMaterials, type HouseMaterials } from './materials';
+import { houseUseColors, paintHousePhase, type ProgramDrawing } from './use-surfaces';
 
 const { cladOffsetM, cladSkinM, plainCreaseRad } = defaults;
 
@@ -48,6 +49,7 @@ export type CladHouseOptions = Readonly<{
 	level?: SurfaceLevel | SurfaceLevelAlias;
 	/** Optional palette tint for the matte bodies at the plain level. Defaults to white board. */
 	plainTone?: ModelTone;
+	program?: ProgramDrawing;
 }>;
 
 /** Plan area of a face in square meters, its outline (or rectangle) less its openings. */
@@ -142,12 +144,15 @@ export function houseCladdings(
 	budget: number,
 	level: SurfaceLevel | SurfaceLevelAlias = 'near',
 	house = '',
-	seed = /* Exact arithmetic: neutral default draw seed. */ 0
+	seed = /* Exact arithmetic: neutral default draw seed. */ 0,
+	programmed = false
 ): Cladding[] {
 	const drawn = lowerLevel(level, undefined);
 	const plan = planHouseMaterials(materials, house, seed);
 	const recessed = new Set(faces.filter(({ openings }) => openings.length).map(({ body }) => body));
 	const clad = faces.flatMap((face) => {
+		if (programmed && (face.program?.phase === 'retained' || face.program?.use === 'greenhouse'))
+			return [];
 		const material = materialOf(materials, plan, face);
 		const skin = material && skinOf(material, face, drawn, recessed.has(face.body));
 		const area = faceAreaM2(face);
@@ -157,7 +162,7 @@ export function houseCladdings(
 	return clad.map(({ face, material, skin, area }) => {
 		const patch = patchOf(face, skin, Math.floor((budget * area) / total));
 		return {
-			role: face.slot,
+			role: programmed && face.program ? `use:${face.program.use}:${face.slot}` : face.slot,
 			family: material.family,
 			...(material.tone ? { tone: material.tone } : {}),
 			body: face.body,
@@ -211,7 +216,13 @@ function buildHouse(
 	byFaces.set(faces, byMaterials);
 	const cache = byMaterials.get(materials) ?? new Map<string, Built>();
 	byMaterials.set(materials, cache);
-	const key = JSON.stringify([level, options.budget, options.seed ?? 0, options.placement ?? null]);
+	const key = JSON.stringify([
+		level,
+		options.budget,
+		options.seed ?? 0,
+		options.placement ?? null,
+		!!options.program
+	]);
 	const found = cache.get(key);
 	if (found) return found;
 	const placement = options.placement;
@@ -219,7 +230,15 @@ function buildHouse(
 	const placed = placement ? move(shown, placement.translation, placement.radians) : shown;
 	const moved = placement ? faces.map((face) => place(face, placement)) : faces;
 	const seed = options.seed ?? 0;
-	const claddings = houseCladdings(moved, materials, options.budget, level, object.id, seed);
+	const claddings = houseCladdings(
+		moved,
+		materials,
+		options.budget,
+		level,
+		object.id,
+		seed,
+		!!options.program
+	);
 	const result = {
 		clad: createClad(placed, claddings, { level }),
 		plan: planHouseMaterials(materials, object.id, seed),
@@ -259,30 +278,39 @@ const plainDrawings = new WeakMap<
 function projectPlain(
 	object: PlaceableObject,
 	materials: HouseMaterials,
-	{ placement, plainTone = 'white' }: CladHouseOptions
+	{ placement, plainTone, program, seed }: CladHouseOptions
 ): Drawable[] {
 	const byMaterial = plainDrawings.get(object) ?? new WeakMap();
 	plainDrawings.set(object, byMaterial);
 	const cached = byMaterial.get(materials) ?? new Map<string, Drawable[]>();
 	byMaterial.set(materials, cached);
 	const key = JSON.stringify([placement, plainTone]);
-	const found = cached.get(key);
+	const found = !program && cached.get(key);
 	if (found) return [...found];
 
 	const shown = withoutHidden(object, 'plain', materials);
 	const placed = placement ? move(shown, placement.translation, placement.radians) : shown;
 	const table: SurfaceAssignment = houseLevels.full.surfaces;
 	const board = readModelSurface(
-		{ family: 'board', tone: plainTone },
+		{ family: 'board', tone: plainTone ?? 'white' },
 		'normal',
 		readLevelDetail('plain').grain
 	);
+	const plan =
+		program && plainTone === undefined ? planHouseMaterials(materials, object.id, seed) : undefined;
 	const assignment = Object.fromEntries(
 		placed.slots.map((slot) => {
 			const surface = Object.hasOwn(table, slot) ? table[slot] : undefined;
+			const role = materials.slots[slot];
+			const material = role && plan?.[role];
 			return [
 				slot,
-				surface && materials.slots[slot] ? { ...board, stroke: surface.stroke } : surface
+				surface && role
+					? {
+							...(material ? readModelSurface(material, 'normal') : board),
+							stroke: surface.stroke
+						}
+					: surface
 			];
 		})
 	);
@@ -291,18 +319,21 @@ function projectPlain(
 		const slot = placed.parts[i].slot;
 		const body = materials.slots[slot] !== undefined;
 		const surface = assignment[slot];
-		const key = JSON.stringify([body, surface]);
+		const address = program?.parts.get(drawable.id);
+		const key = JSON.stringify([body, surface, address?.program, address?.storeySpan]);
 		const group = groups.get(key) ?? [];
-		group.push({ ...drawable, ...(body ? { creaseAngleRad: plainCreaseRad } : {}) });
+		group.push(
+			paintHousePhase({ ...drawable, ...(body ? { creaseAngleRad: plainCreaseRad } : {}) }, program)
+		);
 		groups.set(key, group);
 	}
 	const drawables = Array.from(groups.values(), mergeHouseDrawables);
-	cached.set(key, drawables);
+	if (!program) cached.set(key, drawables);
 	return [...drawables];
 }
 
 /** Keeps each body's triangle range for crease extraction in a merged drawing. */
-export function mergeHouseDrawables(group: Drawable[]): Drawable {
+function mergeHouseDrawables(group: Drawable[]): Drawable {
 	const [first] = group;
 	if (group.length === 1) return first;
 	const positions: number[] = [];
@@ -357,12 +388,26 @@ export function projectCladHouse(
 	const ownParts = new Map(object.parts.map(({ id, slot }) => [id, slot]));
 	const drawables = paintClad(house.clad, 'normal', plain).map((drawable): Drawable => {
 		const slot = ownParts.get(drawable.id);
-		return {
+		const token =
+			slot === undefined && options.program ? useColorOfCladding(drawable.id) : undefined;
+		const drawing = {
 			...drawable,
 			id: slot !== undefined ? drawable.id : `${object.id}/${drawable.id}`,
+			...(options.program ? { preserveColor: undefined } : {}),
 			...(slot !== undefined && hatch ? { hatch } : {}),
-			...(fillAlpha < 1 ? { fillAlpha, occlude: true } : {})
+			...(fillAlpha < 1 ? { fillAlpha, occlude: true } : {}),
+			...(token ? { useColor: token } : {})
 		};
+		return slot !== undefined && display === 'full'
+			? paintHousePhase(drawing, options.program)
+			: drawing;
 	});
 	return { drawables, triangles: house.clad.triangles };
+}
+
+function useColorOfCladding(id: string) {
+	const [kind, use] = decodeURIComponent(id.split('/')[0]).split(':');
+	return kind === 'use' && Object.hasOwn(houseUseColors, use)
+		? houseUseColors[use as keyof typeof houseUseColors]
+		: undefined;
 }

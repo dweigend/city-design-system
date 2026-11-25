@@ -8,6 +8,7 @@ import {
 import {
 	createHouseCourt,
 	createHouseObject,
+	houseFaces,
 	houseSlots,
 	houseStyles,
 	type HouseStyle
@@ -16,7 +17,15 @@ import { createClad } from '../../domain/material';
 import { paintClad } from '../surface';
 import { example } from './example';
 import { fullSurfaces } from './surfaces';
-import { houseDetailOf, houseLevels, projectHouse } from './index';
+import {
+	houseDetailOf,
+	houseLevels,
+	houseMaterials,
+	houseUseColors,
+	paintHouseUse,
+	projectHouse,
+	projectProgrammedHouse
+} from './index';
 
 const space = createCellSpace({
 	id: 'plot',
@@ -29,6 +38,64 @@ const space = createCellSpace({
 	frontage: [parcelEdgeId('a', 'b')],
 	baseZ: 0,
 	storeyCount: 8
+});
+
+test('programmed projection honours storey treatments, style tint and cladding budget', () => {
+	const style = {
+		...houseStyles.memphis,
+		fill: { ...houseStyles.memphis.fill, kinds: ['block'] as const },
+		roof: { ...houseStyles.memphis.roof, kinds: ['wedge'] as const }
+	};
+	const house = createHouseCourt(space, { height: 14, width: 24, complexity: 0, seed: 2 }, style, {
+		storeyProgram: (index) =>
+			index < 2 ? { phase: 'retained', use: 'public' } : { phase: 'addition', use: 'office' }
+	});
+	const faces = houseFaces(space, house, 'full', style);
+	const model = { space, house, style };
+	const points = { level: 'plain' as const, budget: 0, plainTone: 'chocolate' as const };
+	const materials = houseMaterials.memphis;
+	const plain = projectProgrammedHouse(model, 'block', [], [], materials, 'full', points);
+	const addition = plain.drawables.find(({ useColor }) => useColor === houseUseColors.office);
+	expect(addition?.color).toBe('--model-chocolate');
+	expect(plain.triangles).toBe(0);
+	const retained = plain.drawables.find(({ useColor }) => useColor === houseUseColors.public);
+	if (!retained) throw new Error('Expected a retained hall');
+	const focus = paintHouseUse(retained);
+	expect(focus).toMatchObject({
+		color: houseUseColors.public,
+		preserveColor: true,
+		hatch: undefined,
+		occlude: undefined
+	});
+	expect(focus.shape).toBe(retained.shape);
+	const budget = 5_000;
+	for (const level of ['far', 'mid', 'near'] as const) {
+		const drawn = projectProgrammedHouse(model, 'full', [], faces, materials, 'full', {
+			level,
+			budget
+		});
+		expect(drawn.triangles).toBeGreaterThan(0);
+		expect(drawn.triangles).toBeLessThanOrEqual(budget);
+		expect(
+			drawn.drawables.some(
+				({ id, useColor }) => id.includes('use%3A') && useColor === houseUseColors.office
+			)
+		).toBe(true);
+	}
+	const one = createHouseCourt(space, { height: 3.5, width: 24, complexity: 0, seed: 2 }, style, {
+		storeyProgram: () => ({ phase: 'retained', use: 'public' })
+	});
+	const roof = projectProgrammedHouse(
+		{ ...model, house: one },
+		'full',
+		[],
+		houseFaces(space, one, 'full', style),
+		materials,
+		'full',
+		{ level: 'near', budget }
+	).drawables.find(({ id }) => id.endsWith('/roof'));
+	expect(roof?.color).toBe(retained.color);
+	expect(roof?.useColor).toBe(houseUseColors.public);
 });
 
 describe('projectHouse', () => {

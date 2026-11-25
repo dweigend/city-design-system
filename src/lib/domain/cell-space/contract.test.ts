@@ -7,6 +7,7 @@ import {
 	cellSubgridCatalog,
 	createCellSpace,
 	createCellSpaceStoreys,
+	createStoreyStack,
 	createSubgridSpace,
 	readCellStoreys,
 	readStoreyElevation,
@@ -27,6 +28,17 @@ const parcel = (id: string, points: readonly Vec2[], frontage = [0]): Parcel => 
 	frontage: frontage.map((i) => parcelEdgeId(`c${i}`, `c${(i + 1) % points.length}`)),
 	baseZ: 0,
 	storeyCount: 4
+});
+
+test('rejects supplied boundaries that contradict the declared storey heights', () => {
+	expect(() =>
+		createStoreyStack({
+			baseZ: 0,
+			storeyCount: 1,
+			storeyHeightM: 3,
+			storeyElevationsM: [0, 100]
+		})
+	).toThrow('Storey boundaries disagree with the declared heights');
 });
 
 const hexagon = Array.from({ length: 6 }, (_, i): Vec2 => [
@@ -143,7 +155,9 @@ describe('createCellSpace', () => {
 
 	test('is deterministic and addresses storeys by a fixed grammar', () => {
 		expect(createCellSpace(fixtures.ell)).toEqual(createCellSpace(fixtures.ell));
-		expect(readStoreyKey('p', 'p/child/["a"]', -1)).toBe(encodeKey(['p', 'p/child/["a"]', -1]));
+		expect(readStoreyKey('p', 'p/child/["a"]', -1)).toBe(
+			encodeKey(['p', 'p/child/["a"]', 'd', -1])
+		);
 		expect(() => readStoreyKey('p', 'cell', 1.5)).toThrow(RangeError);
 	});
 

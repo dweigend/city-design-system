@@ -25,7 +25,10 @@ export {
 
 /** The salience rule: which houses of a view are granted detail beyond the plain default. */
 export { readHouseSalience, type SalienceCandidate } from './salience';
-export { paintHouseUse, projectProgrammedHouse } from './program';
+/** Applies the semantic palette during use focus and supplies the legend's tokens. */
+export { paintHouseUse, houseUseColors } from './use-surfaces';
+/** Projects programmed houses with the standard detail levels and triangle budget. */
+export { projectProgrammedHouse } from './program';
 
 /** Cladding triangles of one block of houses at the near level. */
 export const blockTriangleBudget = defaults.blockTriangleBudget;

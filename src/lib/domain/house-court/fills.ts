@@ -3,7 +3,7 @@ import type { Random } from '../../core/random';
 import { defaults } from '../../../config/house-court';
 import { readStoreyElevation, readStoreyHeight, type FineCell } from '../cell-space';
 import type { HouseCell } from './occupancy';
-import type { Context } from './context';
+import { envelopeRing, type Context } from './context';
 import {
 	chamfered,
 	cone,
@@ -103,7 +103,9 @@ function solid(
 		fromStorey: from,
 		toStorey: to,
 		flat: kind === 'block' || kind === 'chamfer',
-		faces: extrusion(points, level(ctx, from), level(ctx, to)),
+		get faces() {
+			return extrusion(points, level(ctx, from), level(ctx, to));
+		},
 		key
 	};
 }
@@ -132,7 +134,9 @@ function capsules(ctx: Context, cell: FineCell, house: HouseCell): CellSolid[] {
 			fromStorey: storey,
 			toStorey: storey + 1,
 			flat: false,
-			faces: extrusion(points, base, top),
+			get faces() {
+				return extrusion(points, base, top);
+			},
 			key
 		});
 	}
@@ -141,7 +145,10 @@ function capsules(ctx: Context, cell: FineCell, house: HouseCell): CellSolid[] {
 
 function stacked(ctx: Context, cell: FineCell, house: HouseCell, kind: FillKind): CellSolid[] {
 	const { fill, slots } = ctx.style;
-	const stream = ctx.random.derive(`${cell.id}/stack`);
+	const datumFrom = ctx.space.datumIndex + house.fromStorey;
+	const stream = ctx.random.derive(
+		datumFrom === 0 ? `${cell.id}/stack` : `${cell.id}/stack/${datumFrom}`
+	);
 	const runs = house.toStorey - house.fromStorey;
 	const split =
 		runs > 1 && stream.number() < fill.stackShareRatio
@@ -201,7 +208,7 @@ function envelopeTop(ctx: Context, cell: FineCell, house: HouseCell): CellSolid 
 	return /* Exact arithmetic: the envelope follows its full cell ring. */ {
 		cell,
 		slot: 'wall',
-		outline: cell.quad,
+		outline: envelopeRing(ctx, cell, house.toStorey - 1),
 		gapM: 0,
 		fromStorey: house.fromStorey,
 		toStorey: house.toStorey,
@@ -220,19 +227,22 @@ function roof(ctx: Context, top: CellSolid): CellSolid[] {
 	const slot = slots.roof.length
 		? pick(ctx.random, `${top.cell.id}/roof/slot`, slots.roof)
 		: top.slot;
-	const faces = roofShapes[kind](
-		top.outline,
-		level(ctx, top.toStorey),
-		rule.riseRatio * readStoreyHeight(ctx.space, top.toStorey)
-	);
 	return [
 		{
-			...top,
+			cell: top.cell,
+			outline: top.outline,
+			gapM: top.gapM,
 			slot,
 			fromStorey: top.toStorey,
 			toStorey: top.toStorey + 1,
 			flat: false,
-			faces,
+			get faces() {
+				return roofShapes[kind](
+					top.outline,
+					level(ctx, top.toStorey),
+					rule.riseRatio * readStoreyHeight(ctx.space, top.toStorey)
+				);
+			},
 			key: `${top.cell.id}/roof`,
 			roofKind: kind
 		}

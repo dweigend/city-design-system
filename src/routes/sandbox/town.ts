@@ -41,14 +41,21 @@ export type PlacementRequest = Readonly<{
 	parcel?: Parcel;
 	salience?: Readonly<{ block: string; features: HouseFeatures }>;
 	reason?: string;
-	program?: readonly Pick<HouseStorey, 'datumIndex' | 'phase' | 'use'>[];
+	program?: readonly Pick<HouseStorey, 'storey' | 'phase' | 'use'>[];
 	build?: (detail: Detail) => readonly Drawable[];
 }>;
 
 /** Uses the Architecture Town fixture as the opening subject of the editable city. */
 export function createTownSandbox() {
 	const { site, layout, columns, blocks } = createTownHouseStudy();
-	const world = createSandboxWorld(site, layout, columns, undefined, undefined, townHouseRecipe);
+	const world = createSandboxWorld(
+		site,
+		layout,
+		columns,
+		undefined,
+		undefined,
+		townHouseRecipe(site.recipe)
+	);
 	const projection = createSandboxProjection(site, layout, world.holdings);
 	const points = blocks.block.outline.map(([x, y]): Vec3 => [
 		...projection.toLocal(x, y),
@@ -160,7 +167,7 @@ export function createTownSandbox() {
 function readStoreyProgram(cells: readonly HouseCell[]) {
 	const rows = new Map<string, NonNullable<PlacementRequest['program']>[number]>();
 	for (const cell of cells)
-		for (const { datumIndex, phase, use } of cell.program ?? [])
-			rows.set(JSON.stringify([datumIndex, phase, use]), { datumIndex, phase, use });
-	return [...rows.values()].sort((a, b) => a.datumIndex - b.datumIndex);
+		for (const { storey, phase, use } of cell.program ?? [])
+			rows.set(JSON.stringify([storey, phase, use]), { storey, phase, use });
+	return [...rows.values()].sort((a, b) => a.storey - b.storey);
 }

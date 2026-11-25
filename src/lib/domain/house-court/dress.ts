@@ -1,5 +1,5 @@
 import type { Vec3 } from '../../core/geometry';
-import { groundStoreyRuns, faceParts, type HousePart, type StoreyRun } from './part-refs';
+import { groundStoreyRuns, lazyFaceParts, type HousePart, type StoreyRun } from './part-refs';
 import { defaults } from '../../../config/house-court';
 import { readStoreyElevation, readStoreyHeight, cellCenter } from '../cell-space';
 import { side } from './boxes';
@@ -29,6 +29,12 @@ const figureSides: Record<
 	triangle: 3
 };
 
+function openingKey(ctx: Context, solid: CellSolid, side: number, storey: number) {
+	if (ctx.space.datumAnchored)
+		return `${solid.cell.id}/opening/${side}/${ctx.space.datumIndex + storey}`;
+	return `${solid.key}/opening/${side}/${storey}`;
+}
+
 function figuresOn(ctx: Context, s: CellSolid, i: number, storey: number) {
 	const { opening } = ctx.style;
 	const wall = side(s.cell.quad, i);
@@ -47,10 +53,10 @@ function figuresOn(ctx: Context, s: CellSolid, i: number, storey: number) {
 			: ctx.space.baseZ + (storey + 1 / 2) * h;
 	const visible = exposedWall(ctx.adjoiningWalls, wall, z - h / 2, z + h / 2);
 	const along: [number, number] = [Math.cos(wall.rotation), Math.sin(wall.rotation)];
-	const panes: Faces = [];
-	const collars: Faces = [];
+	const panes: (() => Faces)[] = [];
+	const collars: (() => Faces)[] = [];
 	for (let k = 0; k < count; k += 1) {
-		const kind = pick(ctx.random, `${s.key}/opening/${i}/${storey}`, opening.kinds);
+		const kind = pick(ctx.random, openingKey(ctx, s, i, storey), opening.kinds);
 		if (kind === 'rect') continue;
 		const t = (k + 1 / 2) / count;
 		const u = t * wall.length;
@@ -62,10 +68,12 @@ function figuresOn(ctx: Context, s: CellSolid, i: number, storey: number) {
 			continue;
 		const [x, y] = wall.at(t, -s.gapM);
 		const at: Vec3 = [x, y, z];
-		panes.push(...wallFigure(at, along, wall.normal, radius, figureSides[kind], figureDepthM * 2));
+		panes.push(() =>
+			wallFigure(at, along, wall.normal, radius, figureSides[kind], figureDepthM * 2)
+		);
 		if (opening.collar)
-			collars.push(
-				...wallFigure(
+			collars.push(() =>
+				wallFigure(
 					at,
 					along,
 					wall.normal,
@@ -82,15 +90,15 @@ function figuresOn(ctx: Context, s: CellSolid, i: number, storey: number) {
 export function figureOpenings(ctx: Context, solids: readonly CellSolid[]): HousePart[] {
 	return solids.flatMap((s) => {
 		if (s.key.endsWith('/roof')) return [];
-		const panes: Faces = [];
-		const collars: Faces = [];
+		const panes: (() => Faces)[] = [];
+		const collars: (() => Faces)[] = [];
 		const paneRuns: StoreyRun[] = [];
 		const collarRuns: StoreyRun[] = [];
 		for (let storey = s.fromStorey; storey < s.toStorey; storey += 1)
 			s.cell.sides.forEach(({ neighbour }, i) => {
 				if (builtAt(ctx, neighbour, storey)) return;
 				if (
-					ctx.random.derive(`${s.key}/opening/${i}/${storey}/share`).number() >=
+					ctx.random.derive(`${openingKey(ctx, s, i, storey)}/share`).number() >=
 					ctx.style.opening.shareRatio
 				)
 					return;
@@ -101,8 +109,12 @@ export function figureOpenings(ctx: Context, solids: readonly CellSolid[]): Hous
 				if (result.collars.length) collarRuns.push([s.cell.id, storey, storey + 1]);
 			});
 		return [
-			...faceParts(`${s.key}/collars`, 'collar', collars, collarRuns),
-			...faceParts(`${s.key}/openings`, 'opening', panes, paneRuns)
+			...lazyFaceParts(`${s.key}/collars`, 'collar', collarRuns, () =>
+				collars.flatMap((make) => make())
+			),
+			...lazyFaceParts(`${s.key}/openings`, 'opening', paneRuns, () =>
+				panes.flatMap((make) => make())
+			)
 		];
 	});
 }
@@ -115,15 +127,12 @@ export function caps(ctx: Context, solids: readonly CellSolid[]): HousePart[] {
 		const rise = ctx.style.roof.riseRatio * readStoreyHeight(ctx.space, s.fromStorey);
 		const r = inradius(s.outline) * capShareRatio;
 		const base = readStoreyElevation(ctx.space, s.fromStorey) + rise * (1 - capShareRatio);
-		return faceParts(
-			`${s.key}/cap`,
-			'planter',
+		return lazyFaceParts(`${s.key}/cap`, 'planter', [[s.cell.id, s.fromStorey, s.toStorey]], () =>
 			dome(
 				rounded(s.outline, inradius(s.outline) - r, r * capShareRatio),
 				base,
 				rise * capShareRatio + organicPlanterM
-			),
-			[[s.cell.id, s.fromStorey, s.toStorey]]
+			)
 		);
 	});
 }
@@ -142,17 +151,11 @@ export function trees(ctx: Context): HousePart[] {
 		const crown = Math.min(treeCrownM, inradius(cell.quad) * capShareRatio);
 		const crownPlan = rounded(cell.quad, inradius(cell.quad) - crown, crown * capShareRatio);
 		return [
-			...faceParts(
-				`${cell.id}/trunk`,
-				'trunk',
-				bar([x, y, z], [x, y, z + treeHeightM - crown / 2], treeTrunkM),
-				groundStoreyRuns(cell.id)
+			...lazyFaceParts(`${cell.id}/trunk`, 'trunk', groundStoreyRuns(cell.id), () =>
+				bar([x, y, z], [x, y, z + treeHeightM - crown / 2], treeTrunkM)
 			),
-			...faceParts(
-				`${cell.id}/crown`,
-				'foliage',
-				dome(crownPlan, z + treeHeightM - crown, crown),
-				groundStoreyRuns(cell.id)
+			...lazyFaceParts(`${cell.id}/crown`, 'foliage', groundStoreyRuns(cell.id), () =>
+				dome(crownPlan, z + treeHeightM - crown, crown)
 			)
 		];
 	});

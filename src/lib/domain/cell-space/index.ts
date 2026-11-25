@@ -26,6 +26,7 @@ export const defaultStoreyHeightM = defaults.storeyHeightM;
 /** Storey sizing and world-scoped storey addresses. */
 export {
 	createCellSpaceStoreys,
+	createMixedStoreyBoundaries,
 	createStoreyStack,
 	readCellStoreys,
 	readStoreyElevation,

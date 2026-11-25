@@ -16,7 +16,7 @@
 	import { Select } from '../../lib/ui/select';
 	import { ToggleGroup } from '../../lib/ui/toggle-group';
 	import { createTownReview, townFocus, townFrames, type TownFrame } from './town';
-	import { houseUseLabels } from '../house-uses';
+	import { houseUses } from '../house-uses';
 
 	type Review = ReturnType<typeof createTownReview>;
 
@@ -47,7 +47,7 @@
 	const frame = $derived(townFrames.find((value) => value === query('frame')) ?? 'whole');
 	const view = $derived<View>(query('view') === 'plan' ? 'plan' : 'iso');
 	const transparent = $derived(query('display') === 'transparency');
-	const drawables = $derived(review?.draw(focus, transparent) ?? []);
+	const drawables = $derived(review?.draw(focus) ?? []);
 	const fit = $derived(
 		review && {
 			...camera,
@@ -130,10 +130,10 @@
 			}
 		/>
 	</div>
-	{#if focus === 'houses' || (transparent && focus !== 'plan')}
+	{#if focus === 'houses'}
 		<ul class="cluster house-uses small" role="list" aria-label="House functions">
-			{#each Object.entries(houseUseLabels) as [use, label] (use)}
-				<li data-house-use={use}>{label}</li>
+			{#each houseUses as { use, label, tone } (use)}
+				<li><span data-tone={tone} aria-hidden="true"></span>{label}</li>
 			{/each}
 		</ul>
 	{/if}

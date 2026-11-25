@@ -1,5 +1,5 @@
 /** Module: Resolves sandbox addresses against a fixed city and builds registry placements. */
-import type { Placement } from '../../core/asset-registry';
+import { UnknownAssetError, type Placement } from '../../core/asset-registry';
 import { resolveParams } from '../../core/params';
 import { readWorldReference, type ReferenceResolution } from '../../core/ref';
 import { createPolygonIndex } from '../../core/polygon-index';
@@ -24,7 +24,13 @@ import {
 	type HostAddress
 } from '../asset-registry';
 import { readCityMovement } from '../city-movement';
-import { readCityParcels, type CityGrid, type CitySite } from '../city-site';
+import {
+	createCityVerticalRecipe,
+	readCityParcels,
+	riverCityRecipe,
+	type CityGrid,
+	type CitySite
+} from '../city-site';
 import { createTownParcelSites, readParcelHouseWalls, type ParcelHouseRecipe } from '../house-site';
 import { readSandboxIdentity } from './identity';
 
@@ -84,6 +90,22 @@ export function createSandboxWorld(
 	customTerrainId?: string,
 	houseRecipe?: ParcelHouseRecipe
 ) {
+	const cityVertical = site.recipe ?? riverCityRecipe;
+	const vertical = houseRecipe?.vertical
+		? createCityVerticalRecipe({
+				...houseRecipe.vertical,
+				levelHeightM: houseRecipe.vertical.levelHeightM ?? cityVertical.levelHeightM
+			})
+		: cityVertical;
+	if (vertical.levelHeightM !== cityVertical.levelHeightM)
+		throw new RangeError('House and city coarse level spacing must agree');
+	if ((houseRecipe?.storeyProgram || houseRecipe?.subgridCatalog) && !houseRecipe.key?.trim())
+		throw new RangeError('A custom house program or subgrid catalog needs a stable recipe key');
+	const recipe = Object.freeze({
+		...houseRecipe,
+		vertical,
+		subgridOptions: houseRecipe?.subgridOptions && Object.freeze({ ...houseRecipe.subgridOptions })
+	});
 	const columnSnapshot = snapshotColumns(columns);
 	const holdings = readCityParcels(site, layout);
 	const polygons = createPolygonIndex(holdings.parcels, holdings.linearToleranceM);
@@ -92,7 +114,7 @@ export function createSandboxWorld(
 		columnSnapshot,
 		layout.datumZ,
 		([x, y]) => site.sampleGround(x, y).height,
-		{ vertical: site.recipe, ...houseRecipe }
+		recipe
 	);
 	// Exact arithmetic: ground-only movement uses no vertical offset and no upper-level centers.
 	const groundOffset = /* Exact arithmetic: zero offset places the asset on the ground. */ 0;
@@ -104,6 +126,7 @@ export function createSandboxWorld(
 		holdings,
 		columnSnapshot,
 		movement.network,
+		recipe,
 		customTerrainRevision,
 		customTerrainId
 	);
@@ -144,15 +167,19 @@ export function createSandboxWorld(
 		return parameters;
 	}
 
-	function validatePlacement({ host, hostReference, registryRevision }: SandboxPlacement) {
+	function matchesPlacement({ host, hostReference, registryRevision }: SandboxPlacement) {
 		const expected = readHostReference(identity, host);
-		if (
-			hostReference.v !== expected.v ||
-			hostReference.world !== expected.world ||
-			hostReference.kind !== expected.kind ||
-			hostReference.key !== expected.key ||
-			registryRevision !== identity.registryRevision
-		)
+		return (
+			hostReference.v === expected.v &&
+			hostReference.world === expected.world &&
+			hostReference.kind === expected.kind &&
+			hostReference.key === expected.key &&
+			registryRevision === identity.registryRevision
+		);
+	}
+
+	function validatePlacement(placement: SandboxPlacement) {
+		if (!matchesPlacement(placement))
 			throw new UnavailableHostError('Placement has an incompatible reference or registry');
 	}
 
@@ -163,6 +190,22 @@ export function createSandboxWorld(
 		const site = readParcelSite(host.id);
 		if (!site) throw new UnavailableHostError('Unavailable house parcel: ' + host.id);
 		return placeParcelHouseAsset(assetId, site, { ...prepare(assetId, host, params), seed });
+	}
+
+	function resolveAvailableHouse(placement: SandboxPlacement) {
+		if (
+			placement.host.kind !== 'parcel' ||
+			!matchesPlacement(placement) ||
+			!readParcelSite(placement.host.id)
+		)
+			return undefined;
+		try {
+			return resolveHouse(placement);
+		} catch (error) {
+			if (error instanceof UnavailableHostError || error instanceof UnknownAssetError)
+				return undefined;
+			throw error;
+		}
 	}
 
 	function readHouseReference(
@@ -181,7 +224,7 @@ export function createSandboxWorld(
 		if (!id) return undefined;
 		const placement = document.readPlacement({ kind: 'parcel', id });
 		if (!placement) return undefined;
-		const placed = resolveHouse(placement);
+		const placed = resolveAvailableHouse(placement);
 		if (placed?.status !== 'placed') return undefined;
 		if (kind === 'storey') {
 			const storey = placed.space.storeys.find((row) => row.key === key);
@@ -198,7 +241,7 @@ export function createSandboxWorld(
 				holdingsById.get(peer.host.id)?.blockId !== placed.parcel.blockId
 			)
 				return [];
-			const other = resolveHouse(peer);
+			const other = resolveAvailableHouse(peer);
 			return other?.status === 'placed' ? readParcelHouseWalls(other) : [];
 		});
 		return readHousePartRefs(placed.house, identity.id, walls).find(({ ref }) => ref.key === key);
@@ -249,6 +292,13 @@ export function createSandboxWorld(
 			if (reference.world !== identity.id) return { status: 'different-world' };
 			if (reference.kind === 'storey' || reference.kind === 'house-part') {
 				if (document && document.world.id !== identity.id) return { status: 'different-world' };
+				if (
+					document &&
+					(document.world.registryRevision !== identity.registryRevision ||
+						document.world.topologyRevision !== identity.topologyRevision ||
+						document.world.terrainRevision !== identity.terrainRevision)
+				)
+					return { status: 'missing' };
 				const value = document && readHouseReference(reference.kind, reference.key, document);
 				return value ? { status: 'resolved', value } : { status: 'missing' };
 			}

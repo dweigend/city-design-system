@@ -89,7 +89,7 @@ const resultNames: Record<Layer, readonly string[]> = {
 		'stripCounts',
 		'trackDirectionLength'
 	],
-	world: ['cityWindow', 'largestStructureExample', 'structureTownExample'],
+	world: ['cityWindow', 'largestStructureExample', 'structureTownExample', 'townHouseRecipe'],
 	scene: [
 		'accent',
 		'cityElevation',

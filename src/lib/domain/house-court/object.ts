@@ -21,7 +21,8 @@ import {
 } from './occupancy';
 import {
 	partAddresses,
-	faceParts,
+	lazyFaceParts,
+	slicePartId,
 	type HousePart,
 	type HousePartAddress,
 	type HousePartRef
@@ -166,17 +167,38 @@ function footprint(space: CellSpace) {
 	return { width: Math.max(...xs) - Math.min(...xs), depth: Math.max(...ys) - Math.min(...ys) };
 }
 
-function solidParts(solids: readonly CellSolid[], block: boolean): HousePart[] {
-	return solids.flatMap(({ key, slot, faces, cell, fromStorey, toStorey }) =>
-		faceParts(key, block ? 'mass' : slot, faces, [[cell.id, fromStorey, toStorey]])
-	);
+function solidParts(
+	ctx: Context,
+	solids: readonly CellSolid[],
+	block: boolean,
+	references: boolean
+): HousePart[] {
+	return solids.flatMap((solid) => {
+		const { key, slot, cell, fromStorey, toStorey, roofKind } = solid;
+		const role = block ? 'mass' : slot;
+		if (references && !roofKind && !key.includes('/capsule/'))
+			return Array.from({ length: toStorey - fromStorey }, (_, offset) => {
+				const from = fromStorey + offset;
+				return lazyFaceParts(
+					slicePartId(cell.id, 'body', ctx.space.datumIndex + from),
+					role,
+					[[cell.id, from, from + 1]],
+					() => solid.faces,
+					{ body: true }
+				);
+			}).flat();
+		return lazyFaceParts(key, role, [[cell.id, fromStorey, toStorey]], () => solid.faces, {
+			body: true,
+			...(roofKind ? { programRun: [cell.id, fromStorey - 1, fromStorey] as const } : {})
+		});
+	});
 }
 
-function envelopeParts(ctx: Context, detail: HouseDetail): HousePart[] {
+function envelopeParts(ctx: Context, detail: HouseDetail, references: boolean): HousePart[] {
 	if (!ctx.style.fill.kinds.includes('envelope')) return [];
 	if (detail === 'block') return envelope(ctx, 'mass');
 	return [
-		...envelope(ctx, 'wall'),
+		...envelope(ctx, 'wall', references),
 		...(ctx.style.parts.rims ? envelopeRims(ctx, 'rim') : []),
 		...openings(ctx)
 	];
@@ -190,21 +212,26 @@ function accessParts(ctx: Context, house: HouseOccupancy): HousePart[] {
 	return [...galleries(ctx, sides, landing), ...stair(ctx, landing), ...steps];
 }
 
-function allParts(ctx: Context, house: HouseOccupancy, detail: HouseDetail): HousePart[] {
+function allParts(
+	ctx: Context,
+	house: HouseOccupancy,
+	detail: HouseDetail,
+	references = false
+): HousePart[] {
 	const solids = cellSolids(ctx);
 	const appliedFrame = ctx.style.parts.frame && detail === 'full' ? [] : additionFrames(ctx);
 	if (detail === 'block')
 		return [
 			...plates(ctx),
 			...entranceSteps(ctx, 'plot'),
-			...envelopeParts(ctx, detail),
-			...solidParts(solids, true),
+			...envelopeParts(ctx, detail, references),
+			...solidParts(ctx, solids, true, references),
 			...appliedFrame
 		];
 	return [
 		...plates(ctx),
-		...envelopeParts(ctx, detail),
-		...solidParts(solids, false),
+		...envelopeParts(ctx, detail, references),
+		...solidParts(ctx, solids, false, references),
 		...(ctx.style.parts.rims ? solidRims(ctx, solids) : []),
 		...figureOpenings(ctx, solids),
 		...(ctx.style.parts.accent ? canopy(ctx) : []),
@@ -243,12 +270,12 @@ export function createHouseCourt(
 		id,
 		[assemblyInputs]: Object.freeze({ space, style }),
 		get partAddresses() {
-			return (addresses ??= partAddresses(id, space, house, allParts(ctx(), house, 'full')));
+			return (addresses ??= partAddresses(id, space, house, allParts(ctx(), house, 'full', true)));
 		}
 	});
 }
 
-/** Mints world-scoped refs in full-detail part order. Pass the same adjoining walls as the object builder. */
+/** Mints world-scoped refs for full-detail parts, with one stable body address per occupied slice. */
 export function readHousePartRefs(
 	house: HouseCourt,
 	world: string,
@@ -268,7 +295,8 @@ export function readHousePartRefs(
 						adjoiningWalls
 					),
 					house,
-					'full'
+					'full',
+					true
 				)
 			)
 		: house.partAddresses;

@@ -1,11 +1,12 @@
 import type { Vec2, Vec3 } from '../../core/geometry';
 import { readStoreyElevation, type FineCell } from '../cell-space';
 import { side } from './boxes';
-import { builtAt, type Context } from './context';
+import { builtAt, envelopeRing, programAt, type Context } from './context';
 import type { CellSolid } from './fills';
 import { openingRects, openingStoreys } from './parts';
 import { defaults } from '../../../config/house-court';
 import { exposedWall, fitsOpening, type WallRect } from './wall-contact';
+import type { StoreyProgram } from './occupancy';
 
 const { faceToleranceM } = defaults;
 
@@ -24,6 +25,7 @@ export type HouseFace = Readonly<{
 	size: Vec2;
 	outline?: readonly Vec2[];
 	openings: readonly (readonly [number, number, number, number])[];
+	program?: StoreyProgram;
 }>;
 
 const level = ({ space }: Context, storey: number) => readStoreyElevation(space, storey);
@@ -153,8 +155,10 @@ export function solidFaces(ctx: Context, solids: readonly CellSolid[]): HouseFac
 	for (const s of solids) if (!s.key.endsWith('/roof') && s.flat) tops.set(s.cell.id, s);
 	return solids
 		.flatMap((s): (HouseFace | undefined)[] => {
-			if (s.key.endsWith('/roof'))
-				return s.roofKind === 'wedge' ? [roofFace(s.slot, s.key, s.faces[1])] : [];
+			if (s.roofKind)
+				return s.roofKind === 'wedge'
+					? [programFace(ctx, s.cell, s.fromStorey - 1, roofFace(s.slot, s.key, s.faces[1]))]
+					: [];
 			if (!s.flat) return [];
 			const z0 = level(ctx, s.fromStorey);
 			const z1 = level(ctx, s.toStorey);
@@ -172,9 +176,14 @@ export function solidFaces(ctx: Context, solids: readonly CellSolid[]): HouseFac
 							)
 						]
 					: [];
-			return [...walls, ...top];
+			return [...walls, ...top].map((face) => programFace(ctx, s.cell, s.fromStorey, face));
 		})
 		.filter((face): face is HouseFace => face !== undefined);
+}
+
+function programFace(ctx: Context, cell: FineCell, storey: number, face: HouseFace | undefined) {
+	const program = programAt(ctx, cell, storey);
+	return face && program ? { ...face, program } : face;
 }
 
 /** Runs of storeys over which one cell side is exposed, as [from, to). */
@@ -183,7 +192,8 @@ function exposedRuns(ctx: Context, cell: FineCell, i: number, from: number, to: 
 	for (let storey = from; storey < to; storey += 1) {
 		if (builtAt(ctx, cell.sides[i].neighbour, storey)) continue;
 		const last = runs.at(-1);
-		if (last && last[1] === storey) last[1] = storey + 1;
+		if (last && last[1] === storey && !ctx.occupancy.get(cell.id)?.program?.length)
+			last[1] = storey + 1;
 		else runs.push([storey, storey + 1]);
 	}
 	return runs;
@@ -213,11 +223,11 @@ export function envelopeFaces(
 					ctx,
 					slot,
 					'envelope',
-					side(cell.quad, i),
+					side(envelopeRing(ctx, cell, from), i),
 					level(ctx, from),
 					level(ctx, to),
 					openings
-				);
+				).map((face) => programFace(ctx, cell, from, face));
 			})
 		);
 		const top = roofed.has(cell.id)
@@ -225,8 +235,14 @@ export function envelopeFaces(
 			: roofFace(
 					slot,
 					'envelope',
-					cell.quad.map(([x, y]): Vec3 => [x, y, level(ctx, house.toStorey)])
+					envelopeRing(ctx, cell, house.toStorey - 1).map(([x, y]): Vec3 => [
+						x,
+						y,
+						level(ctx, house.toStorey)
+					])
 				);
-		return [...walls, top].filter((face): face is HouseFace => face !== undefined);
+		return [...walls, programFace(ctx, cell, house.toStorey - 1, top)].filter(
+			(face): face is HouseFace => face !== undefined
+		);
 	});
 }

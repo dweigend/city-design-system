@@ -31,7 +31,7 @@
 	import { ToggleGroup } from '../../lib/ui/toggle-group';
 	import { ToolBar } from '../../lib/ui/tool-bar';
 	import { UnavailableHostError } from '../../lib/world/sandbox-world';
-	import { housePhaseLabels, houseUseLabels } from '../house-uses';
+	import { housePhaseLabels, houseUseLabels, houseUseTone } from '../house-uses';
 	import { createStrokePointer } from './stroke';
 	import { createTownSandbox, type Detail, type PlacementRequest } from './town';
 
@@ -118,9 +118,10 @@
 		town && { fill: town.viewContextFill, subject: projectFocus(view, {}, town.points) }
 	);
 	const hoverMark = $derived(town && hovered && town.projection.projectHover(hovered));
+	const shownHouses = $derived(functionsVisible ? placed.map(paintHouseUse) : placed);
 	const drawables = $derived([
 		...layout,
-		...(functionsVisible || transparent ? placed.map(paintHouseUse) : placed),
+		...shownHouses,
 		...marks,
 		...(hoverMark ? [hoverMark] : [])
 	]);
@@ -653,9 +654,10 @@
 						{#if tool === 'select' && selected && asset}
 							{#if selectedProgram?.length}
 								<ul class="house-uses small" role="list" aria-label="Storey phases and uses">
-									{#each selectedProgram as { datumIndex, phase, use } (`${datumIndex}/${phase}/${use}`)}
-										<li data-house-use={use}>
-											Storey {numberFormat.format(datumIndex)} · {housePhaseLabels[phase]} · {houseUseLabels[
+									{#each selectedProgram as { storey, phase, use } (`${storey}/${phase}/${use}`)}
+										<li>
+											<span data-tone={houseUseTone(use)} aria-hidden="true"></span>
+											Storey {numberFormat.format(storey + 1)} · {housePhaseLabels[phase]} · {houseUseLabels[
 												use
 											]}
 										</li>

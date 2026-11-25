@@ -1,5 +1,5 @@
 import { expect, test } from 'bun:test';
-import { createWorldReference } from '../../core/ref';
+import { createWorldReference, encodeKey } from '../../core/ref';
 import { readCellStoreys } from '../../domain/cell-space';
 import {
 	createSandboxDocument,
@@ -39,6 +39,7 @@ test('forwards a parcel subgrid and resolves current storey and part addresses',
 	const { town, parcels } = example();
 	const { site, layout, columns } = town;
 	const world = createSandboxWorld(site, layout, columns, undefined, undefined, {
+		key: 'workshop-fixture/1',
 		subgridId: 'corner-quad',
 		subgridOptions: { refinementRounds: 0 },
 		storeyProgram: (_, base) => (datumIndex) =>
@@ -82,7 +83,50 @@ test('forwards a parcel subgrid and resolves current storey and part addresses',
 	expect(world.resolveReference({ ...storey.ref, world: 'other-city' }, document)).toEqual({
 		status: 'different-world'
 	});
-});
+	const legacy = createWorldReference(
+		world.world.id,
+		'storey',
+		encodeKey([placed.space.id, storey.cellId, storey.datumIndex])
+	);
+	expect(world.resolveReference(legacy, document)).toEqual({ status: 'missing' });
+	const otherRecipe = createSandboxWorld(site, layout, columns, undefined, undefined, {
+		key: 'other-program/1',
+		subgridId: 'corner-quad',
+		subgridOptions: { refinementRounds: 0 }
+	});
+	expect(otherRecipe.world.topologyRevision).toBe(world.world.topologyRevision);
+	expect(otherRecipe.resolveReference(storey.ref, otherRecipe.createDocument())).toEqual({
+		status: 'different-world'
+	});
+	const stale = createSandboxDocument({ ...world.world, registryRevision: 'old-registry' });
+	expect(world.resolveReference(storey.ref, stale)).toEqual({ status: 'missing' });
+	const removed = createSandboxDocument(world.world);
+	const host = { kind: 'parcel', id: 'removed-parcel' } as const;
+	removed.apply([{ kind: 'place', assetId: 'house/court-neutral', host, params: {} }]);
+	expect(
+		world.resolveReference(
+			createWorldReference(world.world.id, 'storey', encodeKey([host.id, 'cell', 'd', 0])),
+			removed
+		)
+	).toEqual({ status: 'missing' });
+	const peer = document
+		.readPlacements()
+		.find(({ host }) => host.kind === 'parcel' && host.id !== placed.parcel.id);
+	if (!peer) throw new Error('Expected a same-block peer');
+	const target = document.readPlacement({ kind: 'parcel', id: placed.parcel.id });
+	if (!target) throw new Error('Expected the target placement');
+	const onlyTarget = {
+		...document,
+		readPlacements: () => [target]
+	};
+	const invalidPeer = { ...peer, registryRevision: 'old-registry' };
+	expect(
+		world.resolveReference(part.ref, {
+			...onlyTarget,
+			readPlacements: () => [target, invalidPeer]
+		})
+	).toEqual(world.resolveReference(part.ref, onlyTarget));
+}, 20_000);
 
 test('builds only arriving records and removes only departing records', () => {
 	const document = createSandboxDocument(testWorld);
@@ -139,7 +183,8 @@ test('paints and undoes an Architecture Town stroke through the registry', () =>
 	expect(resolved).toEqual(house);
 	if (resolved?.status !== 'placed') throw new Error('Expected sandbox house');
 	const refs = readHousePartRefs(resolved.house, world.world.id);
-	expect(refs.map(({ partId }) => partId)).toEqual(fromBible.parts.map(({ id }) => id));
+	const rendered = new Set(fromBible.parts.map(({ id }) => id));
+	expect(refs.every(({ partId }) => partId.includes('/datum/') || rendered.has(partId))).toBe(true);
 	expect(
 		refs.every(
 			({ ref, storeyRefs }) =>

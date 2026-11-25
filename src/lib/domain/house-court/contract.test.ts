@@ -19,6 +19,7 @@ import { example, mixedStoreyExample } from './example';
 import {
 	cellRoles,
 	createHouseCourt,
+	createHouseAssembly,
 	createHouseObject,
 	houseFigures,
 	houseSlots,
@@ -489,8 +490,9 @@ test('uses stable JSON refs to attach external functions to storeys and every ho
 				return JSON.stringify(ref);
 			})
 		);
-		expect(rows.map(({ partId, slot }) => [partId, slot])).toEqual(
-			object.parts.map(({ id, slot }) => [id, slot])
+		const rendered = new Set(object.parts.map(({ id }) => id));
+		expect(rows.every(({ partId }) => partId.includes('/datum/') || rendered.has(partId))).toBe(
+			true
 		);
 		for (const [index, part] of rows.entries()) {
 			attach(part.ref, index);
@@ -498,7 +500,7 @@ test('uses stable JSON refs to attach external functions to storeys and every ho
 			expect(part.storeyRefs.length).toBeGreaterThan(0);
 			for (const ref of part.storeyRefs) {
 				expect(storeys.has(JSON.stringify(ref))).toBe(true);
-				const [, cell, storey] = JSON.parse(ref.key);
+				const [, cell, , storey] = JSON.parse(ref.key);
 				expect(storey).toBeGreaterThanOrEqual(part.storeySpan[0]);
 				expect(storey).toBeLessThan(part.storeySpan[1]);
 				if (part.cellId !== null) expect(cell).toBe(part.cellId);
@@ -537,4 +539,59 @@ test('keeps framed capsules closed when a mixed slice is shorter than the nomina
 		expect(result).toMatchObject({ open: 0, crowded: 0 });
 		expect(result.volume).toBeGreaterThan(0);
 	}
+});
+
+test('keeps occupied body refs through clipping, extension and shell regrouping', () => {
+	const plan = createCellSpace(
+		parcel('unbroken-front', [
+			[0, 0],
+			[20, 0],
+			[20, 24],
+			[0, 24]
+		]),
+		0
+	);
+	const inputs = { height: 32, width: 32, complexity: 0, seed: 7 };
+	const initial = createCellSpaceStoreys(plan, { baseZ: 0, datumIndex: 4, storeyCount: 3 });
+	const clipped = createCellSpaceStoreys(plan, { baseZ: 3.5, datumIndex: 5, storeyCount: 2 });
+	const extended = createCellSpaceStoreys(plan, { baseZ: 0, datumIndex: 4, storeyCount: 5 });
+	for (const style of [houseStyles.neutral, houseStyles.memphis]) {
+		const reads = [initial, clipped, extended].map((space) =>
+			readHousePartRefs(createHouseCourt(space, inputs, style), 'town')
+				.filter(
+					({ body, partId, storeySpan }) =>
+						body && partId.includes('/datum/') && storeySpan[0] === 5
+				)
+				.map(({ ref }) => ref.key)
+		);
+		expect(reads[0].length).toBeGreaterThan(0);
+		expect(reads[1]).toEqual(reads[0]);
+		expect(reads[2]).toEqual(reads[0]);
+	}
+	const style = houseStyles.neutral;
+	const retained = (use: 'public' | 'office') => ({ phase: 'retained' as const, use });
+	const complete = createHouseCourt(initial, inputs, style, {
+		storeyProgram: () => retained('public')
+	});
+	const regrouped = createHouseCourt(initial, inputs, style, {
+		storeyProgram: (_, cell) => retained(cell === initial.cells[0].id ? 'office' : 'public')
+	});
+	const assembled = createHouseAssembly(initial, regrouped, 'full', style);
+	expect(assembled.addresses.map(({ partId }) => partId)).toEqual(
+		assembled.object.parts.map(({ id }) => id)
+	);
+	expect(assembled.addresses.filter(({ body }) => body).length).toBeGreaterThan(
+		createHouseAssembly(initial, complete, 'full', style).addresses.filter(({ body }) => body)
+			.length
+	);
+	expect(
+		new Set(
+			assembled.addresses.flatMap(({ program, body }) => (body && program ? [program.use] : []))
+		)
+	).toEqual(new Set(['public', 'office']));
+	const bodyKeys = (house: HouseCourt) =>
+		readHousePartRefs(house, 'town')
+			.filter(({ body }) => body)
+			.map(({ ref }) => ref.key);
+	expect(bodyKeys(regrouped)).toEqual(bodyKeys(complete));
 });

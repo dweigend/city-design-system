@@ -7,6 +7,42 @@ function requireIndex(index: number, count = Infinity) {
 		throw new RangeError('Expected a storey index in range');
 }
 
+/** Reads just the requested boundary window of a repeating mixed stack. */
+export function createMixedStoreyBoundaries(
+	datumZ: number,
+	heights: readonly number[],
+	cycleHeightM: number,
+	first: number,
+	count: number
+): number[] {
+	if (
+		!heights.length ||
+		!Number.isSafeInteger(first) ||
+		!Number.isSafeInteger(count) ||
+		count < 0 ||
+		!Number.isSafeInteger(first + count)
+	)
+		throw new RangeError('Expected a safe mixed-storey window');
+	const bands = heights.length;
+	let cycle = Math.floor(first / bands);
+	let band = first - cycle * bands;
+	let offset = cycle * cycleHeightM;
+	for (let index = 0; index < band; index++) offset += heights[index];
+	const boundaries = [datumZ + offset];
+	for (let index = 0; index < count; index++) {
+		if (band + 1 === bands) {
+			cycle++;
+			band = /* Exact arithmetic: the first band of the next cycle. */ 0;
+			offset = cycle * cycleHeightM;
+		} else {
+			offset += heights[band];
+			band++;
+		}
+		boundaries.push(datumZ + offset);
+	}
+	return boundaries;
+}
+
 /** Creates a detached stack of storey heights and their absolute boundary elevations. */
 export function createStoreyStack({
 	baseZ,
@@ -39,14 +75,31 @@ export function createStoreyStack({
 	const uniform = heights.every((height) => height === heights[0]) ? heights[0] : undefined;
 	if (storeyHeightM !== undefined && storeyHeightM !== uniform)
 		throw new RangeError('Uniform storey height disagrees with the stack');
-	let offset = 0;
-	const elevations = [baseZ];
+	const elevations = storeyElevationsM
+		? [...storeyElevationsM]
+		: uniform === undefined
+			? createMixedStoreyBoundaries(
+					baseZ,
+					heights,
+					heights.reduce((sum, height) => sum + height, 0),
+					/* Exact arithmetic: an uncut stack starts at its first boundary. */ 0,
+					storeyCount
+				)
+			: Array.from({ length: storeyCount + 1 }, (_, index) => baseZ + index * uniform);
 	for (const [index, height] of heights.entries()) {
-		offset = uniform === undefined ? offset + height : (index + 1) * uniform;
-		const top = storeyElevationsM ? storeyElevationsM[index + 1] : baseZ + offset;
+		const top = elevations[index + 1];
 		if (!Number.isFinite(top) || top <= elevations[index])
 			throw new RangeError('Storey boundaries must increase at the given datum');
-		elevations.push(top);
+		if (storeyElevationsM) {
+			const bottom = elevations[index];
+			// Two rounded elevations and their difference can each contribute rounding error.
+			const tolerance =
+				/* Exact arithmetic: three rounded operations. */ 3 *
+				Number.EPSILON *
+				Math.max(Math.abs(bottom), Math.abs(top), height);
+			if (Math.abs(top - bottom - height) > tolerance)
+				throw new RangeError('Storey boundaries disagree with the declared heights');
+		}
 	}
 	return Object.freeze({
 		baseZ,
@@ -82,7 +135,7 @@ export function readStoreyRef(spaceId: string, cellId: string, datumIndex: numbe
 /** World-independent tuple key for a storey. */
 export function readStoreyKey(spaceId: string, cellId: string, datumIndex: number) {
 	if (!Number.isSafeInteger(datumIndex)) throw new RangeError('Expected a datum index');
-	return encodeKey([spaceId, cellId, datumIndex]);
+	return encodeKey([spaceId, cellId, 'd', datumIndex]);
 }
 
 /** Storeys in cell order, then from bottom to top, with references in the supplied world. */
@@ -126,6 +179,7 @@ export function createCellSpaceStoreys(
 		id,
 		...(kind ? { kind } : {}),
 		...(houseRules ? { houseRules: Object.freeze({ ...houseRules }) } : {}),
+		...(sizing.datumIndex !== undefined ? { datumAnchored: true as const } : {}),
 		...createStoreyStack(sizing),
 		cells,
 		get storeys() {

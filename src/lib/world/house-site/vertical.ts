@@ -1,38 +1,6 @@
-import { createStoreyStack, type StoreySizing } from '../../domain/cell-space';
+import { createMixedStoreyBoundaries, type StoreySizing } from '../../domain/cell-space';
 import { readLevelIndex } from '../../domain/city-volume';
 import type { CityVerticalRecipe } from '../city-site';
-
-function repeating(heights: readonly number[], count: number): number[] {
-	return Array.from({ length: count }, (_, index) => heights[index % heights.length]);
-}
-
-function mixedBoundaries(
-	datumZ: number,
-	heights: readonly number[],
-	first: number,
-	end: number
-): readonly number[] {
-	const forward = Math.max(0, end);
-	const backward = -Math.min(0, first);
-	const positive = forward
-		? createStoreyStack({
-				baseZ: datumZ,
-				storeyCount: forward,
-				storeyHeightsM: repeating(heights, forward)
-			}).storeyElevationsM
-		: [datumZ];
-	const negative = backward
-		? createStoreyStack({
-				baseZ: -datumZ,
-				storeyCount: backward,
-				storeyHeightsM: repeating([...heights].reverse(), backward)
-			}).storeyElevationsM
-		: [];
-	return Array.from({ length: end - first + 1 }, (_, offset) => {
-		const index = first + offset;
-		return index < 0 ? -negative[-index] : positive[index];
-	});
-}
 
 /** Clips the active window against the elevations of the uncut datum stack. */
 export function createParcelStoreySizing(
@@ -63,7 +31,13 @@ export function createParcelStoreySizing(
 	const first = (groundZ === undefined ? level : level - 1) * storeysPerLevel;
 	if (!Number.isSafeInteger(first) || !Number.isSafeInteger(end))
 		throw new RangeError('Expected a valid coarse level range');
-	const boundaries = mixedBoundaries(datumZ, storeyHeightsM, first, end);
+	const boundaries = createMixedStoreyBoundaries(
+		datumZ,
+		storeyHeightsM,
+		levelHeightM,
+		first,
+		end - first
+	);
 	const match = groundZ === undefined ? 0 : boundaries.findIndex((height) => height >= groundZ);
 	const lastStorey = boundaries.length - 2;
 	const start = match < 0 ? lastStorey : Math.min(match, lastStorey);

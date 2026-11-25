@@ -2,7 +2,7 @@ import type { Vec3 } from '../../core/geometry';
 import { encodeKey, encodePair, type Key } from '../../core/ref';
 import { readStoreyElevation, type FineCell } from '../cell-space';
 import type { StoreyRun } from './part-refs';
-import type { Context } from './context';
+import { envelopeRing, programAt, type Context } from './context';
 
 type Node = Readonly<{ cell: FineCell; storey: number; id: string }>;
 type Joint = Readonly<{ key: Key; position: Vec3 }>;
@@ -21,6 +21,10 @@ function nodes(ctx: Context): Node[] {
 	});
 }
 
+export function envelopeSlices(ctx: Context): StoreyRun[] {
+	return nodes(ctx).map(({ cell, storey }) => [cell.id, storey, storey + 1]);
+}
+
 /** All slices a shell encloses, including fully internal slices. */
 export function shellStoreyRuns(ctx: Context, members: ReadonlySet<string>): StoreyRun[] {
 	return nodes(ctx).flatMap(({ cell, storey, id }) =>
@@ -34,8 +38,8 @@ export function shellFaces(ctx: Context, members: ReadonlySet<string>): Face[] {
 	const level = (storey: number) => readStoreyElevation(ctx.space, storey);
 	const faces: Face[] = [];
 	for (const cell of ctx.space.cells) {
-		const ring = (storey: number) =>
-			cell.quad.map(([x, y], i): Joint => ({
+		const ring = (storey: number, band: number) =>
+			envelopeRing(ctx, cell, band).map(([x, y], i): Joint => ({
 				key: [cell.cornerIds[i], storey],
 				position: [x, y, level(storey)]
 			}));
@@ -44,12 +48,12 @@ export function shellFaces(ctx: Context, members: ReadonlySet<string>): Face[] {
 		for (let storey = house?.fromStorey ?? 0; storey < (house?.toStorey ?? 0); storey += 1) {
 			if (!inShell(storey)) continue;
 			const owner = nodeId(cell.id, storey);
-			if (!inShell(storey - 1)) faces.push({ owner, joints: [...ring(storey)].reverse() });
-			if (!inShell(storey + 1)) faces.push({ owner, joints: ring(storey + 1) });
+			if (!inShell(storey - 1)) faces.push({ owner, joints: [...ring(storey, storey)].reverse() });
+			if (!inShell(storey + 1)) faces.push({ owner, joints: ring(storey + 1, storey) });
 		}
 		for (let storey = house?.fromStorey ?? 0; storey < (house?.toStorey ?? 0); storey += 1) {
 			if (!inShell(storey)) continue;
-			const [low, high] = [ring(storey), ring(storey + 1)];
+			const [low, high] = [ring(storey, storey), ring(storey + 1, storey)];
 			cell.quad.forEach((_, i) => {
 				const j = (i + 1) % cell.quad.length;
 				const across = cell.sides[i].neighbour;
@@ -96,8 +100,13 @@ export function shells(ctx: Context, layers = false): ReadonlySet<string>[] {
 	const all = nodes(ctx);
 	if (!layers) return partition(ctx, all);
 	const groups = Map.groupBy(all, ({ cell, storey }) => {
-		const program = ctx.occupancy.get(cell.id)?.program?.find((row) => row.storey === storey);
-		return encodeKey([storey, program?.phase ?? null, program?.use ?? null]);
+		const program = programAt(ctx, cell, storey);
+		return encodeKey([
+			storey,
+			program?.phase ?? null,
+			program?.use ?? null,
+			program?.phase === 'addition' ? cell.id : null
+		]);
 	});
 	return [...groups.values()].flatMap((layer) => partition(ctx, layer));
 }

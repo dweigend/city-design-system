@@ -163,12 +163,12 @@ export function createTownReview() {
 		},
 		/** Every drawable of the town, styled by the focus. Shapes stay the same objects, so a focus
 		 * change restyles the stage without building geometry. */
-		draw(focus: TownFocus, transparent = false): readonly Drawable[] {
+		draw(focus: TownFocus): readonly Drawable[] {
 			const shown: [Subsystem, readonly Drawable[]][] =
 				focus === 'structure' || structure ? [...parts, ['structure', readStructure()]] : parts;
 			return shown.flatMap(([part, drawables]) => {
 				const level = townFocus.readFocusLevel(focus, part);
-				const uses = part === 'houses' && (focus === 'houses' || transparent) && level !== 'hidden';
+				const uses = part === 'houses' && focus === 'houses';
 				return drawables.map((drawable) => {
 					const styled = style(drawable, level);
 					return uses ? paintHouseUse(styled) : styled;
@@ -184,5 +184,15 @@ function style(part: Drawable, level: DisplayLevel): Drawable {
 	if (level === 'hidden') return { ...part, visible: false };
 	if (level === 'full') return { ...part, visible: true };
 	const { surfaces, fillAlpha } = houseLevels[level];
-	return { ...part, ...surfaces.mass, fillAlpha, visible: true };
+	return {
+		...part,
+		...surfaces.mass,
+		fillAlpha,
+		visible: true,
+		hatch: undefined,
+		grain: undefined,
+		occlude: undefined,
+		preserveColor: undefined,
+		opacity: undefined
+	};
 }

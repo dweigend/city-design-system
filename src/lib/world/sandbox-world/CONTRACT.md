@@ -8,8 +8,10 @@ from those installed resolvers. A valid parcel with no room for a house keeps it
 returns a garden reason.
 
 Pass the active document to `resolveReference` for a storey or house part. The adapter looks up
-the parcel placement and resolves it with the world's house recipe. A missing placement or part
-returns `missing`. A foreign world or document returns `different-world`.
+the parcel placement and resolves it with the world's house recipe. An unavailable placement or
+part or stale document revision returns `missing`. A foreign world or document returns
+`different-world`. A custom subdivision catalog or storey program needs a stable recipe key.
+The world ID includes the resolved recipe when it differs from the built-in defaults.
 
 The city plan namespace uses its address-generator revision, city seed, carrier family and
 cell size, frame and terrain source identity. The topology revision hashes ordered address and
@@ -60,7 +62,7 @@ toward positive infinity. A bare ID only has meaning within its owning topology.
 | Child bay     | `<bay>/child/JSON(corner, half)`                                                                                                                                                                                                  |
 | Fine cell     | `<URI-escaped parcel>[/ear/JSON(corner keys)]/child/JSON(corner)` plus one `/child/JSON(role)` per refinement                                                                                                                     |
 | Strip         | `<URI-escaped parcel>[/part/<part>]/strip/JSON(column, row)`. The column parent omits the row. A convex part that stays whole uses its part key.                                                                                  |
-| Storey        | `JSON(space, fine cell, datum index)`                                                                                                                                                                                             |
+| Storey        | `JSON(space, fine cell, "d", datum index)`                                                                                                                                                                                        |
 | House part    | `JSON(house, part ID)`                                                                                                                                                                                                            |
 | Block         | JSON array of sorted plan cell IDs                                                                                                                                                                                                |
 | Parcel        | `JSON(block, split path)`, with component ordinal followed by binary cut choices                                                                                                                                                  |
