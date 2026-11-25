@@ -182,22 +182,57 @@ journeys('keeps the landscape stage and controls through fullscreen and exit', a
 		).toBe(fullscreen);
 	}
 
+	const hud = page.locator('.chapter-viewer-hud');
+	async function expectIdle() {
+		const framesAtIdle = Number(await canvas.getAttribute('data-stage-frames'));
+		const idleRafs = await page.evaluate(
+			() =>
+				new Promise<number>((resolve) => {
+					const original = window.requestAnimationFrame.bind(window);
+					let scheduled = 0;
+					window.requestAnimationFrame = (callback) => {
+						scheduled++;
+						return original(callback);
+					};
+					window.setTimeout(() => {
+						window.requestAnimationFrame = original;
+						resolve(scheduled);
+					}, 200);
+				})
+		);
+		expect(idleRafs).toBe(0);
+		expect(Number(await canvas.getAttribute('data-stage-frames'))).toBe(framesAtIdle);
+	}
+	async function expectFloatingBottomHud() {
+		const canvasBox = await canvas.boundingBox();
+		const hudBox = await hud.boundingBox();
+		if (!canvasBox || !hudBox) throw new Error('Expected fullscreen canvas and HUD boxes');
+		expect(hudBox.y).toBeGreaterThanOrEqual(canvasBox.y);
+		expect(hudBox.y + hudBox.height).toBeLessThanOrEqual(canvasBox.y + canvasBox.height + 1);
+		expect(hudBox.y + hudBox.height).toBeGreaterThanOrEqual(canvasBox.y + canvasBox.height * 0.6);
+	}
+
 	let previousFrame = Number(await canvas.getAttribute('data-stage-frames'));
 	await enter.click();
 	await expect(exit).toBeVisible();
 	await expectSameStage(true, previousFrame);
 	await expect(plan).toBeInViewport({ ratio: 1 });
+	await expectFloatingBottomHud();
+	await expectIdle();
 	await plan.click();
 	await expect(canvas).toHaveAttribute('data-stage-view', 'plan');
 	previousFrame = Number(await canvas.getAttribute('data-stage-frames'));
 	await exit.click();
 	await expect(enter).toBeFocused();
 	await expectSameStage(false, previousFrame);
+	await expectIdle();
 
+	await page.setViewportSize({ width: 390, height: 844 });
 	previousFrame = Number(await canvas.getAttribute('data-stage-frames'));
 	await enter.click();
 	await expect(exit).toBeVisible();
 	await expectSameStage(true, previousFrame);
+	await expectFloatingBottomHud();
 	await plan.focus();
 	previousFrame = Number(await canvas.getAttribute('data-stage-frames'));
 	await page.keyboard.press('Escape');
@@ -205,6 +240,7 @@ journeys('keeps the landscape stage and controls through fullscreen and exit', a
 	await expectSameStage(false, previousFrame);
 	await expect(plan).toBeChecked();
 	await expect(canvas).toHaveAttribute('data-stage-view', 'plan');
+	await expectIdle();
 });
 
 // City tabs and focus must change the displayed subject. This catches dead controls
