@@ -1,10 +1,14 @@
 import { defaults } from '../../../config/terrain-grid';
 import type { Vec2 } from '../../core/geometry';
+import { required } from '../../core/invariant';
 import { encodeKey } from '../../core/ref';
 import type { Carrier } from './carrier';
 import { axes } from './site';
 
-type CutCorner = Readonly<{ at: Vec2; incoming: string }>;
+type CutCorner = Readonly<{ at: Vec2; incoming: string; coincident?: readonly string[] }>;
+type SitePoint = Readonly<{ id: string; point: Vec2 }>;
+type Corner = Readonly<{ at: Vec2; cuts: readonly string[] }>;
+type CellCorners = Readonly<{ id: string; corners: readonly Corner[] }>;
 
 function bisect(polygon: readonly CutCorner[], [x, y]: Vec2, [u, v]: Vec2, cut: string) {
 	const signed = ([a, b]: Vec2) => (a - (x + u) / 2) * (u - x) + (b - (y + v) / 2) * (v - y);
@@ -13,9 +17,14 @@ function bisect(polygon: readonly CutCorner[], [x, y]: Vec2, [u, v]: Vec2, cut: 
 		const b = polygon[(i + 1) % polygon.length];
 		const da = signed(a.at);
 		const db = signed(b.at);
-		if (da <= 0) {
+		if (da < 0) ring.push(a);
+		if (da === 0) {
 			const previous = polygon[(i + polygon.length - 1) % polygon.length];
-			ring.push(da === 0 && signed(previous.at) > 0 ? { ...a, incoming: cut } : a);
+			ring.push({
+				...a,
+				incoming: signed(previous.at) > 0 ? cut : a.incoming,
+				coincident: [...(a.coincident ?? []), a.incoming, cut]
+			});
 		}
 		if ((da < 0 && db > 0) || (da > 0 && db < 0)) {
 			const t = da / (da - db);
@@ -35,6 +44,75 @@ const shortestEdge = defaults.voronoiMinimumEdgeRatio;
 const bisectorPrecision = defaults.voronoiBisectorPrecision;
 
 type Ring = Readonly<{ id: string; corners: readonly string[] }>;
+
+/** Carries the cut provenance through a cell's clipped polygon. The incoming bound at corner
+ * i names the outline edge from corner i−1 to i. */
+export function createVoronoiRing(
+	site: SitePoint,
+	competitors: Iterable<SitePoint>,
+	bounds: readonly CutCorner[]
+): CellCorners {
+	let ring = bounds;
+	for (const other of competitors) ring = bisect(ring, site.point, other.point, other.id);
+	return {
+		id: 'site/' + site.id,
+		corners: ring.map(({ at, incoming, coincident }, index) => ({
+			at,
+			cuts: [site.id, incoming, ring[(index + 1) % ring.length].incoming, ...(coincident ?? [])]
+		}))
+	};
+}
+
+type Weld = { at: Vec2; cuts: Set<string> };
+
+function coincides([x, y]: Vec2, [u, v]: Vec2) {
+	const tolerance =
+		/* Exact arithmetic: roundoff allowance for adjacent bisector evaluations. */ 64 *
+		Number.EPSILON *
+		Math.max(1, Math.abs(x), Math.abs(y), Math.abs(u), Math.abs(v));
+	return Math.max(Math.abs(x - u), Math.abs(y - v)) <= tolerance;
+}
+
+/** Position buckets find coincident occurrences across cell rings. The complete incident
+ * set names each weld. Coordinates are used only for the embedding and to find candidates. */
+export function weldVoronoiRings(cells: readonly CellCorners[]) {
+	const buckets = new Map<string, Weld[]>();
+	function weld({ at, cuts }: Corner) {
+		const [x, y] = at.map((value) => Math.floor(value * bisectorPrecision));
+		for (let v = y - 1; v <= y + 1; v++)
+			for (let u = x - 1; u <= x + 1; u++) {
+				const match = buckets.get(encodeKey([u, v]))?.find((entry) => coincides(entry.at, at));
+				if (!match) continue;
+				for (const cut of cuts) match.cuts.add(cut);
+				return match;
+			}
+		const entry = { at, cuts: new Set(cuts) };
+		const key = encodeKey([x, y]);
+		let bucket = buckets.get(key);
+		if (!bucket) buckets.set(key, (bucket = []));
+		bucket.push(entry);
+		return entry;
+	}
+	const welded = cells.map(({ id, corners }) => ({ id, corners: corners.map(weld) }));
+	const points = new Map<string, Vec2>();
+	const rings = welded.map(({ id, corners }) => ({
+		id,
+		corners: [
+			...new Set(
+				corners.map(({ at, cuts }) => {
+					const key = 'bisector/' + encodeKey([...cuts].sort());
+					if (!points.has(key))
+						points.set(key, [
+							Math.round(at[0] * bisectorPrecision) / bisectorPrecision,
+							Math.round(at[1] * bisectorPrecision) / bisectorPrecision
+						]);
+					return key;
+				})
+			)
+		]
+	}));
+	return { rings, points };
+}
 
 /** Unions the two ends of every short edge and returns each address's cluster midpoint, so
  * every cell that shares a vertex moves it alike and no sliver face remains. */
@@ -90,8 +168,7 @@ export const voronoi: Carrier = function* (site, outline, bearing, size, random)
 		sites.set(key, point);
 		return point;
 	}
-	const rings: Ring[] = [];
-	const points = new Map<string, Vec2>();
+	const cells: CellCorners[] = [];
 	// A margin of two sites completes every short-edge cluster of a cell inside the outline.
 	for (
 		let j = Math.floor(Math.min(...rows)) - defaults.voronoiSearchRadius;
@@ -112,39 +189,24 @@ export const voronoi: Carrier = function* (site, outline, bearing, size, random)
 				[i - defaults.voronoiSearchRadius, j + defaults.voronoiSearchRadius]
 			];
 			// Only complete cells survive the search halo and whole-cell site crop.
-			let ring = bounds.map((at, side) => ({ at, incoming: `guard/${side}` }));
+			const outline = bounds.map((at, side) => ({ at, incoming: `guard/${side}` }));
 			// Fixed local competitors keep every cell independent of the crop.
+			const competitors: SitePoint[] = [];
 			for (let v = -defaults.voronoiSearchRadius; v <= defaults.voronoiSearchRadius; v++) {
 				for (let u = -defaults.voronoiSearchRadius; u <= defaults.voronoiSearchRadius; u++) {
 					if (!u && !v) continue;
-					const point = seedPoint(i + u, j + v);
-					ring = bisect(ring, center, point, `${i + u},${j + v}`);
+					competitors.push({ id: `${i + u},${j + v}`, point: seedPoint(i + u, j + v) });
 				}
 			}
-			const corners = ring.map(({ at, incoming }, index) => {
-				const outgoing = ring[(index + 1) % ring.length].incoming;
-				const id = 'bisector/' + encodeKey([generator, incoming, outgoing].sort());
-				if (!points.has(id))
-					points.set(
-						id,
-						at.map((value) => Math.round(value * bisectorPrecision) / bisectorPrecision) as [
-							number,
-							number
-						]
-					);
-				return id;
-			});
-			rings.push({ id: `site/${i},${j}`, corners: [...new Set(corners)] });
+			cells.push(createVoronoiRing({ id: generator, point: center }, competitors, outline));
 		}
 	}
+	const { rings, points } = weldVoronoiRings(cells);
 	const merged = collapseShortEdges(rings, points);
 	for (const { id, corners } of rings) {
 		const nodes = new Map(
 			corners.map((corner) => {
-				const { id: address, at } = merged.get(corner) ?? {
-					id: corner,
-					at: /* Exact arithmetic: fallback site origin. */ [0, 0]
-				};
+				const { id: address, at } = required(merged.get(corner), 'welded Voronoi corner');
 				const [u, v] = toWorld(at[0] * size, at[1] * size);
 				return [address, { id: address, xy: [site.origin[0] + u, site.origin[1] + v] as const }];
 			})

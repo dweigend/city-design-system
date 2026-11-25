@@ -18,7 +18,8 @@ of those inputs gives the plan a new identity. Expanding the outline and resampl
 keep the plan identity. A cell that drops out of the crop or becomes unbuildable resolves as
 `missing`. A retained address resolves to its current metric geometry.
 
-A Voronoi corner uses the sorted IDs of the generating sites whose bisectors bound it. A short
+A Voronoi corner uses the sorted IDs of every coincident generating site and any clipping sides
+that meet there. A short
 edge collapse uses the lowest corner key in the cluster. The site outline selects complete
 cells. Shoreline cuts create `shore/` keys from the canonical pair of plan corner IDs at the
 crossed edge. Corner and shore positions can move while their incidence stays the same. A new

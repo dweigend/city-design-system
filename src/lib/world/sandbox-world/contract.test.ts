@@ -1,6 +1,7 @@
 import { expect, test } from 'bun:test';
 import { createWorldReference, encodeKey } from '../../core/ref';
 import { readCellStoreys } from '../../domain/cell-space';
+import { readCityColumns } from '../../domain/city-volume';
 import {
 	createSandboxDocument,
 	readPlacementId,
@@ -21,11 +22,20 @@ import {
 	createTownHouseStudy,
 	readParcelHouseWalls
 } from '../house-site';
-import { readCityGrid } from '../city-site';
+import { readCityDistricts, readCityGrid, type CityGrid, type CitySite } from '../city-site';
 import { readAsset } from '../asset-registry';
 import { resolveParams } from '../../core/params';
 import { createPlacementCache, createSandboxWorld, UnavailableHostError } from './index';
 import { example } from './example';
+
+function columnMap(site: CitySite, layout: CityGrid) {
+	return new Map(
+		readCityColumns(layout.grid, readCityDistricts(site, layout)).map((column) => [
+			column.planCellId,
+			column
+		])
+	);
+}
 
 const testWorld = {
 	seed: 1,
@@ -301,7 +311,8 @@ test('derives snapshot identity from the resolved city size, terrain and topolog
 	expect(other.world.topologyRevision).not.toBe(world.world.topologyRevision);
 	const saved = world.createDocument().serialize();
 	expect(other.restore(saved).world).toEqual(other.world);
-	const triangle = createSandboxWorld(site, readCityGrid(site, 600, 'triangle'), columns);
+	const triangleLayout = readCityGrid(site, 600, 'triangle');
+	const triangle = createSandboxWorld(site, triangleLayout, columnMap(site, triangleLayout));
 	expect(() => triangle.restore(saved)).toThrow(SandboxDataError);
 
 	const smaller = new Map(columns);
@@ -402,12 +413,14 @@ test('rejects a flat two-point graph edge before recording a stair', () => {
 
 test('rejects foreign plans despite a matching local cell key and rejects mismatched save metadata', () => {
 	const {
-		town: { site, columns }
+		town: { site }
 	} = example();
 	const squareLayout = readCityGrid(site, 2200, 'square');
 	const triangleLayout = readCityGrid(site, 2200, 'triangle');
-	const square = createSandboxWorld(site, squareLayout, columns);
-	const triangle = createSandboxWorld(site, triangleLayout, columns);
+	const squareColumns = columnMap(site, squareLayout);
+	const square = createSandboxWorld(site, squareLayout, squareColumns);
+	const triangle = createSandboxWorld(site, triangleLayout, columnMap(site, triangleLayout));
+	expect(() => createSandboxWorld(site, triangleLayout, squareColumns)).toThrow('different plan');
 	const id = squareLayout.plan.cells.find(({ id }) =>
 		triangleLayout.plan.cells.some((cell) => cell.id === id)
 	)?.id;
@@ -437,7 +450,7 @@ test('rejects foreign plans despite a matching local cell key and rejects mismat
 		)
 	).toThrow('different world');
 	expect(() =>
-		createSandboxWorld(site, { ...squareLayout, plan: triangleLayout.plan }, columns)
+		createSandboxWorld(site, { ...squareLayout, plan: triangleLayout.plan }, squareColumns)
 	).toThrow('different plan');
 }, 20_000);
 

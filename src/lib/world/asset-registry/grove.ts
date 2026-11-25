@@ -118,7 +118,12 @@ function readLawnElevation(
 
 type Tree = Readonly<{ at: Vec2; radius: number; height: number; pointed: boolean }>;
 
-function plant(site: GroveSite, density: number, height: number, seed: number): Tree[] {
+/** Reads the seeded tree centres, canopy radii and heights on the plan, in meters. */
+export function readGrovePlan(
+	site: Pick<GroveSite, 'outline' | 'holes'>,
+	{ density, height }: Readonly<{ density: number; height: number }>,
+	seed: number
+): readonly Tree[] {
 	const { outline, holes = [] } = site;
 	const extent = bounds(
 		outline.map(([x, y]): Vec3 => [
@@ -230,7 +235,7 @@ export const groveAsset: AssetEntry<CityAssetHost> = {
 		const layers = { lawn: mesh(), trunk: mesh(), canopy: mesh() };
 		const surface = lawn(site);
 		layers.lawn.append(surface.shape);
-		for (const tree of plant(site, density, height, seed)) {
+		for (const tree of readGrovePlan(site, { density, height }, seed)) {
 			const base = readLawnElevation(
 				surface.triangles,
 				tree.at,

@@ -153,8 +153,8 @@ export type {
 	CityLattice
 };
 
-/** One column per plan cell, carrying district identity and terrain corners in world meters. */
-export type CityColumn = StructuralColumn & DistrictCell;
+/** One column per plan cell, with its plan scope, district and terrain corners in world meters. */
+export type CityColumn = StructuralColumn & DistrictCell & Readonly<{ planScope: string }>;
 
 /** Validates and detaches columns from caller-owned topology. */
 export {
@@ -187,6 +187,8 @@ export function createCityDistricts(
 	levelHeightM = levelHeight
 ) {
 	requireBuildableGrid(plan);
+	if (growth && growth.planScope !== plan.identity.scope)
+		throw new RangeError('District growth belongs to a different plan');
 	requireLevelSpacing(levelHeightM);
 	const requested = parameters?.height;
 	const scaled =
@@ -213,10 +215,11 @@ export type CityDistricts = ReturnType<typeof createCityDistricts>;
 
 type ColumnAssignment = Pick<DistrictCell, 'levels' | 'kind'> & Partial<DistrictCell>;
 type AssignmentReader<A> = ((id: string) => A) | Readonly<{ cell(id: string): A }>;
+type AddressedColumn<A> = StructuralColumn & A & Readonly<{ planScope: string }>;
 
 /** Returns immutable columns in buildable grid order using the caller's cell assignments.
  * A district profile can supply the assignments through its cell reader. A grid containing
- * water throws. Each column retains the sampled terrain corners and hub elevation. */
+ * water throws. Each column retains its source scope, sampled corners and hub elevation. */
 export function readCityColumns(
 	plan: TerrainGrid,
 	assignment: AssignmentReader<DistrictCell>,
@@ -226,12 +229,12 @@ export function readCityColumns(
 	plan: TerrainGrid,
 	assignment: AssignmentReader<ColumnAssignment>,
 	maxLevels?: number
-): readonly (StructuralColumn & ColumnAssignment)[];
+): readonly AddressedColumn<ColumnAssignment>[];
 export function readCityColumns(
 	plan: TerrainGrid,
 	assignment: AssignmentReader<ColumnAssignment>,
 	maxLevels?: number
-): readonly (StructuralColumn & ColumnAssignment)[] {
+): readonly AddressedColumn<ColumnAssignment>[] {
 	requireBuildableGrid(plan);
 	const vertices = new Map(plan.vertices.map((vertex) => [vertex.id, vertex]));
 	return createStructuralColumns(
@@ -240,6 +243,7 @@ export function readCityColumns(
 				typeof assignment === 'function' ? assignment(id) : assignment.cell(id);
 			return {
 				planCellId: id,
+				planScope: plan.identity.scope,
 				corners: vertexIds.map((key) => required(vertices.get(key), 'plan corner')),
 				neighbors,
 				groundAtHub: centerHeight,
@@ -279,6 +283,9 @@ export function createCityLattice(
 export {
 	/** Builds one addressed bay with canonical solid faces, member profiles and joint anchors. */
 	createLatticeBayObject,
-	/** Reads the owned solids, addressed joints and member connections of one lattice bay. */
+	/** Reads a canonical bay and its caps, owned solids, addressed joints and member connections. */
 	readLatticeBay
 } from './bay-object';
+
+/** Reads a prism containment test for one canonical bay and the surrounding model fill. */
+export { readBayFill } from './bay-fill';

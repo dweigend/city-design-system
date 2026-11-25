@@ -1,8 +1,23 @@
 import { expect, test } from 'bun:test';
 import { required } from '../../core/invariant';
 import { bounds } from '../../core/object';
-import { equalRefs } from '../../core/ref';
+import type { PlaceableObject } from '../../core/object';
+import { equalRefs, type Ref } from '../../core/ref';
 import { boundaryExample } from './example';
+
+function readCrownRings(object: PlaceableObject) {
+	const { shape } = required(
+		object.parts.find(({ slot }) => slot === 'canopy'),
+		'crown mesh'
+	);
+	if (shape.kind !== 'mesh') throw new Error('Expected triangulated crowns');
+	const rings = [];
+	for (let start = 0; start < shape.positions.length; start += 18)
+		rings.push(
+			[0, 3, 6, 9].map((offset) => shape.positions.slice(start + offset, start + offset + 2))
+		);
+	return rings;
+}
 
 test('plan and spatial consumers reopen the same addressed sandbox/3 exchange', () => {
 	const fixture = boundaryExample();
@@ -22,13 +37,8 @@ test('plan and spatial consumers reopen the same addressed sandbox/3 exchange', 
 	for (const [i, row] of plan.entries()) {
 		expect(row.ref).toEqual(exchange.refs[i]);
 		expect(row.ref).toEqual(spatial[i].ref);
-		expect(row.geometry).toEqual(spatial[i].geometry);
-		const object = spatial[i].object;
-		if (object) {
-			const { min, max } = bounds(object);
-			expect(row.extent).toEqual([min.slice(0, 2), max.slice(0, 2)]);
-			expect(row.topZ).toBe(max[2]);
-		}
+		expect<unknown>(row.geometry).toEqual(spatial[i].geometry);
+		expect(row.span).toEqual(spatial[i].span);
 	}
 	const storeys = exchange.refs.filter(({ kind }) => kind === 'storey');
 	for (const { key } of storeys) {
@@ -41,14 +51,19 @@ test('plan and spatial consumers reopen the same addressed sandbox/3 exchange', 
 	expect(
 		new Set(spatial.flatMap(({ geometry }) => ('assetId' in geometry ? [geometry.assetId] : [])))
 	).toEqual(new Set(['house/court-neutral', 'park/grove']));
-	for (const { geometry } of parts) {
+	for (const { geometry, span } of parts) {
 		if (!('storeyRefs' in geometry)) throw new Error('Expected a part address');
 		for (const storey of geometry.storeyRefs)
 			expect(storeys.some((ref) => equalRefs(ref, storey))).toBe(true);
+		const metric = required(span, 'part span');
+		expect(metric.topZ).toBeGreaterThan(metric.bottomZ);
+		expect(metric.footprints).toHaveLength(geometry.storeyRefs.length);
 	}
 
 	fixture.growGrove();
-	const edited = JSON.parse(JSON.stringify(fixture.readExchange())) as typeof exchange;
+	const edited = JSON.parse(
+		JSON.stringify({ ...fixture.readExchange(), refs: replay().refs })
+	) as typeof exchange;
 	const planAfter = fixture.readPlan(edited);
 	const spatialAfter = fixture.readSpatial(edited);
 	const groveAfter = required(
@@ -60,15 +75,15 @@ test('plan and spatial consumers reopen the same addressed sandbox/3 exchange', 
 		'original grove'
 	);
 	expect(bounds(groveAfter).max[2]).toBeGreaterThan(bounds(groveBefore).max[2]);
-	expect(planAfter.find(({ ref }) => equalRefs(ref, fixture.grove))?.topZ).toBe(
-		bounds(groveAfter).max[2]
+	const canopies = (rows: typeof plan) =>
+		rows.find(({ ref }) => equalRefs(ref, fixture.grove))?.canopies;
+	expect(canopies(plan)).toEqual(readCrownRings(groveBefore));
+	expect(canopies(planAfter)).toEqual(readCrownRings(groveAfter));
+	expect(canopies(planAfter)).not.toEqual(canopies(plan));
+	const children: readonly Ref[] = exchange.refs.filter(
+		({ kind }) => kind === 'storey' || kind === 'house-part'
 	);
-	expect(planAfter.find(({ ref }) => equalRefs(ref, fixture.grove))?.parts).not.toEqual(
-		plan.find(({ ref }) => equalRefs(ref, fixture.grove))?.parts
-	);
-	const editedStoreys = edited.refs.filter(({ kind }) => kind === 'storey');
-	expect(editedStoreys).toEqual(storeys);
-	for (const neighbor of [fixture.house, fixture.peer]) {
+	for (const neighbor of [fixture.house, fixture.peer, ...children]) {
 		expect(planAfter.find(({ ref }) => equalRefs(ref, neighbor))).toEqual(
 			plan.find(({ ref }) => equalRefs(ref, neighbor))
 		);

@@ -74,7 +74,11 @@ test('classifies 250 cells at the town threshold in rank order', () => {
 		});
 		return { id, vertexIds, neighbors: corners.map(() => null) };
 	});
-	const growth = { rankedCellIds: cells.map(({ id }) => id), futureFringe: [] };
+	const growth = {
+		planScope: 'test-plan',
+		rankedCellIds: cells.map(({ id }) => id),
+		futureFringe: []
+	};
 	const read = (ordered: typeof cells) => {
 		const { areaKm2, settlement } = createCityDistricts(
 			{
@@ -177,6 +181,7 @@ test('uses the same prism faces for all square frames, including a terrain-fitti
 
 test('rejects malformed columns before allocating bays', () => {
 	const column: CityColumn = {
+		planScope: 'test-plan',
 		planCellId: 'cell',
 		districtId: 'district/cell',
 		densityRegionId: 'center/cell',
@@ -264,7 +269,11 @@ test('enters the second bank through the cheaper crossing after publishing the f
 test('a late connector merges districts under the earliest founding plan address', () => {
 	const plan = flatPlan(300);
 	const [a, bridge, b] = plan.cells;
-	const growth = { rankedCellIds: [b.id, a.id, bridge.id], futureFringe: [] };
+	const growth = {
+		planScope: plan.identity.scope,
+		rankedCellIds: [b.id, a.id, bridge.id],
+		futureFringe: []
+	};
 	const before = createCityDistricts(
 		TerrainGrid.select(plan, [a.id, b.id]),
 		core,
@@ -326,6 +335,7 @@ test('publishes a ten-cell demo with a smaller startup area', () => {
 });
 
 const structuralColumn: CityColumn = {
+	planScope: 'test-plan',
 	planCellId: 'column',
 	kind: 'block',
 	districtId: 'district',

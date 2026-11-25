@@ -340,6 +340,7 @@ export function readCityGrid(
 		)
 		.map(({ id }) => id);
 	const growth: DistrictGrowth = Object.freeze({
+		planScope: plan.identity.scope,
 		rankedCellIds: Object.freeze(ids),
 		futureFringe: Object.freeze(futureFringe)
 	});
@@ -382,6 +383,8 @@ export function readCityParcels(
 	layout: Pick<CityGrid, 'growth' | 'seed' | 'variant'> & Partial<Pick<CityGrid, 'plan' | 'grid'>>
 ) {
 	const { parcels, mainLanes, plan } = carrier(city, layout.variant, layout.seed);
+	if (layout.growth.planScope !== plan.identity.scope)
+		throw new RangeError('City growth belongs to a different plan');
 	for (const grid of [layout.plan, layout.grid]) {
 		if (
 			grid &&

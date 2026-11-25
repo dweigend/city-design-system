@@ -1,5 +1,12 @@
 import { expect, test } from 'bun:test';
-import { crossProduct, displacement, dotProduct, measurePolygon } from '../../core/geometry';
+import {
+	crossProduct,
+	displacement,
+	dotProduct,
+	measurePolygon,
+	readVertexMean,
+	type Vec3
+} from '../../core/geometry';
 import { required } from '../../core/invariant';
 import { encodePair } from '../../core/ref';
 import { createCellSpace } from '../../domain/cell-space';
@@ -7,7 +14,8 @@ import {
 	createCityLattice,
 	latticeVariants,
 	readLatticeBay,
-	type CityLattice
+	type CityLattice,
+	type StructuralColumn
 } from '../../domain/city-volume';
 import { createParcelPlan } from '../../domain/parcels';
 import { dryPlanEdges, TerrainGrid } from '../../domain/terrain-grid';
@@ -89,20 +97,33 @@ function fixture(variant: (typeof cityPlanVariants)[number]) {
 	return { columns, holdings };
 }
 
-function assertFill(lattice: CityLattice, cell: BayFineCell) {
-	const { floor, ceiling, solidTriangles } = readLatticeBay(lattice, cell.bayId);
+type SolidTriangles = ReturnType<typeof readLatticeBay>['solidTriangles'];
+
+function winding(faces: SolidTriangles[number], point: Vec3) {
+	return faces.reduce((total, face) => {
+		const [a, b, c] = face.map(({ position }) => displacement(point, position));
+		const [u, v, w] = [Math.hypot(...a), Math.hypot(...b), Math.hypot(...c)];
+		return (
+			total +
+			2 *
+				Math.atan2(
+					dotProduct(a, crossProduct(b, c)),
+					u * v * w + dotProduct(a, b) * w + dotProduct(b, c) * u + dotProduct(c, a) * v
+				)
+		);
+	}, 0);
+}
+
+function assertFill(lattice: CityLattice, solidTriangles: SolidTriangles, cell: BayFineCell) {
+	const { floor, ceiling } = readLatticeBay(lattice, cell.bayId);
 	const points = cell.faces.flatMap(({ corners }) => corners.map(({ position }) => position));
-	const enclosed = solidTriangles.some((faces) =>
-		faces.every(([a, b, c]) => {
-			const origin = a.position;
-			const normal = crossProduct(
-				displacement(origin, b.position),
-				displacement(origin, c.position)
-			);
-			return points.every((point) => dotProduct(normal, displacement(origin, point)) <= 1e-7);
-		})
+	const [x, y] = readVertexMean(cell.quad);
+	const { bottomZ, topZ } = cell.storey;
+	const sample: Vec3 = [x, y, bottomZ + 0.371 * (topZ - bottomZ)];
+	expect(solidTriangles.reduce((sum, faces) => sum + winding(faces, sample), 0)).toBeCloseTo(
+		4 * Math.PI,
+		6
 	);
-	expect(enclosed).toBe(true);
 	expect(Math.min(...points.map((point) => point[2]))).toBeGreaterThanOrEqual(
 		Math.max(...floor.map(({ position }) => position[2]))
 	);
@@ -130,6 +151,9 @@ for (const plan of cityPlanVariants) {
 				expect(area).toBeCloseTo(measurePolygon(parcel.outline).area, 7);
 			}
 			const lattice = createCityLattice(columns, 10, model);
+			const triangles = lattice.cells.flatMap(
+				({ id }) => readLatticeBay(lattice, id).solidTriangles
+			);
 			const world = plan + '/study';
 			const groups = lattice.cells.map(({ id }) => readFineCells(lattice, id, world, recipe));
 			const cells = groups.flat();
@@ -147,7 +171,7 @@ for (const plan of cityPlanVariants) {
 			expect(new Set(a.map(({ storey }) => storey.heightM))).toEqual(new Set([2, 3]));
 			for (const cell of cells) {
 				assertClosed(cell);
-				assertFill(lattice, cell);
+				assertFill(lattice, triangles, cell);
 			}
 			expect(readFineCells(lattice, a[0].bayId, world, recipe)).toEqual(a);
 			if (model === 'tree') expect(groups.some((group) => group.length === 0)).toBe(true);
@@ -164,4 +188,85 @@ test('the fixed section hook keeps storey keys when the recipe changes metric he
 	const edited = readFineCells(lattice, west[0].bayId, 'fine-example', { storeyHeightsM: [4, 3] });
 	expect(edited.map(({ ref }) => ref)).toEqual(west.map(({ ref }) => ref));
 	expect(edited[0].storey.topZ).not.toBe(west[0].storey.topZ);
+});
+
+function squareColumn(heights: readonly number[]): StructuralColumn {
+	return {
+		planCellId: 'square',
+		neighbors: [null, null, null, null],
+		levels: 1,
+		corners: (
+			[
+				[0, 0],
+				[10, 0],
+				[10, 10],
+				[0, 10]
+			] as const
+		).map(([x, y], i) => ({ id: 'abcd'[i], position: [x, y, heights[i]] }))
+	};
+}
+
+test('keeps the downhill storey when a different corner of the bay rises above it', () => {
+	const lattice = createCityLattice([squareColumn([0, 6, 6, 0])], 0);
+	const cells = readFineCells(lattice, 'square/level/0', 'slope', { storeyHeightsM: [3, 4] });
+	expect(cells.map(({ storey }) => [storey.cellId, storey.bottomZ, storey.topZ])).toEqual([
+		['square/child/["a"]', 3, 7],
+		['square/child/["d"]', 3, 7]
+	]);
+	expect(cells.map(({ ref }) => JSON.parse(ref.key) as unknown)).toEqual([
+		['square', 'square/child/["a"]', 'd', 1],
+		['square', 'square/child/["d"]', 'd', 1]
+	]);
+});
+
+test('keeps fine cells above the high diagonal of a non-convex saddle foundation', () => {
+	const lattice = createCityLattice([squareColumn([6, 0, 6, 0])], 0);
+	const cells = readFineCells(lattice, 'square/level/0', 'saddle', { storeyHeightsM: [6, 1] });
+	expect(cells).toHaveLength(4);
+	expect(cells.every(({ storey }) => storey.bottomZ === 6 && storey.topZ === 7)).toBe(true);
+});
+
+test('fills interior upper bands across tetrahedra and pyramids assigned to other bays', () => {
+	const columns = Array.from({ length: 9 }, (_, i): StructuralColumn => {
+		const x = i % 3;
+		const y = Math.floor(i / 3);
+		return {
+			planCellId: 'cell/' + i,
+			neighbors: [
+				i >= 3 ? 'cell/' + (i - 3) : null,
+				x < 2 ? 'cell/' + (i + 1) : null,
+				i < 6 ? 'cell/' + (i + 3) : null,
+				x > 0 ? 'cell/' + (i - 1) : null
+			],
+			levels: 4,
+			corners: [
+				[x, y],
+				[x + 1, y],
+				[x + 1, y + 1],
+				[x, y + 1]
+			].map(([a, b]) => ({
+				id: `${a},${b}`,
+				position: [a * 10, b * 10, 0]
+			}))
+		};
+	});
+	for (const model of ['antiprism', 'diagrid'] as const) {
+		const lattice = createCityLattice(columns, 0, model);
+		for (const level of [2, 3]) {
+			const id = `cell/4/level/${level}`;
+			const bay = readLatticeBay(lattice, id);
+			expect(bay.solids.some((solid) => solid.id === id + '/cell')).toBe(true);
+			const cells = readFineCells(lattice, id, model, { storeyHeightsM: [3, 4] });
+			expect(cells).toHaveLength(8);
+			const ownedOnly = { ...lattice, solids: lattice.solids.filter(({ bay }) => bay === id) };
+			expect(readFineCells(ownedOnly, id, model, { storeyHeightsM: [3, 4] }).length).toBeLessThan(
+				cells.length
+			);
+			expect(
+				cells.every(
+					({ storey }) => storey.datumIndex === level * 2 || storey.datumIndex === level * 2 + 1
+				)
+			).toBe(true);
+		}
+	}
 });

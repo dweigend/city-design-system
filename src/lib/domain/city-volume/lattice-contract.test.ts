@@ -111,6 +111,7 @@ function squares(levels: readonly number[][], size = 60): CityColumn[] {
 	const at = (i: number, j: number) => (levels[j]?.[i] ? `c${i},${j}` : null);
 	return levels.flatMap((row, j) =>
 		row.map((height, i) => ({
+			planScope: 'test-plan',
 			planCellId: `c${i},${j}`,
 			corners: [corner(i, j), corner(i + 1, j), corner(i + 1, j + 1), corner(i, j + 1)],
 			neighbors: [at(i, j - 1), at(i + 1, j), at(i, j + 1), at(i - 1, j)],
@@ -479,7 +480,11 @@ test('cell-array order cannot change the settlement class at the town threshold'
 		identity: { variant: 'square' as const, scope: 'test-plan' },
 		boundary: []
 	};
-	const growth = { rankedCellIds: plan.cells.map(({ id }) => id), futureFringe: [] };
+	const growth = {
+		planScope: plan.identity.scope,
+		rankedCellIds: plan.cells.map(({ id }) => id),
+		futureFringe: []
+	};
 	const first = createCityDistricts(plan, core, 1201, undefined, growth);
 	const reverse = createCityDistricts(
 		{ ...plan, cells: [...plan.cells].reverse() },

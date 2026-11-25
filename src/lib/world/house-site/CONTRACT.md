@@ -24,6 +24,6 @@ storey ref, a fine-cell ref and six outward-wound faces in world meters. Neighbo
 face key and corner positions with opposite winding. The datum index stays in the ref when
 storey heights change within a band.
 
-The resolver emits whole storey prisms inside the canonical bay and one of its model solids.
-Storeys cut by a terrain cap, a faceted fill boundary or a seam between model solids are omitted.
-The example reads the shared side of two adjacent bays with mixed-height storeys.
+The resolver checks the triangulated floor and ceiling over each quad. It emits a whole storey
+prism when the combined model fill covers it, including any wedges addressed to neighboring
+bays. The example reads the shared side of two adjacent bays with mixed-height storeys.

@@ -384,6 +384,7 @@ test('keeps exposed walls against excluded neighbors when filtering district kin
 	const zeroTaper = () => [0, 0] as const;
 	const pair = [
 		{
+			planScope: 'test-plan',
 			planCellId: 'a',
 			districtId: 'd0',
 			densityRegionId: 'r0',
@@ -398,6 +399,7 @@ test('keeps exposed walls against excluded neighbors when filtering district kin
 			neighbors: [null, 'b', null, null]
 		},
 		{
+			planScope: 'test-plan',
 			planCellId: 'b',
 			districtId: 'd1',
 			densityRegionId: 'r0',

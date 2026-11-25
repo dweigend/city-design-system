@@ -8,7 +8,8 @@ from those installed resolvers. A valid parcel with no room for a house keeps it
 returns a garden reason.
 
 Pass the active document to `resolveReference` for a storey or house part. The adapter looks up
-the parcel placement and resolves it with the world's house recipe. An unavailable placement or
+the parcel placement and resolves it with the world's house recipe. A storey includes its
+footprint and absolute elevations. An unavailable placement or
 part or stale document revision returns `missing`. A foreign world or document returns
 `different-world`. A custom subdivision catalog or storey program needs a stable recipe key.
 The world ID includes the resolved recipe when it differs from the built-in defaults.
@@ -24,7 +25,8 @@ scope. The default valley adapter identifies a generated plan, so copies of the 
 generated plan share its namespace.
 
 The document also stores the scope from the generated plan. The city checks that both the
-uncut plan and buildable subset belong to the selected carrier before opening a sandbox.
+uncut plan, buildable subset, growth ranks and columns belong to the selected carrier before
+opening a sandbox.
 Voronoi saves from the earlier corner rule belong to the previous address namespace.
 
 The placement cache attaches to one document. It stages each delta and rebuilds incoming

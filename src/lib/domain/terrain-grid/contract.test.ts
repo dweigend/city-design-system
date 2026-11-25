@@ -3,6 +3,7 @@ import { required } from '../../core/invariant';
 import { distance, type Vec2, type Vec3 } from '../../core/geometry';
 import {
 	TerrainGrid,
+	dryPlanEdges,
 	planEdgeId,
 	planEdges,
 	readPlanCell,
@@ -15,6 +16,55 @@ import {
 } from './index';
 import { example } from './example';
 import { alignShore } from './shore-morph';
+import { createPlanarTopology } from '../../core/topology';
+import { createVoronoiRing, weldVoronoiRings } from './voronoi';
+
+test('welds all four co-circular sites into one corner in either clipping order', () => {
+	const sites = [
+		{ id: 'a', point: [-1, -1] },
+		{ id: 'b', point: [1, -1] },
+		{ id: 'c', point: [1, 1] },
+		{ id: 'd', point: [-1, 1] }
+	] as const;
+	const outline = (
+		[
+			[-3, -3],
+			[3, -3],
+			[3, 3],
+			[-3, 3]
+		] as const
+	).map((at, i) => ({ at, incoming: 'outline/' + i }));
+	for (const order of [sites, [...sites].reverse(), [sites[1], sites[3], sites[0], sites[2]]]) {
+		const { rings, points } = weldVoronoiRings(
+			order.map((site) =>
+				createVoronoiRing(
+					site,
+					order.filter((other) => other !== site),
+					outline
+				)
+			)
+		);
+		const shared = 'bisector/["a","b","c","d"]';
+		expect([...points].filter(([, [x, y]]) => x === 0 && y === 0)).toEqual([[shared, [0, 0]]]);
+		const { faces } = createPlanarTopology(
+			rings.map(({ id, corners }) => ({ id, vertexIds: corners }))
+		);
+		for (const { id, vertexIds, neighbors } of faces) {
+			expect(vertexIds.filter((key) => key === shared)).toHaveLength(1);
+			const at = 'abcd'.indexOf(id.slice(-1));
+			expect(neighbors.filter((key) => key !== null).sort()).toEqual(
+				[1, 3].map((offset) => 'site/' + 'abcd'[(at + offset) % 4]).sort()
+			);
+		}
+	}
+});
+
+test('rejects dry-edge provenance from a different plan even when local IDs match', () => {
+	const grid = TerrainGrid.create({ ...options, variant: 'square' });
+	const foreign = TerrainGrid.create({ ...options, variant: 'square', scope: 'foreign' });
+	expect(grid.cells).toEqual(foreign.cells);
+	expect(() => dryPlanEdges(grid, foreign)).toThrow('different plans');
+});
 
 const qualitySeeds = [0, 1, 7, 42, 1201, 1301, 1409, 65537, 4294967295];
 

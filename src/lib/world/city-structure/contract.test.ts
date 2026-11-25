@@ -54,6 +54,7 @@ for (const model of latticeVariants) {
 function flatCell(x = 0): CityColumn {
 	const size = 60;
 	return {
+		planScope: 'test-plan',
 		planCellId: `cell/${x}`,
 		corners: [
 			[x, 0],

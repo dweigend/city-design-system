@@ -22,8 +22,17 @@ import {
 	readCitySide,
 	readCityDistricts,
 	readCityGrid,
+	readCityParcels,
 	riverCityRecipe
 } from './index';
+
+test('rejects foreign growth when the optional plan and buildable grid are absent', () => {
+	const city = createCitySite();
+	const { seed, growth } = readCityGrid(city, 600, 'square');
+	expect(() => readCityParcels(city, { seed, growth, variant: 'triangle' })).toThrow(
+		'City growth belongs to a different plan'
+	);
+}, 20_000);
 
 test('grows on both banks without moving cells or the common datum', () => {
 	const city = createCitySite();

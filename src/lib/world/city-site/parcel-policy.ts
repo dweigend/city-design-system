@@ -141,7 +141,7 @@ export function prepareCityParcels(
 		core,
 		seed,
 		undefined,
-		{ rankedCellIds, futureFringe: [] },
+		{ planScope: grid.identity.scope, rankedCellIds, futureFringe: [] },
 		levelHeightM
 	);
 	const plannedKinds = Object.fromEntries(rankedCellIds.map((id) => [id, districts.cell(id).kind]));

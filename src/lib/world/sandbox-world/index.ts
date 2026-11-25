@@ -4,7 +4,7 @@ import { resolveParams } from '../../core/params';
 import { readWorldReference, type ReferenceResolution } from '../../core/ref';
 import { createPolygonIndex } from '../../core/polygon-index';
 import type { CityColumn } from '../../domain/city-volume';
-import type { CellStorey } from '../../domain/cell-space';
+import type { CellStorey, FineCell } from '../../domain/cell-space';
 import { readHousePartRefs, type HousePartRef, type HouseStorey } from '../../domain/house-court';
 import { planEdges, type PlanEdge } from '../../domain/terrain-grid';
 import {
@@ -47,7 +47,7 @@ type CityReferenceValue =
 	| PlanEdge
 	| CityGrid['plan']['cells' | 'vertices'][number]
 	| ReturnType<typeof readCityMovement>['network']['nodes' | 'edges'][number]
-	| (CellStorey & { program?: HouseStorey })
+	| (CellStorey & { quad: FineCell['quad']; program?: HouseStorey })
 	| HousePartRef;
 
 function referenceOwner(key: string): string | undefined {
@@ -108,6 +108,10 @@ export function createSandboxWorld(
 		vertical,
 		subgridOptions: houseRecipe?.subgridOptions && Object.freeze({ ...houseRecipe.subgridOptions })
 	});
+	for (const [key, column] of columns) {
+		if (key !== column.planCellId || column.planScope !== layout.growth.planScope)
+			throw new RangeError('City column belongs to a different plan');
+	}
 	const columnSnapshot = snapshotColumns(columns);
 	const holdings = readCityParcels(site, layout);
 	const polygons = createPolygonIndex(holdings.parcels, holdings.linearToleranceM);
@@ -231,10 +235,12 @@ export function createSandboxWorld(
 		if (kind === 'storey') {
 			const storey = placed.space.storeys.find((row) => row.key === key);
 			if (!storey) return undefined;
+			const quad = placed.space.cells.find(({ id }) => id === storey.cellId)?.quad;
+			if (!quad) return undefined;
 			const program = placed.house.cells
 				.find(({ id }) => id === storey.cellId)
 				?.program?.find((row) => row.key === key);
-			return program ? { ...storey, program } : storey;
+			return { ...storey, quad, ...(program ? { program } : {}) };
 		}
 		const walls = document.readPlacements().flatMap((peer) => {
 			if (

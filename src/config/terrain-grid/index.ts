@@ -93,7 +93,7 @@ const base = defineSettings({
 	voronoiBisectorPrecision: setting(
 		1e8,
 		'count',
-		'Resolution of bisector coordinates used in Voronoi address keys'
+		'Resolution used to round Voronoi corner embedding positions'
 	),
 	voronoiSearchRadius: setting(2, 'count', 'Neighborhood radius for Voronoi carrier candidates')
 });

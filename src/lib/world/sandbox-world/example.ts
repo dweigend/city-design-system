@@ -1,6 +1,5 @@
 import type { Vec2 } from '../../core/geometry';
 import { required } from '../../core/invariant';
-import { bounds } from '../../core/object';
 import {
 	createWorldReference,
 	equalRefs,
@@ -8,9 +7,10 @@ import {
 	type Ref,
 	type ReferenceResolution
 } from '../../core/ref';
-import { readCellStoreys } from '../../domain/cell-space';
-import { readHousePartRefs } from '../../domain/house-court';
-import { readHostReference } from '../../domain/sandbox-document';
+import { readCellStoreys, type CellStorey, type FineCell } from '../../domain/cell-space';
+import { readHousePartRefs, type HousePartRef } from '../../domain/house-court';
+import { readHostReference, type SandboxPlacement } from '../../domain/sandbox-document';
+import { buildAsset, readGrovePlan } from '../asset-registry';
 import { cityRailTerrainSlopeBound, readCityRail } from '../city-movement';
 import { createTownHouseStudy } from '../house-site';
 import { createSandboxWorld } from './index';
@@ -27,6 +27,29 @@ export function example() {
 function resolved<T>(result: ReferenceResolution<T>) {
 	if (result.status !== 'resolved') throw new Error('Exchange reference: ' + result.status);
 	return result.value;
+}
+
+type StoreyGeometry = CellStorey & Pick<FineCell, 'quad'>;
+
+function readPartSpan(part: HousePartRef, storey: (ref: Ref<'storey'>) => StoreyGeometry) {
+	const slices = part.storeyRefs.map(storey);
+	return {
+		bottomZ: Math.min(...slices.map(({ bottomZ }) => bottomZ)),
+		topZ: Math.max(...slices.map(({ topZ }) => topZ)),
+		footprints: slices.map(({ quad }) => quad)
+	};
+}
+
+function readGroveCanopies(
+	{ params: { density, height }, seed }: SandboxPlacement,
+	outline: readonly Vec2[]
+) {
+	return readGrovePlan({ outline }, { density, height }, seed).map(({ at: [x, y], radius }) => [
+		[x + radius, y],
+		[x, y + radius],
+		[x - radius, y],
+		[x, y - radius]
+	]);
 }
 
 /** Produces a fixed sandbox/3 exchange and independent plan and spatial readers of it. */
@@ -109,7 +132,15 @@ export function boundaryExample() {
 	const survey = [
 		{ ref: ground, geometry: groundVertex },
 		// JSON carries the straight line's infinite radius explicitly.
-		{ ref: railRef, geometry: { ...rail, minimumRadiusM: 'unbounded' as const } }
+		{
+			ref: railRef,
+			geometry: {
+				...rail,
+				minimumRadiusM: Number.isFinite(rail.minimumRadiusM)
+					? rail.minimumRadiusM
+					: ('unbounded' as const)
+			}
+		}
 	] as const;
 	type Exchange = Readonly<{ document: string; refs: readonly Ref[]; survey: typeof survey }>;
 	const base = [
@@ -144,44 +175,84 @@ export function boundaryExample() {
 		return { document: document.serialize(), refs: [...base, ...children], survey };
 	}
 
-	function open(exchange: Exchange) {
+	function readSpatial(exchange: Exchange) {
 		const consumer = createSandboxWorld(site, layout, columns);
 		const document = consumer.restore(exchange.document);
 		return exchange.refs.map((encoded) => {
 			const ref = required(readWorldReference(encoded), 'exchange ref');
 			if (ref.kind === 'placement') {
 				const placement = resolved(document.resolveReference(ref));
-				return { ref, object: consumer.build(placement), geometry: placement };
+				const host = consumer.resolveHost(placement.host);
+				const object = buildAsset(placement.assetId, host, placement.params, placement.seed);
+				return { ref, object, geometry: placement };
 			}
 			const sample = exchange.survey.find((row) => equalRefs(row.ref, ref));
-			return {
-				ref,
-				object: undefined,
-				geometry: sample?.geometry ?? resolved(consumer.resolveReference(ref, document))
-			};
+			const geometry = sample?.geometry ?? resolved(consumer.resolveReference(ref, document));
+			const span =
+				'storeyRefs' in geometry
+					? readPartSpan(geometry, (storey) => {
+							const value = resolved(consumer.resolveReference(storey, document));
+							if (!('bottomZ' in value)) throw new Error('Expected spatial storey elevations');
+							return value;
+						})
+					: undefined;
+			return { ref, object: undefined, geometry, span };
+		});
+	}
+
+	function readPlan(exchange: Exchange) {
+		const consumer = createSandboxWorld(site, layout, columns);
+		const document = consumer.restore(exchange.document);
+		const parcels = new Map(consumer.holdings.parcels.map((parcel) => [parcel.id, parcel]));
+		const storeys = new Map<string, StoreyGeometry>();
+		const parts = new Map<string, HousePartRef>();
+		for (const placement of document.readPlacements()) {
+			const placed = consumer.resolveHouse(placement);
+			if (placed?.status !== 'placed') continue;
+			const cells = new Map(placed.space.cells.map(({ id, quad }) => [id, quad]));
+			for (const { ref, ...storey } of readCellStoreys(placed.space, consumer.world.id)) {
+				const quad = required(cells.get(storey.cellId), 'plan storey footprint');
+				storeys.set(ref.key, { ...storey, quad });
+			}
+			for (const part of readHousePartRefs(placed.house, consumer.world.id))
+				parts.set(part.ref.key, part);
+		}
+		const readStorey = (ref: Ref) => required(storeys.get(ref.key), 'plan storey');
+		return exchange.refs.map((encoded) => {
+			const ref = required(readWorldReference(encoded), 'exchange ref');
+			if (ref.world !== consumer.world.id) throw new Error('Foreign exchange ref');
+			if (ref.kind === 'placement') {
+				const geometry = resolved(document.resolveReference(ref));
+				if (geometry.host.kind !== 'parcel') throw new Error('Expected a parcel placement');
+				const { outline } = required(parcels.get(geometry.host.id), 'placement parcel');
+				const canopies =
+					geometry.assetId === 'park/grove' ? readGroveCanopies(geometry, outline) : undefined;
+				return { ref, geometry, outline, canopies };
+			}
+			if (ref.kind === 'storey') return { ref, geometry: readStorey(ref) };
+			if (ref.kind === 'house-part') {
+				const geometry = required(parts.get(ref.key), 'plan house part');
+				return { ref, geometry, span: readPartSpan(geometry, readStorey) };
+			}
+			const sample = exchange.survey.find((row) => equalRefs(row.ref, ref));
+			const geometry =
+				sample?.geometry ??
+				required(
+					parcels.get(ref.kind === 'parcel' ? ref.key : '') ??
+						consumer.holdings.lanes.find(({ id }) => ref.kind === 'lane' && id === ref.key) ??
+						consumer.movement.network.edges.find(
+							({ id, kind }) => ref.kind === kind && id === ref.key
+						),
+					'plan feature'
+				);
+			return { ref, geometry };
 		});
 	}
 
 	return {
 		readExchange,
-		readPlan(exchange: Exchange) {
-			return open(exchange).map(({ ref, geometry, object }) => {
-				if (!object) return { ref, geometry };
-				const { min, max } = bounds(object);
-				return {
-					ref,
-					geometry,
-					footprint: object.footprint,
-					extent: [min.slice(0, 2), max.slice(0, 2)],
-					parts: object.parts.map((part) => {
-						const { min, max } = bounds({ ...object, parts: [part] });
-						return { id: part.id, extent: [min.slice(0, 2), max.slice(0, 2)] };
-					}),
-					topZ: max[2]
-				};
-			});
-		},
-		readSpatial: open,
+		readPlan,
+		readSpatial,
 		growGrove() {
 			const before = required(document.readPlacement(groveHost), 'grove to grow');
 			document.apply([

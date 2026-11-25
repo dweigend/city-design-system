@@ -28,6 +28,7 @@ type PlanCell = Readonly<{
 	neighbors: readonly string[];
 }>;
 export type DistrictGrowth = Readonly<{
+	planScope: string;
 	rankedCellIds: readonly string[];
 	futureFringe: readonly string[];
 }>;

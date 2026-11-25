@@ -12,6 +12,8 @@ type AddressedPlan = Readonly<{
 	}>[];
 	cells: readonly Readonly<{ id: string; vertexIds: readonly string[]; groundKind?: string }>[];
 }>;
+type ScopedPlan = AddressedPlan &
+	Readonly<{ identity: Readonly<{ scope: string; variant: string }> }>;
 
 /** An undirected edge with a canonical ID, end nodes and incident cells. */
 export type PlanEdge = Readonly<{
@@ -95,7 +97,12 @@ export type DryPlanEdge = PlanEdge &
 	}>;
 
 /** Reads surviving edges of the clipped grid with original plan support and shoreline provenance. */
-export function dryPlanEdges(grid: AddressedPlan, plan: AddressedPlan): readonly DryPlanEdge[] {
+export function dryPlanEdges(grid: ScopedPlan, plan: ScopedPlan): readonly DryPlanEdge[] {
+	if (
+		grid.identity.scope !== plan.identity.scope ||
+		grid.identity.variant !== plan.identity.variant
+	)
+		throw new RangeError('Dry grid and source belong to different plans');
 	const originals = new Map(planEdges(plan).map((edge) => [edge.id, edge]));
 	const covers = new Map(plan.cells.map(({ id, groundKind }) => [id, groundKind]));
 	const nodes = new Map(grid.vertices.map(({ id, shore }) => [id, shore]));

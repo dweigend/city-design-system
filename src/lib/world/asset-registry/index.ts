@@ -31,6 +31,8 @@ export type { SpecimenMaterials } from './plates';
 export { placeParcelHouseAsset } from './houses';
 /** The shared lawn elevation above its sampled ground in meters. */
 export { groveLawnLiftM } from './grove';
+/** Reads the seeded tree positions, canopy radii and heights in plan meters. */
+export { readGrovePlan } from './grove';
 
 /** Replay revision for the installed asset IDs, parameter schemas and builders. */
 export const cityAssetRegistryRevision = 'city-assets/3';

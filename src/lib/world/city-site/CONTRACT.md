@@ -10,7 +10,7 @@ samplers use world XY meters, Z up, and radians for the bearing.
   ground beyond the bank setback up to the range in `citySiteConfig.maximumCellRiseM`.
   The terrain grid's default interval grade applies to callers without a cell-wide limit.
 - Growth takes a prefix of the same ranked carrier as size increases. The layout returns
-  `growth.rankedCellIds` and `growth.futureFringe` as plain data alongside the buildable
+  `growth.planScope`, `growth.rankedCellIds` and `growth.futureFringe` as plain data alongside the buildable
   grid. Pass that layout to `readCityDistricts` after copying, storing or reselecting the grid.
 - The grid retains canonical terrain vertices. The fixed datum anchors the shared
   lattice planes for any growth step.
