@@ -54,7 +54,7 @@ export function siteOutline(site: Site): readonly Vec2[] {
 	if (
 		!Number.isFinite(cornerCut) ||
 		cornerCut < 0 ||
-		cornerCut > 0.5 ||
+		cornerCut > /* Exact arithmetic: adjacent corner cuts meet at the edge midpoint. */ 0.5 ||
 		![length, width].every(
 			(extent) => Number.isFinite(extent) && extent > 0 && extent <= maxOutlineDistanceM
 		)

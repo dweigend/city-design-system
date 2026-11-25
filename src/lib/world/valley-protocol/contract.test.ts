@@ -46,7 +46,7 @@ function row(valley: Valley) {
 		measureRiverSurface(
 			{
 				windowM: protocol.localWindowM,
-				spacingM: grid.cellSize,
+				spacingM: protocol.fieldSpacingM,
 				bedMm: grid.heights.map((value) => Math.round(value * 1000)),
 				meanWaterMm: grid.waterHeights.map((value) => Math.round(value * 1000)),
 				floor: grid.bands
@@ -101,6 +101,13 @@ const limits = {
 	minimumDryWidth: [form.minimumDryBankWidthM, Infinity],
 	floodplainRatio: [form.minimumFloodplainWidthRatio, Infinity]
 } satisfies Partial<Record<keyof Row, readonly [number, number]>>;
+
+test('the default valley supplies the registered north-first measurement raster', () => {
+	const { grid } = Valley.create({ seed: 1201 });
+	expect(grid.cellSize).toBe(12.5);
+	expect(grid.heights).toHaveLength(161 * 161);
+	expect(grid.waterHeights).toHaveLength(161 * 161);
+});
 
 test('checks the vector, cross-section and ground limits on all 38 registered seeds', () => {
 	expect(new Set(seeds).size).toBe(38);

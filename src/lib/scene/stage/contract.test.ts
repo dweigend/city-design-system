@@ -6,7 +6,9 @@ import {
 	Group,
 	Mesh,
 	MeshBasicMaterial,
-	Object3D
+	Object3D,
+	OrthographicCamera,
+	Scene
 } from 'three/webgpu';
 import { dotProduct, displacement, type Vec3 } from '../../core/geometry';
 import type { Drawable } from '../surface';
@@ -42,6 +44,76 @@ import { shapeArrays } from './geometry';
 import { shadowPolygon } from './ground';
 import { readDisplay } from './material';
 import { stageState } from './state';
+import { openDemandRenderer } from './renderer';
+
+test.each(['r187', 'hooks removed', 'stop changed'] as const)(
+	'initializes, submits one demand frame and releases the renderer (%s)',
+	async (version) => {
+		const events: string[] = [];
+		const scene = new Scene();
+		const camera = new OrthographicCamera();
+		const submitted: Array<[Scene, OrthographicCamera]> = [];
+		let tickPending = false;
+		const hooks: { _getFallback?: unknown; _animation?: unknown } =
+			version === 'r187'
+				? {
+						_getFallback: () => events.push('fallback'),
+						_animation: {
+							stop() {
+								tickPending = false;
+							}
+						}
+					}
+				: version === 'stop changed'
+					? { _animation: { stop: false } }
+					: {};
+		const renderer = {
+			...hooks,
+			init() {
+				if (typeof this._getFallback === 'function') this._getFallback();
+				events.push('init');
+				return Promise.resolve();
+			},
+			render(model: Scene, view: OrthographicCamera) {
+				submitted.push([model, view]);
+				tickPending = version === 'r187';
+				events.push('render');
+			},
+			dispose() {
+				events.push('dispose');
+				return Promise.resolve();
+			}
+		};
+		const gpu = await openDemandRenderer(renderer, () => events.push('release device'));
+		renderer.render(scene, camera);
+		gpu.stop();
+		expect(tickPending).toBe(false);
+		expect(submitted).toEqual([[scene, camera]]);
+		await gpu.delete();
+		expect(events).toEqual(['init', 'render', 'dispose', 'release device']);
+	}
+);
+
+test('releases the device if strict WebGPU initialization fails', async () => {
+	const events: string[] = [];
+	await expect(
+		openDemandRenderer(
+			{
+				_getFallback: () => events.push('fallback'),
+				init() {
+					if (typeof this._getFallback === 'function') this._getFallback();
+					return Promise.reject(new Error('Device lost'));
+				},
+				dispose() {
+					events.push('dispose');
+					return Promise.resolve();
+				}
+			},
+			() => events.push('release device')
+		)
+	).rejects.toThrow('Device lost');
+	expect(events).toEqual(['release device']);
+});
 
 test('frames the same metric bounds in iso, plan and a portrait viewport', () => {
 	const { bounds } = stageExample();

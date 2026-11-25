@@ -22,7 +22,8 @@ export function districtRank(core: CityCore, random: Random, complexity: number)
 		shift.number({ min: -config.districtCoreAlongOffsetM, max: config.districtCoreAlongOffsetM }),
 		shift.number({ min: -config.districtCoreAcrossOffsetM, max: config.districtCoreAcrossOffsetM })
 	];
-	const side = shift.number() < 0.5 ? -1 : 1;
+	const side =
+		shift.number() < /* Exact arithmetic: split the two directions evenly. */ 0.5 ? -1 : 1;
 	const secondary =
 		side *
 		shift.number({ min: config.secondaryCoreDistanceMinM, max: config.secondaryCoreDistanceMaxM });

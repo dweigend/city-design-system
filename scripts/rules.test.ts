@@ -57,7 +57,7 @@ const probes = [
 	{ fixture: '05-domain-peers', fanout: 'domain-max-three:' },
 	{
 		fixture: '06-slots',
-		lint: Array<string>(5).fill('no-restricted-syntax: Use a slot name in headless geometry.')
+		lint: Array<string>(6).fill('no-restricted-syntax: Use a slot name in headless geometry.')
 	},
 	{
 		fixture: '07-styles',
@@ -81,7 +81,7 @@ const probes = [
 	{
 		fixture: '10-stage',
 		lint: [
-			...Array<string>(4).fill(
+			...Array<string>(6).fill(
 				'no-restricted-syntax: Create renderers and cameras in src/lib/scene/stage.'
 			),
 			...Array<string>(2).fill('no-restricted-syntax: Start frame loops in src/lib/scene/stage.')
@@ -90,7 +90,7 @@ const probes = [
 	{
 		fixture: '11-config',
 		graph: ['config-owner-only-hydrology', 'config-data-only'],
-		lint: Array<string>(7).fill(
+		lint: Array<string>(9).fill(
 			'config/no-tunable-number: Source numeric tunables from this module’s configuration slice.'
 		)
 	}

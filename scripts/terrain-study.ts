@@ -177,7 +177,7 @@ for (const relief of reliefs) {
 		`water ${metric(({ survey }) => survey.waterShare)}`,
 		`wet node max grade ${metric(({ survey }) => survey.maxWetSlope)}`,
 		`dry below water at shore ${metric(({ survey }) => survey.faults.shoreBelowWater)}`,
-		`buildable ${metric(({ survey }) => survey.buildableShare)}`,
+		`gentle dry share ${metric(({ survey }) => survey.gentleDryShare)}`,
 		`trunk widths ${[0, 1, 2].map((i) => metric(({ courses }) => courses.trunkWidth[i])).join(' | ')}`,
 		`junctions ${metric(({ courses }) => courses.junctions)}`,
 		`tributary length m ${metric(({ courses }) => courses.tributaryLengthM)}`,

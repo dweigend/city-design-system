@@ -2,6 +2,38 @@ import { defineSettings, settingValues } from '../../../src/config/setting';
 
 /** Acceptance settings for the city study. */
 export const settings = defineSettings({
+	shoreStudySizeM: {
+		value: 2600,
+		unit: 'm',
+		meaning: 'City extent used for the shoreline acceptance matrix.',
+		rationale: 'The fixed R09c shoreline fixtures cover multiple reaches at this extent.'
+	},
+	shoreStudyBankToleranceM: {
+		value: 8,
+		unit: 'm',
+		meaning: 'Maximum clearance error for samples along an aligned bank edge.',
+		rationale: 'R09c measures fit against the setback independently of the morph tolerance.'
+	},
+	shoreStudyBandM: {
+		value: 155,
+		unit: 'm',
+		meaning: 'Distance from the setback included in the cell quality measurements.',
+		rationale: 'Fixed observation window for comparing shoreline grid quality.'
+	},
+	shoreStudyUnclippedTarget: {
+		value: 0.5,
+		unit: 'ratio',
+		meaning: 'Minimum share of occupied shore cells that keep all their plan nodes.',
+		bounds: { min: 0, max: 1 },
+		rationale: 'R09c acceptance threshold, pooled across terrain cases for each plan.'
+	},
+	shoreStudyAlignedTarget: {
+		value: 0.5,
+		unit: 'ratio',
+		meaning: 'Minimum share of bank edges aligned to the setback.',
+		bounds: { min: 0, max: 1 },
+		rationale: 'R09c acceptance threshold, pooled across terrain cases for each plan.'
+	},
 	detachedAreaEstimateM2: {
 		value: [250, 900],
 		unit: 'm²',
@@ -79,7 +111,12 @@ export const {
 	mirrorFootprintBucketM,
 	mirrorProbeSpacingM,
 	parcelTimingWarmups,
-	parcelTimingRuns
+	parcelTimingRuns,
+	shoreStudySizeM,
+	shoreStudyBandM,
+	shoreStudyBankToleranceM,
+	shoreStudyUnclippedTarget,
+	shoreStudyAlignedTarget
 } = values;
 export const parcelAreaEstimates = new Map<string, readonly [number, number]>([
 	['detached', values.detachedAreaEstimateM2],

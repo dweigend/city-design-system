@@ -1,15 +1,7 @@
 /** @typedef {import('@typescript-eslint/utils').TSESTree.Node} Syntax */
 /** @typedef {import('@typescript-eslint/utils').TSESLint.SourceCode} SourceCode */
 
-const exactExpressions = new Set([
-	'Literal',
-	'UnaryExpression',
-	'BinaryExpression',
-	'ConditionalExpression',
-	'ArrayExpression',
-	'ObjectExpression'
-]);
-const expressionWrappers = new Set(['Property', 'TSAsExpression', 'TSSatisfiesExpression']);
+const exactExpressions = new Set(['Literal', 'UnaryExpression', 'BinaryExpression']);
 const basicOperators = new Set([
 	'<',
 	'<=',
@@ -77,7 +69,7 @@ function isLoopStride(node, value) {
 	if (parent?.type !== 'AssignmentExpression' || !['+=', '-='].includes(parent.operator))
 		return false;
 	const loop = parent.parent;
-	return value <= 3 && loop?.type === 'ForStatement' && loop.update === parent;
+	return [1, 2, 3].includes(value) && loop?.type === 'ForStatement' && loop.update === parent;
 }
 
 /** @param {Syntax} node */
@@ -100,10 +92,10 @@ function isArithmetic(node, value) {
 			['<', '<=', '>', '>=', '===', '!=='].includes(parent.operator)
 		)
 			return true;
-		if (value <= 1) return basicOperators.has(parent.operator);
+		if (value === 0 || value === 1) return basicOperators.has(parent.operator);
 		return value === 2 && parent.operator === '-' && identifier(parent.left) === 'side';
 	}
-	if (value > 1) return false;
+	if (value !== 0 && value !== 1) return false;
 	switch (parent.type) {
 		case 'ReturnStatement':
 		case 'ConditionalExpression':
@@ -141,10 +133,17 @@ function hasExactComment(node, source) {
 /** @param {Syntax} node @param {SourceCode} source */
 function isExactNumber(node, source) {
 	let current = node;
-	while (expressionWrappers.has(current.type) || exactExpressions.has(current.type)) {
-		if (exactExpressions.has(current.type) && hasExactComment(current, source)) return true;
+	while (exactExpressions.has(current.type)) {
+		if (hasExactComment(current, source)) return true;
 		if (!current.parent) break;
 		current = current.parent;
+	}
+	// An annotated coordinate or index table can hold exact literal components.
+	// Arithmetic or object properties inside that table require their own annotation.
+	current = node;
+	while (current.parent?.type === 'ArrayExpression') {
+		current = current.parent;
+		if (hasExactComment(current, source)) return true;
 	}
 	return false;
 }
@@ -175,7 +174,7 @@ function isPositionalArgument(node, value) {
 /** @param {Syntax} node @param {number} value */
 function structural(node, value) {
 	if (isIndex(node) && Number.isInteger(value)) return true;
-	if (isLoopStart(node) && value <= 2) return true;
+	if (isLoopStart(node) && [0, 1, 2].includes(value)) return true;
 	if (isStride(node, value) || isLoopStride(node, value) || isArithmetic(node, value)) return true;
 	if (isPositionalArgument(node, value)) return true;
 	const { parent } = node;

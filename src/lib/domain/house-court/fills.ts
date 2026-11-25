@@ -205,11 +205,11 @@ function programmedSolids(ctx: Context, cell: FineCell, house: HouseCell, kind: 
 /** The top of an envelope cell run, which a roof solid can stand on. */
 // Exact arithmetic: the envelope keeps no gap.
 function envelopeTop(ctx: Context, cell: FineCell, house: HouseCell): CellSolid {
-	return /* Exact arithmetic: the envelope follows its full cell ring. */ {
+	return {
 		cell,
 		slot: 'wall',
 		outline: envelopeRing(ctx, cell, house.toStorey - 1),
-		gapM: 0,
+		gapM: /* Exact arithmetic: the envelope follows its full cell ring. */ 0,
 		fromStorey: house.fromStorey,
 		toStorey: house.toStorey,
 		flat: true,

@@ -15,10 +15,10 @@ export const survey = {
 		bounds: { exclusiveMin: 0 },
 		rationale: 'Samples terrain gradients on a finer grid than the drainage solve.'
 	},
-	surveyBuildableSlopeRatio: {
+	surveyGentleSlopeRatio: {
 		value: 0.2,
 		unit: 'ratio',
-		meaning: 'Exclusive rise-to-run limit for dry nodes counted as buildable in the survey',
+		meaning: 'Exclusive rise-to-run limit for dry nodes counted as gentle in the survey',
 		bounds: { exclusiveMin: 0 },
 		rationale: 'Reports a consistent share of gently sloped land across reliefs.'
 	},

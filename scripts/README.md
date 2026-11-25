@@ -54,7 +54,18 @@ Supply `--reference /absolute/path/to/image.png` or a matching first-parent capt
 
 ## Ship a package
 
-Run `bun run ship <package-branch>` from the clean package worktree with the rebuild preview running. Ship checks the package against the current `rebuild` base, captures the base, pushes the merge to `rebuild` and captures it. It removes the package worktree and branch after recording the delivery. Pass `--package <id>`, `--started-at <UTC timestamp>` and `--reference <path>` to include the package details.
+Run `bun run ship <package-branch>` from the clean package worktree with the rebuild preview running. Ship checks the package against the current `rebuild` base, including `check:config`, then captures the base, pushes the merge to `rebuild` and captures it. It removes the package worktree and branch after recording the delivery. Pass `--package <id>`, `--started-at <UTC timestamp>` and `--reference <path>` to include the package details.
+
+## Numerical studies
+
+Run these commands from the checkout you want to measure. A detached checkout works with frozen dependencies installed and a shared-server slot.
+
+```sh
+heavy-slot --exclusive --mem 4G --time 1800 --wait 900 -- bun run city-study
+heavy-slot --exclusive --mem 4G --wait 900 -- bun run terrain-study
+```
+
+The city study writes plan, lattice, shoreline and parcel measurements to `_lokal/r10a-parcels/study/`. The terrain study writes `_lokal/r08c-drainage/study.json`. Both print summaries and exit nonzero when an acceptance check fails.
 
 ## Performance baseline
 

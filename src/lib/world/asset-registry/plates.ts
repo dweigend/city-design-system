@@ -28,10 +28,10 @@ function samplePlate(family: Family): AssetEntry<CityAssetHost, SpecimenMaterial
 			const [x, y, z] = host.point;
 			const { object, groups } = createSamplePlateObject(
 				id,
-				/* Exact arithmetic: card axes aligned to world X and Z. */ {
+				{
 					origin: [x, y, z + samplePlateBackingM],
-					across: [1, 0, 0],
-					normal: [0, 0, 1],
+					across: /* Exact arithmetic: card axes aligned to world X and Z. */ [1, 0, 0],
+					normal: /* Exact arithmetic: card axes aligned to world X and Z. */ [0, 0, 1],
 					size: [width, depth],
 					thickness: samplePlateBackingM
 				},

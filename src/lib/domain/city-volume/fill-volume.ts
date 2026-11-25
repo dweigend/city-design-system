@@ -42,8 +42,11 @@ function capLoop(points: Set<Vec3>, normal: Vec3) {
 		zero
 	);
 	const axis: Vec3 =
-		/* Exact arithmetic: perpendicular axes for vertical walls and horizontal caps. */
-		normal[2] === 0 ? [0, 0, 1] : [1, 0, 0];
+		normal[2] === 0
+			? /* Exact arithmetic: perpendicular axes for vertical walls and horizontal caps. */ [0, 0, 1]
+			: /* Exact arithmetic: perpendicular axes for vertical walls and horizontal caps. */ [
+					1, 0, 0
+				];
 	const other = crossProduct(normal, axis);
 	const angle = (point: Vec3) => {
 		const offset = displacement(center, point);
@@ -96,10 +99,16 @@ export function createPrismFill(quad: readonly Vec2[], bottomZ: number, topZ: nu
 		const start = local([x, y, bottomZ]);
 		return { normal, plane: (point: Vec3) => dotProduct(normal, displacement(start, point)) };
 	});
-	const planes = /* Exact arithmetic: vertical axis normals for the prism caps. */ [
+	const planes = [
 		...walls,
-		{ normal: [0, 0, -1] as Vec3, plane: ([, , z]: Vec3) => -z },
-		{ normal: [0, 0, 1] as Vec3, plane: ([, , z]: Vec3) => z - height }
+		{
+			normal: /* Exact arithmetic: vertical axis normals for the prism caps. */ [0, 0, -1] as Vec3,
+			plane: ([, , z]: Vec3) => -z
+		},
+		{
+			normal: /* Exact arithmetic: vertical axis normals for the prism caps. */ [0, 0, 1] as Vec3,
+			plane: ([, , z]: Vec3) => z - height
+		}
 	];
 
 	function signedIntersection(triangle: Triangle) {

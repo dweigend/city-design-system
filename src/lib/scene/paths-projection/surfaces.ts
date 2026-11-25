@@ -12,9 +12,12 @@ function stroke(color: Surface['color'], width: number, hidden?: number): Surfac
 	return Object.freeze({
 		color,
 		finish: 'matte',
-		stroke: Object.freeze(
-			/* Exact arithmetic: line stroke is opaque. */ { color, width, opacity: 1, hidden }
-		)
+		stroke: Object.freeze({
+			color,
+			width,
+			opacity: /* Exact arithmetic: line stroke is opaque. */ 1,
+			hidden
+		})
 	});
 }
 

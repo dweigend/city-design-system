@@ -21,10 +21,10 @@ function reachChord(course: RiverCourse, reachM: number) {
 }
 
 // Exact arithmetic: the floodplain and two terraced floor IDs are ordered and stable.
-const floorId = /* Exact arithmetic: floor band indices above the channel. */ {
-	floodplain: 1,
-	lowerTerrace: 2,
-	upperTerrace: 3
+const floorId = {
+	floodplain: /* Exact arithmetic: floor band indices above the channel. */ 1,
+	lowerTerrace: /* Exact arithmetic: floor band indices above the channel. */ 2,
+	upperTerrace: /* Exact arithmetic: floor band indices above the channel. */ 3
 } as const;
 
 /** Builds the alluvial profile and an independently tilted axis in the course frame. */

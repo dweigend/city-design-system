@@ -131,10 +131,10 @@ export function prepareCarrier(
 		maximumOrder,
 		lanes,
 		grade,
-		/* Exact arithmetic: unit aspect keeps the initial plan round. */ {
+		{
 			origin,
 			bearing,
-			aspect: 1
+			aspect: /* Exact arithmetic: unit aspect keeps the initial plan round. */ 1
 		},
 		coarseCellSize,
 		seed,

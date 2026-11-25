@@ -11,19 +11,13 @@ export type PrinciplePage =
 
 /** Routes a principle may point to as its live demo. */
 type DemoRoute =
-	| '/'
+	| '/architecture'
+	| '/architecture/structure'
 	| '/city'
-	| '/formen'
-	| '/raster'
-	| '/wachstum'
-	| '/farben'
-	| '/material'
-	| '/surfaces'
 	| '/interface'
+	| '/paths'
 	| '/sandbox'
-	| '/sandbox/regel'
-	| '/sandbox/stile'
-	| '/sandbox/tragwerk';
+	| '/surfaces';
 
 export type DesignPrinciple = {
 	/** Stable id: page prefix (CITY, FORM, GRID, GROW, COLOR, MAT, UI, LIB), hyphen, number. */
@@ -59,7 +53,7 @@ const city: DesignPrinciple[] = [
 		reason:
 			'Movement is public infrastructure. The hierarchy is promenade, main lane, lane, stair lane and square. A brief never says "street", because the word alone makes roads appear.',
 		decided: '2026-11-11',
-		demo: { route: '/', anchor: 'hochwege', label: 'Elevated walkways between courts' }
+		demo: { route: '/paths', label: 'Follow the walkways and transit line' }
 	},
 	{
 		id: 'CITY-3',
@@ -69,7 +63,7 @@ const city: DesignPrinciple[] = [
 		reason:
 			'The sandbox opens with a seeded town, and a stock house can gain storeys on its existing lot. Deliberate path placement follows CITY-4.',
 		decided: '2026-11-21',
-		demo: { route: '/', anchor: 'weiterbauen', label: 'Retain, convert, extend' }
+		demo: { route: '/sandbox', label: 'Work with the existing town' }
 	},
 	{
 		id: 'CITY-4',
@@ -107,7 +101,7 @@ const city: DesignPrinciple[] = [
 		reason:
 			'Where the frame stands and how strongly it is drawn is a design decision in every place. There is no global style switch.',
 		decided: '2026-11-19',
-		demo: { route: '/sandbox/tragwerk', label: 'Structure in the sandbox' }
+		demo: { route: '/architecture/structure', label: 'Read the frame of a town quarter' }
 	},
 	{
 		id: 'CITY-8',
@@ -134,8 +128,7 @@ const city: DesignPrinciple[] = [
 		rule: 'The sponge city shows as built elements in the picture, not as a hidden value.',
 		reason:
 			'Rain, storage and green are part of the cityscape. The elements come from the inventory of the reference images.',
-		decided: '2026-11-19',
-		demo: { route: '/', anchor: 'schwamm', label: 'Rain stays in the district' }
+		decided: '2026-11-19'
 	},
 	{
 		id: 'CITY-11',
@@ -206,7 +199,7 @@ const forms: DesignPrinciple[] = [
 		reason:
 			'Occupied regions form the body while open regions form courts, passages and openings. A house with a boundary tagged for shared court access opens along that boundary and shares the public court. Each small town house sets one eaves height for its frontage within the permitted storey count. A large merged parcel takes one building whose roof is the main figure.',
 		decided: '2026-11-24',
-		demo: { route: '/formen', anchor: 'volume-section', label: 'Read the solid and the passage' }
+		demo: { route: '/architecture', label: 'Read the house and its court' }
 	},
 	{
 		id: 'FORM-2',
@@ -216,7 +209,7 @@ const forms: DesignPrinciple[] = [
 		reason:
 			'Forms stay large and sculptural, and small parcels may take calmer houses. White rounded houses with window bands and cornices read as tame 1930s modernism and were rejected; a busy surface or a house of many parts reads as noise at block scale. Every picture is judged first at block and town scale, then at the single house.',
 		decided: '2026-11-24',
-		demo: { route: '/sandbox/stile', label: 'Style variants side by side' }
+		demo: { route: '/architecture', label: 'Style variants side by side' }
 	},
 	{
 		id: 'FORM-3',
@@ -226,7 +219,7 @@ const forms: DesignPrinciple[] = [
 		reason:
 			'A reference can suggest how a membrane wraps a volume or how a frame filters light. The same occupied and open spaces can support several treatments.',
 		decided: '2026-11-21',
-		demo: { route: '/material', anchor: 'material-familien', label: 'Compare surface treatments' }
+		demo: { route: '/surfaces', label: 'Compare surface treatments' }
 	},
 	{
 		id: 'FORM-4',
@@ -236,7 +229,7 @@ const forms: DesignPrinciple[] = [
 		reason:
 			'Architecture connects horizontally and vertically into coherent volumes. Fragmentation into many small parts is the fault to avoid; the big picture comes before detail.',
 		decided: '2026-11-19',
-		demo: { route: '/formen', label: 'Five structures build on the same city' }
+		demo: { route: '/city', label: 'Compare lattices on the same city plan' }
 	},
 	{
 		id: 'FORM-5',
@@ -255,7 +248,7 @@ const forms: DesignPrinciple[] = [
 		reason:
 			'The structural family must be readable in the bare frame, not as a primitive in a rectangular bay. Leaving a member out is a deliberate rule too.',
 		decided: '2026-11-19',
-		demo: { route: '/formen', label: 'Structural systems' }
+		demo: { route: '/architecture/structure', label: 'Structural systems' }
 	},
 	{
 		id: 'FORM-7',
@@ -281,9 +274,9 @@ const forms: DesignPrinciple[] = [
 		title: 'The same house rule across cells',
 		rule: 'A house rule takes its geometry from the shared 3D grid and fits orthogonal, corner, irregular and distorted cells alike.',
 		reason:
-			'Irregular cells reach the house rule as quads (GRID-1); the brush itself stays quad-only (GRID-4). Target: proven separately in the City Game volume prototype (tessellated storeys) and the Lab Voronoi lattice; the shared library has no 3D grid yet (ST6 #36).',
+			'The shared cell space stacks storeys over the parcel cells. Corner grids use quads, while town frontage strips keep the convex polygons produced along the parcel boundary (GRID-1).',
 		decided: '2026-11-21',
-		demo: { route: '/sandbox/regel', label: 'One house rule on several 2D grids' }
+		demo: { route: '/architecture', label: 'Try one house rule on several parcel shapes' }
 	},
 	{
 		id: 'FORM-10',
@@ -293,11 +286,7 @@ const forms: DesignPrinciple[] = [
 		reason:
 			'The phases change chiefly the surfaces and colors of the same house grammar. An early building becomes recognizable stock when the next phase builds around it.',
 		decided: '2026-11-21',
-		demo: {
-			route: '/formen',
-			anchor: 'construction-phases',
-			label: 'Follow one building through three phases'
-		}
+		demo: { route: '/architecture', label: 'Compare the styles of one house rule' }
 	},
 	{
 		id: 'FORM-11',
@@ -319,7 +308,7 @@ const grid: DesignPrinciple[] = [
 		reason:
 			'For a corner grid, each triangle of a concave parcel gives three quads. Frontage strip cells may be triangles, quads or polygons with more sides as the parcel boundary requires. Narrow cuts are combined where the boundary allows, and cells below the minimum strip width stay open.',
 		decided: '2026-11-24',
-		demo: { route: '/raster', anchor: 'raster-vierecke', label: 'Corner quads and frontage strips' }
+		demo: { route: '/architecture', label: 'Compare corner quads and town frontage strips' }
 	},
 	{
 		id: 'GRID-2',
@@ -327,13 +316,9 @@ const grid: DesignPrinciple[] = [
 		title: 'Terrain and the 3D envelope',
 		rule: 'The contour-led ground grid and its 3D cells bound building volume, morphing, overhangs and ordinary access, with individual connections allowed to leave the grid as exceptions.',
 		reason:
-			'Long grid lines follow contours and cross lines run downslope. Near water, the plan bends toward the shoreline while keeping its cells and adjacency. Bodies can occupy part of a cell and paths can weave between them. Target: proven separately in the City Game volume prototype (tessellated storeys) and the Lab Voronoi lattice; the shared library has no 3D grid yet (ST6 #36).',
+			'Near water the plan bends toward the setback while preserving grid adjacency. The city lattice gives the plan a 3D envelope, with closed solids over its cells. Buildings can occupy part of a cell and direct bridge spans can connect bank nodes.',
 		decided: '2026-11-21',
-		demo: {
-			route: '/raster',
-			anchor: 'spatial-grid',
-			label: 'Read the envelope and its open square'
-		}
+		demo: { route: '/city', label: 'Read the city lattice above the terrain' }
 	},
 	{
 		id: 'GRID-3',
@@ -352,7 +337,7 @@ const grid: DesignPrinciple[] = [
 		reason:
 			'The path of the bible is used first and then extended on purpose. The house brush stays with quads.',
 		decided: '2026-11-18',
-		demo: { route: '/raster', anchor: 'raster-spielraum', label: 'The mesh moves, the rules stay' }
+		demo: { route: '/architecture', label: 'Try the house rule on different parcel shapes' }
 	},
 	{
 		id: 'GRID-5',
@@ -362,7 +347,7 @@ const grid: DesignPrinciple[] = [
 		reason:
 			'The data model is a deterministic graph with local rules; rendering is only a projection. A feature that works on squares alone is not finished.',
 		decided: '2026-11-11',
-		demo: { route: '/raster', anchor: 'raster-grund', label: 'The city stands on any ground' }
+		demo: { route: '/city', label: 'Compare the city on different plan grids' }
 	},
 	{
 		id: 'GRID-6',
@@ -370,13 +355,9 @@ const grid: DesignPrinciple[] = [
 		title: 'Seeded city volume',
 		rule: 'Terrain produces a seed-regenerable city plan, a 3D spatial grid above it, and subgrids with simple surface bodies extendable by the growth rules.',
 		reason:
-			'The shared library supplies the geometry, and the bible grid demo shows spatial structure and growth. Target for the first shared acceptance image (ST6 #36).',
+			'The city chapter shows a seeded plan and the lattice above it. The parcel and house rules share the cells and their addresses as the plan grows.',
 		decided: '2026-11-21',
-		demo: {
-			route: '/raster',
-			anchor: 'court-growth',
-			label: 'Compare two dates at the same square'
-		}
+		demo: { route: '/city', label: 'Grow the city lattice from the same seed' }
 	},
 	{
 		id: 'GRID-7',
@@ -398,7 +379,7 @@ const growth: DesignPrinciple[] = [
 		reason:
 			'Drivers change (politics, climate, floods, migration), people adapt, and architecture reflects it: conversion, densification, extension, vacancy, and demolition only through a deliberate intervention (CITY-4) or a visible terrain change (GRID-3). The same event principle drives past epochs and the future, at every scale.',
 		decided: '2026-11-12',
-		demo: { route: '/wachstum', anchor: 'wachstum-wege', label: 'Paths first, then blocks' }
+		demo: { route: '/city', label: 'Grow the plan along the movement network' }
 	},
 	{
 		id: 'GROW-2',
@@ -408,11 +389,7 @@ const growth: DesignPrinciple[] = [
 		reason:
 			'The same view and seed show continuity across time steps. A future goal such as the sponge city changes subsequent construction. A deliberate path intervention follows CITY-4.',
 		decided: '2026-11-21',
-		demo: {
-			route: '/raster',
-			anchor: 'court-growth',
-			label: 'Compare two dates at the same square'
-		}
+		demo: { route: '/city', label: 'Grow the city and follow its parcels' }
 	},
 	{
 		id: 'GROW-3',
@@ -442,7 +419,7 @@ const color: DesignPrinciple[] = [
 		rule: 'One palette serves web, world, HUD and diagrams; a flow is a role mapped onto its tokens, never a color of its own.',
 		reason: 'Depth comes from material, not from extra hues.',
 		decided: '2026-11-11',
-		demo: { route: '/farben', anchor: 'farbe-ruhig', label: 'One color, one function' }
+		demo: { route: '/interface', label: 'Compare the functional colors' }
 	},
 	{
 		id: 'COLOR-2',
@@ -452,7 +429,7 @@ const color: DesignPrinciple[] = [
 		reason:
 			'Circularity is not a flow, because every flow runs in a loop. Recovered material belongs to the material flow, and blueprint is the accent for what is planned.',
 		decided: '2026-11-12',
-		demo: { route: '/farben', anchor: 'farbe-stroeme', label: 'Five flows, five steps' }
+		demo: { route: '/interface', label: 'See the flow colors in the palette' }
 	},
 	{
 		id: 'COLOR-3',
@@ -460,7 +437,7 @@ const color: DesignPrinciple[] = [
 		title: 'Pink is for paths',
 		rule: 'Pink belongs to paths and people: walkways, stairs and bridges carry it, houses never do.',
 		reason:
-			'Paths stay opaque pink in every view. The accent of living maps to the lavender of living instead. The city plan shows pedestrian reservations and selected crossings in the path hue.',
+			'Paths stay opaque pink in every view. The accent of living maps to the lavender of living instead. The city plan shows pedestrian reservations and selected crossings in the path hue, whether a crossing follows plan edges or spans straight between bank nodes.',
 		decided: '2026-11-23'
 	},
 	{
@@ -669,11 +646,7 @@ const ui: DesignPrinciple[] = [
 		reason:
 			'Opulent interface drafts drift into a generic look. The HUD of the bible page is the template for every draft.',
 		decided: '2026-11-16',
-		demo: {
-			route: '/interface',
-			anchor: 'interface-hud',
-			label: 'Playing and planning share one image'
-		}
+		demo: { route: '/sandbox', label: 'Use the planning controls' }
 	},
 	{
 		id: 'UI-2',

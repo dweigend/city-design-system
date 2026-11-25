@@ -10,9 +10,10 @@ import {
 	writeFileSync
 } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { resolve } from 'node:path';
+import { dirname, resolve } from 'node:path';
 import { parseArgs } from 'node:util';
-import { git, integration, lane, preview, research, slot } from './experiment-host';
+import { findIntegration, git, lane, preview, slot } from './experiment-host';
+import { runFastDeliveryChecks } from './ship-gate';
 
 const { positionals, values } = parseArgs({
 	args: process.argv.slice(2),
@@ -31,6 +32,7 @@ git('.', 'check-ref-format', '--branch', branch);
 const id = values.package ?? branch.replaceAll('/', '-');
 if (!/^[a-zA-Z0-9_-]+$/.test(id)) throw Error('Invalid package ID');
 const common = git('.', 'rev-parse', '--path-format=absolute', '--git-common-dir');
+const research = resolve(dirname(common), '../city-design-lab/research');
 if (!process.env.EXPERIMENT_SHIP_LOCK) {
 	const lock = Bun.spawnSync(
 		[
@@ -49,6 +51,7 @@ if (!process.env.EXPERIMENT_SHIP_LOCK) {
 	process.exit(lock.exitCode);
 }
 const work = git('.', 'rev-parse', '--show-toplevel');
+const integration = findIntegration();
 function clean(path: string, expected: string) {
 	if (git(path, 'branch', '--show-current') !== expected || git(path, 'status', '--porcelain'))
 		throw Error('Expected clean ' + expected + ' worktree at ' + path);
@@ -70,8 +73,7 @@ const heavy = (args: string[], capture = false) => {
 };
 
 function gate(base: string) {
-	for (const check of ['lint', 'check', 'check:boundaries', 'check:skills'])
-		heavy(['bun', 'run', check]);
+	runFastDeliveryChecks(heavy);
 	const changed = packageGit('diff', '--name-only', '-z', base, 'HEAD').split('\0').filter(Boolean);
 	const sources = changed.filter((file) => file.startsWith('src/') || file.startsWith('scripts/'));
 	if (!sources.length) return;
@@ -133,7 +135,7 @@ function prepare(): Delivery {
 	const base = target('rev-parse', 'HEAD');
 	if (base !== target('rev-parse', 'origin/' + lane))
 		throw Error('Synchronize ' + lane + ' with origin before delivery');
-	preview(base);
+	preview(integration, base);
 	if (packageGit('merge-base', base, 'HEAD') === packageGit('rev-parse', 'HEAD'))
 		throw Error('Package already integrated');
 	packageGit('merge', '--no-edit', base);
@@ -164,7 +166,7 @@ clean(integration, lane);
 if (state.tip !== packageGit('rev-parse', 'HEAD')) throw Error('Package changed after gates');
 
 function publish(delivery: Delivery) {
-	preview(delivery.base);
+	preview(integration, delivery.base);
 	const candidate = mkdtempSync(resolve(tmpdir(), 'experiment-merge-'));
 	target('worktree', 'add', '--detach', candidate, delivery.base);
 	try {

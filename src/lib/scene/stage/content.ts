@@ -71,9 +71,9 @@ export function rayHit(meshes: Mesh[], point: Vec3, direction: Vec3): Vec3 | und
 
 function toBounds(box: Box3): Bounds3 {
 	return box.isEmpty()
-		? /* Exact arithmetic: empty content uses zero bounds at the origin. */ {
-				min: [0, 0, 0],
-				max: [0, 0, 0]
+		? {
+				min: /* Exact arithmetic: empty content uses zero bounds at the origin. */ [0, 0, 0],
+				max: /* Exact arithmetic: empty content uses zero bounds at the origin. */ [0, 0, 0]
 			}
 		: { min: box.min.toArray(), max: box.max.toArray() };
 }

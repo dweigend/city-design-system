@@ -216,10 +216,10 @@ export function seedDistricts(
 			})
 		])
 	);
-	const shares: Record<DistrictKind, number> = /* Exact arithmetic: unoccupied district shares. */ {
-		detached: 0,
-		block: 0,
-		center: 0
+	const shares: Record<DistrictKind, number> = {
+		detached: /* Exact arithmetic: unoccupied district shares. */ 0,
+		block: /* Exact arithmetic: unoccupied district shares. */ 0,
+		center: /* Exact arithmetic: unoccupied district shares. */ 0
 	};
 	for (const { id, area } of ranked)
 		shares[required(kinds.get(id), 'district kind')] += area / total;

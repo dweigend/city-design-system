@@ -110,10 +110,10 @@ function courtDoor(ctx: Context): Anchor | undefined {
 	const door = doors.sort((a, b) => b.length - a.length)[0];
 	if (!door) return undefined;
 	const [x, y] = door.at(1 / 2, 0);
-	return /* Exact arithmetic: door normal is horizontal. */ {
+	return {
 		name: 'court',
 		position: [x, y, ctx.space.baseZ],
-		normal: [...door.normal, 0]
+		normal: /* Exact arithmetic: door normal is horizontal. */ [...door.normal, 0]
 	};
 }
 
@@ -132,13 +132,11 @@ function anchors(ctx: Context, house: HouseOccupancy): Anchor[] {
 	const result: Anchor[] = [];
 	if (entry) {
 		const [x, y] = entry.wall.at(1 / 2, 0);
-		result.push(
-			/* Exact arithmetic: entrance normal is horizontal. */ {
-				name: 'entrance',
-				position: [x, y, ctx.space.baseZ - (entranceStepCell(ctx) ? house.site.entranceRiseM : 0)],
-				normal: [...entry.wall.normal, 0]
-			}
-		);
+		result.push({
+			name: 'entrance',
+			position: [x, y, ctx.space.baseZ - (entranceStepCell(ctx) ? house.site.entranceRiseM : 0)],
+			normal: /* Exact arithmetic: entrance normal is horizontal. */ [...entry.wall.normal, 0]
+		});
 	}
 	const door = courtDoor(ctx);
 	if (door) result.push(door);
@@ -149,13 +147,11 @@ function anchors(ctx: Context, house: HouseOccupancy): Anchor[] {
 				([sx, sy], [px, py]) => [sx + px / courtCells.length, sy + py / courtCells.length],
 				/* Exact arithmetic: initial sum of XY coordinates. */ [0, 0]
 			);
-		result.push(
-			/* Exact arithmetic: court anchor faces up. */ {
-				name: 'court',
-				position: [x, y, ctx.space.baseZ],
-				normal: [0, 0, 1] satisfies Vec3
-			}
-		);
+		result.push({
+			name: 'court',
+			position: [x, y, ctx.space.baseZ],
+			normal: /* Exact arithmetic: court anchor faces up. */ [0, 0, 1] satisfies Vec3
+		});
 	}
 	return result;
 }

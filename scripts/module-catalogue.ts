@@ -17,7 +17,7 @@ export type ModuleRow = Readonly<{
 	errors: readonly string[];
 }>;
 
-const moduleEntry = /^(src\/lib\/(?:core|domain|world|scene|ui)\/[^/]+)\/index\.ts$/;
+const moduleFolder = /^(src\/lib\/(?:core|domain|world|scene|ui)\/[^/]+)\//;
 const exampleExemption =
 	/^Modules under `(src\/lib\/[a-z/-]+)`[^\n]*demonstrated on the `(\/[a-z-]+)` page instead of carrying `contract\.test\.ts` and `example\.ts`\./gm;
 const purposeLine = /^\/\*\* Module: ([^\n]+) \*\//;
@@ -112,34 +112,45 @@ function collectCitations(sources: Sources, folder: string, knownPrinciples: Rea
 	return { config, principles };
 }
 
-function row(
-	entry: string,
-	folder: string,
-	sources: Sources,
-	knownPrinciples: ReadonlySet<string>
-): ModuleRow {
+function row(folder: string, sources: Sources, knownPrinciples: ReadonlySet<string>): ModuleRow {
+	const entry = sources[folder + '/index.ts'];
+	const module = folder.slice('src/lib/'.length);
+	if (entry === undefined)
+		return {
+			module,
+			purpose: null,
+			exports: [],
+			exportDocumentation: {},
+			example: null,
+			exampleCall: null,
+			exampleDemo: null,
+			config: [],
+			principles: [],
+			errors: ['Missing index.ts']
+		};
 	const examplePath = folder + '/example.ts';
 	const example = Object.hasOwn(sources, examplePath) ? examplePath : null;
-	const purpose = purposeLine.exec(sources[entry])?.[1].trim() || null;
-	const docs = collectExports(entry, sources[entry]);
+	const purpose = purposeLine.exec(entry)?.[1].trim() || null;
+	const docs = collectExports(folder + '/index.ts', entry);
 	const exports = new Set(docs.keys());
 	const calls = example ? exampleNames(sources[example], exports) : [];
 	const exampleCall = calls.includes('example') ? 'example' : (calls[0] ?? null);
 	const errors = [];
 	if (!purpose) errors.push('Missing module purpose in index.ts');
 	const architecture = sources['docs/standards/ARCHITECTURE.md'] ?? '';
-	const exampleDemo = example
-		? null
-		: (Array.from(architecture.matchAll(exampleExemption)).find(
-				([, path]) => folder === path || folder.startsWith(path + '/')
-			)?.[2] ?? null);
+	const demo = Array.from(architecture.matchAll(exampleExemption)).findLast(
+		([, path]) => folder === path || folder.startsWith(path + '/')
+	)?.[2];
+	const exampleDemo = example ? null : (demo ?? null);
+	if (!demo && !Object.hasOwn(sources, folder + '/contract.test.ts'))
+		errors.push('Missing contract.test.ts');
 	if (!example && !exampleDemo) errors.push('Missing example.ts');
 	else if (example && !exampleCall) errors.push('Missing example caller');
 	for (const [name, summary] of docs) {
 		if (!summary) errors.push(`Missing export documentation for ${name}`);
 	}
 	return {
-		module: folder.slice('src/lib/'.length),
+		module,
 		purpose,
 		exports: [...exports],
 		exportDocumentation: Object.fromEntries(
@@ -156,12 +167,13 @@ function row(
 /** Derives rows from public entries, fixed examples, config imports and register citations. */
 export function buildModuleCatalogue(
 	sources: Sources,
-	knownPrinciples: ReadonlySet<string>
+	knownPrinciples: ReadonlySet<string>,
+	folders: readonly string[] = []
 ): ModuleRow[] {
-	return Object.keys(sources)
-		.sort()
-		.flatMap((entry) => {
-			const match = moduleEntry.exec(entry);
-			return match ? [row(entry, match[1], sources, knownPrinciples)] : [];
-		});
+	const modules = new Set(folders);
+	for (const path of Object.keys(sources)) {
+		const match = moduleFolder.exec(path);
+		if (match) modules.add(match[1]);
+	}
+	return [...modules].sort().map((folder) => row(folder, sources, knownPrinciples));
 }

@@ -47,4 +47,24 @@ describe('Design principles register', () => {
 		for (const p of designPrinciples)
 			if (p.demo?.anchor !== undefined) expect(p.demo.anchor).toMatch(/^[a-z][a-z0-9-]*$/);
 	});
+
+	test('every demo targets an existing page', () => {
+		const routes = new Set(
+			Array.from(
+				new Bun.Glob('**/+page.svelte').scanSync(import.meta.dir),
+				(page) =>
+					'/' +
+					page
+						.split('/')
+						.slice(0, -1)
+						.filter((segment) => !segment.startsWith('('))
+						.join('/')
+			)
+		);
+		expect(
+			designPrinciples.flatMap(({ id, demo }) =>
+				demo && !routes.has(demo.route) ? [`${id}: ${demo.route}`] : []
+			)
+		).toEqual([]);
+	});
 });

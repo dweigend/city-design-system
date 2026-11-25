@@ -188,11 +188,11 @@ export function planEdgeGraph(
 			measure?: (edge: PlanEdge) => number,
 			traversal?: Traversal<State>
 		) {
-			const origin: Visit<State> = /* Exact arithmetic: path starts with zero length and cost. */ {
+			const origin: Visit<State> = {
 				id: start,
 				state: traversal?.initial,
-				lengthM: 0,
-				cost: 0
+				lengthM: /* Exact arithmetic: path starts with zero length and cost. */ 0,
+				cost: /* Exact arithmetic: path starts with zero length and cost. */ 0
 			};
 			const states = new Map<State | undefined, Map<string, Visit<State>>>();
 			function bestAt(state: State | undefined) {

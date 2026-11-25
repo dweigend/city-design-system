@@ -9,12 +9,12 @@ export const up: Vec3 = /* Exact arithmetic: positive Z axis. */ [0, 0, 1];
 
 // Exact arithmetic: one placeholder triangle is three XYZ positions.
 function strokePlaceholder(positions: readonly number[]) {
-	return /* Exact arithmetic: placeholder mesh with one triangle. */ {
+	return {
 		kind: 'mesh' as const,
 		positions: positions
 			.slice(0, /* Exact arithmetic: two XYZ positions. */ 6)
 			.concat(positions.slice(0, 3)),
-		indices: [0, 1, 2]
+		indices: /* Exact arithmetic: placeholder mesh with one triangle. */ [0, 1, 2]
 	};
 }
 

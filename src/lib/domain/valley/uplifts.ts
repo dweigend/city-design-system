@@ -19,8 +19,8 @@ const {
 } = defaults;
 
 // Exact arithmetic: a half turn spans every distinct orientation of an ellipse.
-const axisBearing = /* Exact arithmetic: a non-oriented axis spans a half turn. */ {
-	min: 0,
+const axisBearing = {
+	min: /* Exact arithmetic: a non-oriented axis spans a half turn. */ 0,
 	max: Math.PI
 };
 

@@ -68,7 +68,9 @@ function armPath(
 	const steps = Math.round(span(random, ...config.corridorStepRange));
 	let heading =
 		outward + span(random, -config.corridorHeadingOffsetRad, config.corridorHeadingOffsetRad);
-	const turn = span(random, ...config.corridorCurvatureRangeRad) * (random.number() < 0.5 ? -1 : 1);
+	const turn =
+		span(random, ...config.corridorCurvatureRangeRad) *
+		(random.number() < /* Exact arithmetic: split the two directions evenly. */ 0.5 ? -1 : 1);
 	const path = [head];
 	for (let i = 0; i < steps; i++) {
 		const next = advance(path[path.length - 1], heading + turn, bearing, ground, walkable);
@@ -210,7 +212,9 @@ export function cityAccessibility(
 		isWalkable
 	);
 	const balance = random.derive('bank-balance');
-	const bias = span(balance, ...config.approachBankBiasRangeM) * (balance.number() < 0.5 ? -1 : 1);
+	const bias =
+		span(balance, ...config.approachBankBiasRangeM) *
+		(balance.number() < /* Exact arithmetic: split the two directions evenly. */ 0.5 ? -1 : 1);
 	return (point: Vec2, grade: number, clearance: number) =>
 		useSecondApproach(point)
 			? secondary(point, grade, clearance) + Math.max(0, bias)

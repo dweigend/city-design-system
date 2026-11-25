@@ -403,10 +403,10 @@ export function readCityDistricts(
 	parameters?: Parameters<typeof createCityDistricts>[3]
 ) {
 	const params = siteParams(undefined, seed);
-	const core = /* Exact arithmetic: unit aspect keeps the initial plan round. */ {
+	const core = {
 		origin: city.origin,
 		bearing: city.frame.bearing,
-		aspect: 1
+		aspect: /* Exact arithmetic: unit aspect keeps the initial plan round. */ 1
 	};
 	return createCityDistricts(
 		grid,

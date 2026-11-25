@@ -5,7 +5,6 @@ import { VALLEY_EXPECTED_BORDER_HITS } from './reference.evidence';
 const {
 	measurementLocalWindowM,
 	measurementRegionalWindowM,
-	measurementCourseSpacingM,
 	measurementCornerBearingsDeg,
 	measurementReliefCoreM,
 	measurementFieldSpacingM,
@@ -19,15 +18,13 @@ const {
 	measurementProfileSpacingM,
 	measurementProfileHalfLengthM,
 	measurementStepMinimumSlope,
-	measurementStepMinimumGainM,
-	measurementGentleSlopeLimit
+	measurementStepMinimumGainM
 } = defaults;
 
 /** Centered vector and surface measurement settings. Slopes are rise/run. */
 export const VALLEY_MEASUREMENT_PROTOCOL = {
 	localWindowM: measurementLocalWindowM,
 	regionalWindowM: measurementRegionalWindowM,
-	courseSpacingM: measurementCourseSpacingM,
 	borderHits: VALLEY_EXPECTED_BORDER_HITS,
 	cornerBearingsDeg: [...measurementCornerBearingsDeg],
 	reliefCoreM: measurementReliefCoreM,
@@ -43,8 +40,7 @@ export const VALLEY_MEASUREMENT_PROTOCOL = {
 	profileSpacingM: measurementProfileSpacingM,
 	profileHalfLengthM: measurementProfileHalfLengthM,
 	stepMinimumSlope: measurementStepMinimumSlope,
-	stepMinimumGainM: measurementStepMinimumGainM,
-	gentleSlopeLimit: measurementGentleSlopeLimit
+	stepMinimumGainM: measurementStepMinimumGainM
 } as const;
 
 export {

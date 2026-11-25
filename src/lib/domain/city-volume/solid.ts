@@ -92,9 +92,9 @@ export function solidEdgeFaults(faces: LatticeSolid['faces']) {
 			if (!edge)
 				edges.set(
 					key,
-					(edge = /* Exact arithmetic: initial edge incidences and winding balance. */ {
-						count: 0,
-						balance: 0
+					(edge = {
+						count: /* Exact arithmetic: initial edge incidences and winding balance. */ 0,
+						balance: /* Exact arithmetic: initial edge incidences and winding balance. */ 0
 					})
 				);
 			edge.count++;

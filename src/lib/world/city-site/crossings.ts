@@ -179,7 +179,10 @@ export function channelCrossings(
 					)
 				)
 			];
-			const midpoint: Vec2 = [(a[0] + b[0]) * 0.5, (a[1] + b[1]) * 0.5];
+			const midpoint: Vec2 = [
+				(a[0] + b[0]) * /* Exact arithmetic: midpoint of the crossing chord. */ 0.5,
+				(a[1] + b[1]) * /* Exact arithmetic: midpoint of the crossing chord. */ 0.5
+			];
 			const segments = path.edges.map(({ from, to }): Segment => [
 				graph.point(from),
 				graph.point(to)

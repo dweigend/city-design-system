@@ -69,15 +69,15 @@ export type {
 	DrainageLake,
 	/** Ordered river centerline in packed XY meters, bankfullWidth and wetWidth in meters, and downstream bearing in radians from positive X. */
 	RiverCourse,
-	/** Square survey side and node spacing in meters, with buildable slope as rise over run. */
+	/** Square survey side and node spacing in meters, with gentle slope as rise over run. */
 	SurveyWindow
 };
-/** Default survey window: 4 km square, 20 m spacing, buildable below a 20 % slope. */
+/** Default survey window: 4 km square, 20 m spacing, gentle slope below 20%. */
 export { surveyDefaults } from './survey';
 
 /** Measures a valley in a square window around its center: lowest, highest and relief in
  * meters, steepest node slope, water share, lake area in m², the share of dry nodes below the
- * buildable slope, and hydrology faults (all zero when sound). Pure; samples each node once.
+ * gentle-slope threshold, and hydrology faults (all zero when sound). Pure; samples each node once.
  * Invalid windows throw RangeError. */
 export function surveyValley(
 	valley: Readonly<Pick<Valley, 'sampleTerrain' | 'reaches'>>,

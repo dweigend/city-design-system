@@ -1,9 +1,18 @@
 import { resolve } from 'node:path';
+import { readdir } from 'node:fs/promises';
 import { designPrinciples } from '../src/routes/design-principles';
 import { buildModuleCatalogue } from './module-catalogue';
 
 /** Reads the source tree used by the catalogue CLI and the executable example tests. */
 export async function readModuleCatalogue(root = resolve(import.meta.dir, '..')) {
+	const layers = ['core', 'domain', 'world', 'scene', 'ui'];
+	const folders = await Promise.all(
+		layers.map(async (layer) => {
+			const path = `src/lib/${layer}`;
+			const entries = await readdir(resolve(root, path), { withFileTypes: true });
+			return entries.filter((entry) => entry.isDirectory()).map(({ name }) => `${path}/${name}`);
+		})
+	);
 	const paths = [
 		'docs/standards/ARCHITECTURE.md',
 		...['src/lib/**/*.{ts,svelte,md}', 'src/config/**/*.ts'].flatMap((pattern) =>
@@ -15,7 +24,8 @@ export async function readModuleCatalogue(root = resolve(import.meta.dir, '..'))
 	);
 	return buildModuleCatalogue(
 		Object.fromEntries(files),
-		new Set(designPrinciples.map(({ id }) => id))
+		new Set(designPrinciples.map(({ id }) => id)),
+		folders.flat()
 	);
 }
 

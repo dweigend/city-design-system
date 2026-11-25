@@ -58,11 +58,16 @@ export type HouseStyle = Readonly<{
 	large: Readonly<{ fill: readonly FillKind[]; roof: readonly RoofKind[]; court: boolean }>;
 }>;
 
-const none = /* Exact arithmetic: absent optional parts have zero share and height. */ {
-	braceShareRatio: 0,
-	tubeShareRatio: 0,
-	mastStoreys: 0,
-	treeShareRatio: 0
+const absentPart = /* Exact arithmetic: absent parts have zero share and height. */ 0;
+const solidFillZero = /* Exact arithmetic: solid fill leaves no gap, inset or partial fill. */ 0;
+const flatRoofRise = /* Exact arithmetic: flat roofs have no rise. */ 0;
+const disabledOccupancy = /* Exact arithmetic: zero disables an occupancy term. */ 0;
+
+const none = {
+	braceShareRatio: absentPart,
+	tubeShareRatio: absentPart,
+	mastStoreys: absentPart,
+	treeShareRatio: absentPart
 };
 const neutralOccupancy = {
 	rearDropRatio: d.rearDropRatio,
@@ -73,13 +78,13 @@ const neutralOccupancy = {
 	jitterStoreys: /* Exact arithmetic: jitter changes by one story. */ 1,
 	groundOpenRatio: /* Exact arithmetic: the neutral body starts at the ground story. */ 0
 };
-const solidFill = /* Exact arithmetic: solid fill has no cut, gap or capsule. */ {
-	insetM: 0,
-	roundShareRatio: 0,
-	stackShareRatio: 0,
-	stackInsetM: 0,
-	capsuleShareRatio: 0,
-	capsuleGapM: 0
+const solidFill = {
+	insetM: solidFillZero,
+	roundShareRatio: solidFillZero,
+	stackShareRatio: solidFillZero,
+	stackInsetM: solidFillZero,
+	capsuleShareRatio: solidFillZero,
+	capsuleGapM: solidFillZero
 };
 
 const styleRows = [
@@ -87,12 +92,12 @@ const styleRows = [
 		id: 'neutral',
 		occupancy: neutralOccupancy,
 		fill: { ...solidFill, kinds: ['envelope'] },
-		roof: /* Exact arithmetic: flat roof has no rise. */ { kinds: ['flat'], riseRatio: 0 },
-		opening: /* Exact arithmetic: every exposed neutral opening uses the same figure. */ {
+		roof: { kinds: ['flat'], riseRatio: flatRoofRise },
+		opening: {
 			kinds: ['rect'],
 			pitchM: d.windowPitchM,
 			sizeM: d.windowWidthM,
-			shareRatio: 1,
+			shareRatio: /* Exact arithmetic: every exposed neutral opening uses the same figure. */ 1,
 			collar: false
 		},
 		parts: {
@@ -109,11 +114,11 @@ const styleRows = [
 	},
 	{
 		id: 'memphis',
-		occupancy: /* Exact arithmetic: Memphis occupancy has no court step or jitter threshold. */ {
+		occupancy: {
 			...neutralOccupancy,
 			rearDropRatio: d.memphisRearDropRatio,
-			courtStepStoreys: 0,
-			jitterComplexityRatio: 0,
+			courtStepStoreys: disabledOccupancy,
+			jitterComplexityRatio: disabledOccupancy,
 			jitterShareRatio: d.memphisJitterShareRatio,
 			jitterStoreys: d.memphisJitterStoreys
 		},
@@ -151,15 +156,14 @@ const styleRows = [
 	},
 	{
 		id: 'archigram',
-		occupancy:
-			/* Exact arithmetic: framed occupancy has no drop, court step or jitter threshold. */ {
-				...neutralOccupancy,
-				rearDropRatio: 0,
-				courtStepStoreys: 0,
-				jitterComplexityRatio: 0,
-				jitterShareRatio: d.archigramJitterShareRatio,
-				groundOpenRatio: d.archigramGroundOpenRatio
-			},
+		occupancy: {
+			...neutralOccupancy,
+			rearDropRatio: disabledOccupancy,
+			courtStepStoreys: disabledOccupancy,
+			jitterComplexityRatio: disabledOccupancy,
+			jitterShareRatio: d.archigramJitterShareRatio,
+			groundOpenRatio: d.archigramGroundOpenRatio
+		},
 		fill: {
 			...solidFill,
 			kinds: ['capsule'],
@@ -168,7 +172,7 @@ const styleRows = [
 			capsuleShareRatio: d.archigramCapsuleShareRatio,
 			capsuleGapM: d.archigramCapsuleGapM
 		},
-		roof: /* Exact arithmetic: flat roof has no rise. */ { kinds: ['flat'], riseRatio: 0 },
+		roof: { kinds: ['flat'], riseRatio: flatRoofRise },
 		opening: {
 			kinds: ['round'],
 			pitchM: d.archigramOpeningPitchM,
@@ -193,10 +197,10 @@ const styleRows = [
 	},
 	{
 		id: 'organic',
-		occupancy: /* Exact arithmetic: court stepping starts at zero complexity. */ {
+		occupancy: {
 			...neutralOccupancy,
 			rearDropRatio: d.organicRearDropRatio,
-			courtStepComplexityRatio: 0,
+			courtStepComplexityRatio: /* Exact arithmetic: court stepping starts at zero complexity. */ 0,
 			jitterShareRatio: d.organicJitterShareRatio
 		},
 		fill: {

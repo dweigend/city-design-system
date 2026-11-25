@@ -274,18 +274,6 @@ const shoreline = defineSettings({
 		unit: 'm',
 		meaning: 'Smallest interval probed when a segment grazes the setback',
 		rationale: 'Keeps the established shoreline fitting and quality defaults.'
-	},
-	targetUnclippedShare: {
-		value: 0.5,
-		unit: 'ratio',
-		meaning: 'Study target for the share of occupied shore cells that keep all their plan nodes',
-		rationale: 'Keeps the established shoreline fitting and quality defaults.'
-	},
-	targetAlignedEdgeShare: {
-		value: 0.5,
-		unit: 'ratio',
-		meaning: 'Study target for the share of bank edges within the setback tolerance',
-		rationale: 'Keeps the established shoreline fitting and quality defaults.'
 	}
 });
 

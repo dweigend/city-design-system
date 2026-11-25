@@ -21,12 +21,9 @@ const {
 } = defaults;
 
 // Exact arithmetic: corners of the opening figures.
-const figureSides: Record<
-	Exclude<OpeningKind, 'rect'>,
-	number
-> = /* Exact arithmetic: corner counts of opening shapes. */ {
+const figureSides: Record<Exclude<OpeningKind, 'rect'>, number> = {
 	round: curveSegments,
-	triangle: 3
+	triangle: /* Exact arithmetic: corner counts of opening shapes. */ 3
 };
 
 function openingKey(ctx: Context, solid: CellSolid, side: number, storey: number) {

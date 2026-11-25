@@ -11,11 +11,11 @@ export const valleyBands = Object.freeze(['channel', 'floodplain', 'terraces', '
 export type ValleyBand = 0 | 1 | 2 | 3;
 
 // Exact arithmetic: these indices address the named raster bands in their public order.
-const band = /* Exact arithmetic: contiguous ground profile band indices. */ {
-	channel: 0,
-	floodplain: 1,
-	terraces: 2,
-	slopes: 3
+const band = {
+	channel: /* Exact arithmetic: contiguous ground profile band indices. */ 0,
+	floodplain: /* Exact arithmetic: contiguous ground profile band indices. */ 1,
+	terraces: /* Exact arithmetic: contiguous ground profile band indices. */ 2,
+	slopes: /* Exact arithmetic: contiguous ground profile band indices. */ 3
 } as const;
 
 /** North-first square raster in meters. Columns run east and rows run south. */

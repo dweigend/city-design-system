@@ -7,10 +7,11 @@ import { execFileSync, spawn } from 'node:child_process';
 import { mkdirSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { parseArgs } from 'node:util';
-import { git, integration, requireSlot } from './experiment-host';
+import { findIntegration, git, requireSlot } from './experiment-host';
 import { shots, sizes, type Shot } from './step0-shot-list';
 
 requireSlot();
+const integration = findIntegration();
 const { values } = parseArgs({
 	args: process.argv.slice(2),
 	options: { out: { type: 'string' } }

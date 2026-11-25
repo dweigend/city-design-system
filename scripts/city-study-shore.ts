@@ -1,17 +1,48 @@
 import { distance, measurePolygon, type Vec2 } from '../src/lib/core/geometry';
 import { required } from '../src/lib/core/invariant';
-import { planEdges, shorelineMorphLimits, type TerrainGrid } from '../src/lib/domain/terrain-grid';
+import { planEdges, type TerrainGrid } from '../src/lib/domain/terrain-grid';
 import {
 	cityBankSetbackM,
 	type CityCrossing,
 	type CityTerrainSampler
 } from '../src/lib/world/city-site';
+import {
+	shoreStudyAlignedTarget,
+	shoreStudyBandM,
+	shoreStudyBankToleranceM,
+	shoreStudyUnclippedTarget
+} from './config/city-study';
 
 type ShorePlan = Readonly<{
 	grid: TerrainGrid;
 	plan: TerrainGrid;
 	selectedCrossings: readonly CityCrossing[];
 }>;
+
+type ShoreCounts = Readonly<{
+	clipped: number;
+	occupiedShore: number;
+	shoreEdges: number;
+	alignedEdges: number;
+}>;
+
+/** Both measured shares must meet their targets. A missing sample cannot pass. */
+export function shoreFit(rows: readonly ShoreCounts[]) {
+	const sum = (key: keyof ShoreCounts) => rows.reduce((total, row) => total + row[key], 0);
+	const occupiedShore = sum('occupiedShore');
+	const shoreEdges = sum('shoreEdges');
+	const unclippedShare = occupiedShore ? 1 - sum('clipped') / occupiedShore : null;
+	const alignedShare = shoreEdges ? sum('alignedEdges') / shoreEdges : null;
+	const unclippedTargetMet = unclippedShare !== null && unclippedShare >= shoreStudyUnclippedTarget;
+	const alignedTargetMet = alignedShare !== null && alignedShare >= shoreStudyAlignedTarget;
+	return {
+		unclippedShare,
+		alignedShare,
+		unclippedTargetMet,
+		alignedTargetMet,
+		pass: unclippedTargetMet && alignedTargetMet
+	};
+}
 
 /** Measures the grid's existing bank edges, occupied cells clipped by the setback, and selected crossings. */
 export function shoreMetrics(
@@ -36,9 +67,7 @@ export function shoreMetrics(
 		for (const id of cellIds) if (stageCells.get(id) === 'dry') adjacent.add(id);
 		if (
 			[point(a), [(x + u) * 0.5, (y + v) * 0.5] as const, point(b)].every(
-				(p) =>
-					Math.abs(ground(...p).waterClearance - cityBankSetbackM) <=
-					shorelineMorphLimits.bankToleranceM
+				(p) => Math.abs(ground(...p).waterClearance - cityBankSetbackM) <= shoreStudyBankToleranceM
 			)
 		)
 			alignedEdges++;
@@ -52,7 +81,7 @@ export function shoreMetrics(
 		const { area, centroid } = measurePolygon(ring);
 		if (
 			!centroid ||
-			Math.abs(ground(...centroid).waterClearance - cityBankSetbackM) >= shorelineMorphLimits.bandM
+			Math.abs(ground(...centroid).waterClearance - cityBankSetbackM) >= shoreStudyBandM
 		)
 			continue;
 		minAreaM2 = Math.min(minAreaM2, area);
@@ -79,19 +108,14 @@ export function shoreMetrics(
 		if (cut) clipped++;
 		if (cut || adjacent.has(id)) occupiedShore++;
 	}
-	const unclippedShare = occupiedShore ? 1 - clipped / occupiedShore : null;
-	const alignedShare = shoreEdges ? alignedEdges / shoreEdges : null;
+	const counts = { clipped, occupiedShore, shoreEdges, alignedEdges };
+	const { unclippedShare, alignedShare, unclippedTargetMet, alignedTargetMet } = shoreFit([counts]);
 	return {
-		clipped,
-		occupiedShore,
+		...counts,
 		unclippedShare,
 		alignedShare,
-		unclippedTargetMet:
-			unclippedShare === null ? null : unclippedShare >= shorelineMorphLimits.targetUnclippedShare,
-		alignedTargetMet:
-			alignedShare === null ? null : alignedShare >= shorelineMorphLimits.targetAlignedEdgeShare,
-		shoreEdges,
-		alignedEdges,
+		unclippedTargetMet,
+		alignedTargetMet,
 		minAreaM2: Number.isFinite(minAreaM2) ? minAreaM2 : 0,
 		maxAreaM2,
 		minAngleDeg: Number.isFinite(minAngleDeg) ? minAngleDeg : 0,
@@ -101,9 +125,12 @@ export function shoreMetrics(
 			({ heads: [first, second], path }) =>
 				distance(point(first.nodeId), point(second.nodeId)) / path.lengthM
 		),
-		renderedStraightness: selectedCrossings.map(
-			({ heads: [first, second], path, span }) =>
-				distance(point(first.nodeId), point(second.nodeId)) / (span?.lengthM ?? path.lengthM)
-		)
+		// Measure the horizontal polyline selected by the projection, before it is draped.
+		renderedStraightness: selectedCrossings.map(({ heads: [first, second], path, span }) => {
+			const arc = span
+				? distance(point(span.nodeIds[0]), point(span.nodeIds[1]))
+				: path.edges.reduce((length, { from, to }) => length + distance(point(from), point(to)), 0);
+			return distance(point(first.nodeId), point(second.nodeId)) / arc;
+		})
 	};
 }

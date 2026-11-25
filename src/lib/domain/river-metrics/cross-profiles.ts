@@ -159,9 +159,9 @@ function terraceEdge(profile: readonly ProfilePoint[], start: number, direction:
 }
 
 // Exact arithmetic: profile offsets increase from left to right.
-const outward = /* Exact arithmetic: outward sign on either bank. */ {
-	left: -1,
-	right: 1
+const outward = {
+	left: /* Exact arithmetic: outward sign on either bank. */ -1,
+	right: /* Exact arithmetic: outward sign on either bank. */ 1
 } as const;
 
 /** Measures the dry distance from each bank to its first mapped terrace. */

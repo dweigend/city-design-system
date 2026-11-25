@@ -26,7 +26,7 @@ src/lib/core/<module>/   Geometry, random, parameters and object primitives
 | 8   | Use controls from the kit. Raw `button`, `input`, `select` and `textarea` elements and imports from Bits UI or Lucide belong in UI.                                                                                 | ESLint `no-restricted-syntax`                                                                                                                                |
 | 9   | Page text and page-local widgets live in routes. Library modules cannot import routes. Only scene imports three.js.                                                                                                 | dependency-cruiser `routes-own-pages`, `three-only-in-scene`                                                                                                 |
 | 10  | Only `src/lib/scene/stage/` constructs a renderer or camera, calls `setAnimationLoop` or requests an animation frame.                                                                                               | ESLint `no-restricted-syntax`                                                                                                                                |
-| 11  | The owning capability slice in `src/config/` supplies numeric tunables. Document the unit, meaning, and rationale or design principle of each setting. Derive shared values at the point of use.                    | dependency-cruiser `config-owner-only`, ESLint `config/no-tunable-number`, `bun run check:config`                                                            |
+| 11  | The owning capability slice in `src/config/` supplies numeric tunables. Document the unit, meaning, and rationale or design principle of each setting. Keep study thresholds in `scripts/config/`.                  | dependency-cruiser `config-owner-only` and `config-data-only`, ESLint `config/no-tunable-number`, `bun run check:config`                                     |
 
 ## Module shape
 
@@ -36,8 +36,11 @@ Use one flat folder directly under its layer. Keep every file at that level.
 - Private implementation files sit beside the entry.
 - `contract.test.ts` verifies behavior through the entry.
 - `example.ts` runs the entry with fixed inputs.
+- An optional `CONTRACT.md` records semantics that need more room than an export summary, such as geometry invariants, stable IDs, and ordering.
 
 Modules under `src/lib/ui` are presentational and are demonstrated on the `/interface` page instead of carrying `contract.test.ts` and `example.ts`.
+Modules under `src/lib/ui/file-picker` are presentational and are demonstrated on the `/sandbox` page instead of carrying `contract.test.ts` and `example.ts`.
+Modules under `src/lib/ui/scale-legend` are presentational and are demonstrated on the `/city` page instead of carrying `contract.test.ts` and `example.ts`.
 Modules under `src/lib/scene/stage-view` are presentational and are demonstrated on the `/sandbox` page instead of carrying `contract.test.ts` and `example.ts`.
 
 ## Object contract

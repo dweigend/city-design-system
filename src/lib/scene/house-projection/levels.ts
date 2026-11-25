@@ -4,11 +4,14 @@ import { blockSurfaces, fullSurfaces, pencilSurfaces, veilSurfaces } from './sur
 
 const { pencilHatch, veilAlpha } = defaults;
 
-const houseTreatments = /* Exact arithmetic: opaque and omitted fills, and no-hatch switches. */ {
-	solid: { hatch: 0, fillAlpha: 1 },
-	ghost: { surfaces: veilSurfaces, hatch: 0, fillAlpha: veilAlpha },
-	pencil: { surfaces: pencilSurfaces, hatch: pencilHatch, fillAlpha: 1 },
-	wire: { surfaces: undefined, hatch: 0, fillAlpha: 0 }
+const noHatch = /* Exact arithmetic: zero hatch coverage. */ 0;
+const opaque = /* Exact arithmetic: full fill opacity. */ 1;
+const noFill = /* Exact arithmetic: zero fill opacity. */ 0;
+const houseTreatments = {
+	solid: { hatch: noHatch, fillAlpha: opaque },
+	ghost: { surfaces: veilSurfaces, hatch: noHatch, fillAlpha: veilAlpha },
+	pencil: { surfaces: pencilSurfaces, hatch: pencilHatch, fillAlpha: opaque },
+	wire: { surfaces: undefined, hatch: noHatch, fillAlpha: noFill }
 } as const;
 
 const solidDetails = {

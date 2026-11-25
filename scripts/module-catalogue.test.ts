@@ -56,7 +56,9 @@ test('reports missing purpose, missing example and example without a caller', ()
 	const rows = buildModuleCatalogue(
 		{
 			'src/lib/core/marker/index.ts': 'export const marker = 1;',
+			'src/lib/core/marker/contract.test.ts': '',
 			'src/lib/core/unusable/index.ts': '/** Module: Marks a site. */',
+			'src/lib/core/unusable/contract.test.ts': '',
 			'src/lib/core/unusable/example.ts': 'export const marker = 1;',
 			'src/lib/core/helpers.ts': 'export const helper = 1;'
 		},
@@ -76,7 +78,8 @@ test('rejects whitespace purposes and examples whose result bypasses their publi
 	const entry = 'src/lib/core/marker/index.ts';
 	const example = 'src/lib/core/marker/example.ts';
 	const sources = {
-		[entry]: '/** Module:    */\n/** Creates a marker. */\nexport function create() { return 1; }'
+		[entry]: '/** Module:    */\n/** Creates a marker. */\nexport function create() { return 1; }',
+		'src/lib/core/marker/contract.test.ts': ''
 	};
 	for (const body of [
 		'export const example = () => 1;',
@@ -109,17 +112,42 @@ test('reads the UI example exemption from the architecture standard', () => {
 		new Set()
 	);
 	expect(rows.map(({ errors, exampleDemo }) => [errors, exampleDemo])).toEqual([
-		[['Missing example.ts'], null],
+		[['Missing contract.test.ts', 'Missing example.ts'], null],
 		[[], '/interface']
 	]);
-	expect(buildModuleCatalogue(entries, new Set())[1].errors).toEqual(['Missing example.ts']);
+	expect(buildModuleCatalogue(entries, new Set())[1].errors).toEqual([
+		'Missing contract.test.ts',
+		'Missing example.ts'
+	]);
 });
 
 const rows = await readModuleCatalogue();
+
+test('reports folders without an entry and entries without a contract test', () => {
+	const rows = buildModuleCatalogue(
+		{
+			'src/lib/core/orphan/private.ts': '',
+			'src/lib/core/marker/index.ts':
+				'/** Module: Marks a site. */\n/** Creates a marker. */\nexport function create() { return 1; }',
+			'src/lib/core/marker/example.ts':
+				"import { create } from './index'; export const example = () => create();"
+		},
+		new Set(),
+		['src/lib/core/empty']
+	);
+	expect(rows.map(({ module, errors }) => [module, errors])).toEqual([
+		['core/empty', ['Missing index.ts']],
+		['core/marker', ['Missing contract.test.ts']],
+		['core/orphan', ['Missing index.ts']]
+	]);
+});
+
 test('discovers the real registry and stage modules', () => {
 	expect(rows.map(({ module }) => module)).toContain('world/asset-registry');
 	expect(rows.map(({ module }) => module)).toContain('scene/stage');
 	expect(rows.filter(({ errors }) => errors.length)).toEqual([]);
+	expect(rows.find(({ module }) => module === 'ui/file-picker')?.exampleDemo).toBe('/sandbox');
+	expect(rows.find(({ module }) => module === 'ui/scale-legend')?.exampleDemo).toBe('/city');
 });
 for (const { module, example, exampleCall } of rows) {
 	if (!example || !exampleCall) continue;

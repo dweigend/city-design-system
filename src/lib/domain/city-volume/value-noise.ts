@@ -1,5 +1,10 @@
 import type { Random } from '../../core/random';
 
+const signedUnitBounds = {
+	min: /* Exact arithmetic: lower bound of signed unit noise. */ -1,
+	max: /* Exact arithmetic: upper bound of signed unit noise. */ 1
+};
+
 function fade(t: number) {
 	return t * t * /* Exact arithmetic: cubic Hermite interpolation coefficient. */ (3 - 2 * t);
 }
@@ -12,9 +17,7 @@ export function valueNoise(random: Random, noiseWavelength: number) {
 		const key = `${i},${j}`;
 		let value = values.get(key);
 		if (value === undefined) {
-			value = random
-				.derive(key)
-				.number(/* Exact arithmetic: bounds of signed unit noise. */ { min: -1, max: 1 });
+			value = random.derive(key).number(signedUnitBounds);
 			values.set(key, value);
 		}
 		return value;

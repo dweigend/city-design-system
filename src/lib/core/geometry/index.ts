@@ -137,7 +137,7 @@ export function size({ min, max }: Bounds3): Vec3 {
  * vertex. Z is ignored. Empty rings have no centroid; zero-area rings use the first vertex. */
 export function measurePolygon(points: readonly (Vec2 | Vec3)[]) {
 	if (!points.length)
-		return /* Exact arithmetic: an empty ring has zero area. */ { area: 0, centroid: undefined };
+		return { area: /* Exact arithmetic: an empty ring has zero area. */ 0, centroid: undefined };
 	const [ox, oy] = points[0];
 	let twiceArea = 0;
 	let xMoment = 0;

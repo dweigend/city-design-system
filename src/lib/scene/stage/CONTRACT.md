@@ -14,6 +14,8 @@ Retained parts stay in the scene during `show`; only stale parts leave and new p
 `setWork` runs a caller's budgeted task at the start of each frame while it returns true; a
 frame that only ran work and changed nothing keeps the last image.
 `read` returns detached state. `delete` releases the stage and may be repeated.
+The renderer adapter disables the WebGL fallback and stops the internal three.js r187 tick after each submission.
+If three.js drops those hooks, the stage continues to submit frames on demand and disposes the renderer and WebGPU device on teardown.
 
 The fixed house is available through `stageExample()`. See `/blocks` for its controls.
 

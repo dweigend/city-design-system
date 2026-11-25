@@ -1,9 +1,22 @@
 // Districts, carrier lattice and growth measurements of one city.
 import { distance } from '../src/lib/core/geometry';
 import { required } from '../src/lib/core/invariant';
-import type { CityColumn, CityLattice, DistrictKind } from '../src/lib/domain/city-volume';
+import {
+	createCityLattice,
+	type CityColumn,
+	type CityLattice,
+	type DistrictKind
+} from '../src/lib/domain/city-volume';
 import type { TerrainGrid } from '../src/lib/domain/terrain-grid';
 import { area, key, polygon } from './city-study-plan';
+
+/** Compares a measured frame with a fresh lattice built from the replayed columns. */
+export function latticeReplayStable(
+	frame: CityLattice,
+	...replay: Parameters<typeof createCityLattice>
+) {
+	return Bun.hash(JSON.stringify(createCityLattice(...replay))) === Bun.hash(JSON.stringify(frame));
+}
 
 /** District shape, shares and height steps of one column set. */
 export function districtMetrics(grid: TerrainGrid, columns: readonly CityColumn[]) {

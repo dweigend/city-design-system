@@ -42,13 +42,13 @@ function wallFace(
 	const length = Math.hypot(b[0] - a[0], b[1] - a[1]);
 	if (!(length > 0) || !(z1 > z0)) return undefined;
 	const [dx, dy] = [(b[0] - a[0]) / length, (b[1] - a[1]) / length];
-	return /* Exact arithmetic: XY wall basis has no vertical component. */ {
+	return {
 		slot,
 		body,
 		place: 'wall',
 		origin: [a[0], a[1], z0],
-		across: [dx, dy, 0],
-		normal: [dy, -dx, 0],
+		across: /* Exact arithmetic: XY wall basis has no vertical component. */ [dx, dy, 0],
+		normal: /* Exact arithmetic: XY wall basis has no vertical component. */ [dy, -dx, 0],
 		size: [length, z1 - z0],
 		openings
 	};

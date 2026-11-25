@@ -369,15 +369,15 @@ export function projectCladHouse(
 	const { surfaces, hatch, fillAlpha } = houseLevels[display];
 	const own = readSurfaceLevel(display);
 	if (!surfaces || !own)
-		return /* Exact arithmetic: empty projection has zero triangles. */ {
+		return {
 			drawables: [],
-			triangles: 0
+			triangles: /* Exact arithmetic: empty projection has zero triangles. */ 0
 		};
 	const level = lowerLevel(own, options.level ?? 'plain');
 	if (display === 'full' && level === 'plain')
-		return /* Exact arithmetic: plain projection has no cladding triangles. */ {
+		return {
 			drawables: projectPlain(object, materials, options),
-			triangles: 0
+			triangles: /* Exact arithmetic: plain projection has no cladding triangles. */ 0
 		};
 	const house = buildHouse(object, faces, materials, level, options);
 	// Only the full display paints model materials; the other displays keep their stock looks.

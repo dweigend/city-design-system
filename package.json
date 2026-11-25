@@ -15,6 +15,8 @@
 		"format": "prettier --write .",
 		"test": "bun test",
 		"perf:baseline": "bun scripts/perf-baseline.ts",
+		"city-study": "bun scripts/city-study.ts",
+		"terrain-study": "bun scripts/terrain-study.ts",
 		"test:browser": "playwright test --config scripts/browser/playwright.config.ts",
 		"check:boundaries": "bun scripts/check-boundaries.ts",
 		"check:naming": "bun scripts/check-naming.ts",

@@ -5,11 +5,11 @@ type AxisInterval = { enter: number; exit: number; entryEdge: number; exitEdge: 
 function axisInterval(from: number, to: number, half: number): AxisInterval | null {
 	if (from === to) {
 		if (Math.abs(from) > half) return null;
-		return /* Exact arithmetic: parallel interior segments have no active clip edges. */ {
+		return {
 			enter: -Infinity,
 			exit: Infinity,
-			entryEdge: 0,
-			exitEdge: 0
+			entryEdge: /* Exact arithmetic: parallel interior segments have no active clip edges. */ 0,
+			exitEdge: /* Exact arithmetic: parallel interior segments have no active clip edges. */ 0
 		};
 	}
 	const entryEdge = to > from ? -half : half;

@@ -1,10 +1,37 @@
 import { WebGPURenderer } from 'three/webgpu';
 import { sortTranslucent } from './batch';
 
-type DemandRenderer = WebGPURenderer & {
-	_getFallback: null;
-	_animation: { stop(): void };
+type RendererLifecycle = Pick<WebGPURenderer, 'dispose'> & {
+	init(): Promise<unknown>;
+	_getFallback?: unknown;
+	_animation?: unknown;
 };
+
+/** Adapts three.js r187 to strict WebGPU and demand rendering. r187 supplies a WebGL
+ * fallback and starts an internal tick on render. Future versions can omit either hook.
+ * Keep these private names here and check the lifecycle contract when upgrading three.js. */
+export async function openDemandRenderer(renderer: RendererLifecycle, closeDevice: () => void) {
+	try {
+		if (typeof renderer._getFallback === 'function') renderer._getFallback = null;
+		await renderer.init();
+	} catch (error) {
+		closeDevice();
+		throw error;
+	}
+	return {
+		stop() {
+			const animation = renderer._animation as { stop?: () => void } | null | undefined;
+			if (typeof animation?.stop === 'function') animation.stop();
+		},
+		async delete() {
+			try {
+				await renderer.dispose();
+			} finally {
+				closeDevice();
+			}
+		}
+	};
+}
 
 function adapterDetails(info: GPUAdapterInfo) {
 	const adapterName =
@@ -19,7 +46,6 @@ function adapterDetails(info: GPUAdapterInfo) {
 }
 
 export async function openRenderer(canvas: HTMLCanvasElement) {
-	let release: (() => void) | undefined;
 	try {
 		const adapter = await navigator.gpu?.requestAdapter();
 		if (!adapter) throw new Error('No WebGPU adapter is available');
@@ -30,37 +56,28 @@ export async function openRenderer(canvas: HTMLCanvasElement) {
 			requiredFeatures: adapter.features.has(core) ? [core] : []
 		});
 		const closeDevice = () => {
-			context.unconfigure();
-			device.destroy();
+			try {
+				context.unconfigure();
+			} finally {
+				device.destroy();
+			}
 		};
-		release = closeDevice;
-		const renderer = new WebGPURenderer({
-			canvas,
-			context,
-			device,
-			antialias: true
-		}) as DemandRenderer;
-		// r187 installs a WebGL fallback in the constructor. Keep backend init strict.
-		renderer._getFallback = null;
-		renderer.setTransparentSort(sortTranslucent);
-		await renderer.init();
+		let renderer: WebGPURenderer;
+		try {
+			renderer = new WebGPURenderer({ canvas, context, device, antialias: true });
+			renderer.setTransparentSort(sortTranslucent);
+		} catch (error) {
+			closeDevice();
+			throw error;
+		}
+		// r187's type declarations do not expose the private hooks.
+		const demand = await openDemandRenderer(renderer, closeDevice);
 		return {
 			renderer,
 			...adapterDetails(adapter.info),
-			stop() {
-				// r187 starts its internal tick in render() even without an animation callback.
-				renderer._animation.stop();
-			},
-			async delete() {
-				try {
-					await renderer.dispose();
-				} finally {
-					closeDevice();
-				}
-			}
+			...demand
 		};
 	} catch (cause) {
-		release?.();
 		throw new Error(`WebGPU stage initialisation failed: ${String(cause)}`, { cause });
 	}
 }

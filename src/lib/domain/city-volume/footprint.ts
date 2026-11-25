@@ -236,10 +236,8 @@ export function cityGrowth(
 			append(index, true);
 			return;
 		}
-		const first = pending.get(
-			region
-		) ?? /* Exact arithmetic: a pending region starts with no occupied area. */ {
-			area: 0,
+		const first = pending.get(region) ?? {
+			area: /* Exact arithmetic: a pending region starts with no occupied area. */ 0,
 			indexes: []
 		};
 		first.area += proposals[index].area;

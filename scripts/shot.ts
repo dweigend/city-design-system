@@ -3,9 +3,11 @@ import { execFileSync } from 'node:child_process';
 import { existsSync, mkdirSync, readdirSync, readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { parseArgs } from 'node:util';
-import { git, integration, preview, requireSlot, shots } from './experiment-host';
+import { findIntegration, git, preview, requireSlot } from './experiment-host';
 
 requireSlot();
+const integration = findIntegration();
+const shots = resolve(integration, '_lokal/rebuild-shots');
 const { values, positionals } = parseArgs({
 	args: process.argv.slice(2),
 	allowPositionals: true,
@@ -18,7 +20,7 @@ const { values, positionals } = parseArgs({
 	}
 });
 const revision = values.revision ?? git(integration, 'rev-parse', 'HEAD');
-const origin = preview(revision);
+const origin = preview(integration, revision);
 const requested = values.url ? new URL(values.url, origin) : undefined;
 if (requested && requested.origin !== origin)
 	throw Error('URL must match the verified preview at ' + origin);
@@ -208,7 +210,7 @@ try {
 } finally {
 	await browser.close();
 }
-preview(revision);
+preview(integration, revision);
 const manifest = {
 	revision,
 	origin,

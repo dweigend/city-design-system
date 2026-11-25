@@ -11,7 +11,7 @@ test('divides the centered survey exactly when the requested spacing does not di
 				return { height: x, water: x, bank: 160, waterKind: null, lakeId: null };
 			},
 			[],
-			{ sideM: 100, spacingM, buildableSlope: 0.2 }
+			{ sideM: 100, spacingM, gentleSlopeLimit: 0.2 }
 		);
 		expect(points[0]).toEqual([-50, 50]);
 		expect(points.at(-1)).toEqual([50, -50]);
@@ -24,7 +24,7 @@ test('divides the centered survey exactly when the requested spacing does not di
 test('emits exact solve bounds for a 12 km survey at 152 m spacing', () => {
 	const valley = Valley.create({ seed: 1201 });
 	expect(
-		surveyValley(valley, { sideM: 12000, spacingM: 152, buildableSlope: 0.2 }).reliefM
+		surveyValley(valley, { sideM: 12000, spacingM: 152, gentleSlopeLimit: 0.2 }).reliefM
 	).toBeGreaterThan(0);
 });
 
@@ -32,7 +32,7 @@ test('weights lake samples by their areas inside the survey window', () => {
 	const survey = surveyGround(
 		() => ({ height: 0, water: 1, bank: -1, waterKind: 'lake', lakeId: 1 }),
 		[],
-		{ sideM: 100, spacingM: 19, buildableSlope: 0.2 }
+		{ sideM: 100, spacingM: 19, gentleSlopeLimit: 0.2 }
 	);
 	expect(survey.lakeArea).toBeCloseTo(10000, 9);
 });

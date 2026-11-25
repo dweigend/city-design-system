@@ -39,7 +39,7 @@ function frame(ctx: Context, runs: StoreyRun[]): FaceBuilder[] {
 		};
 		cell.quad.forEach((_, i) => {
 			const next = (i + 1) % cell.quad.length;
-			add(at(i, /* Exact arithmetic: ground story index. */ 0), at(i, to));
+			add(at(i, groundStorey), at(i, to));
 			for (let storey = from; storey <= to; storey += 1) add(at(i, storey), at(next, storey));
 			for (let storey = from; storey < to; storey += 1)
 				if (

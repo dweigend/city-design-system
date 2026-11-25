@@ -38,7 +38,10 @@ function reflect(index: number, length: number): number {
 // Exact arithmetic: the normal density uses minus one half of the squared z score.
 function gaussian(radius: number, sigma: number): number[] {
 	const weights = Array.from({ length: 2 * radius + 1 }, (_, index) =>
-		Math.exp(-0.5 * ((index - radius) / sigma) ** 2)
+		Math.exp(
+			/* Exact arithmetic: negative half in the Gaussian exponent. */ -0.5 *
+				((index - radius) / sigma) ** 2
+		)
 	);
 	const total = weights.reduce((sum, weight) => sum + weight, 0);
 	return weights.map((weight) => weight / total);

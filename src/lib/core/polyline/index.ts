@@ -22,10 +22,10 @@ export type ClippedReach = Readonly<{
 
 type Reach = { xy: number[]; length: number; borderHits: number };
 
-const emptyReach = (): Reach => /* Exact arithmetic: empty reach. */ ({
+const emptyReach = (): Reach => ({
 	xy: [],
-	length: 0,
-	borderHits: 0
+	length: /* Exact arithmetic: empty reach. */ 0,
+	borderHits: /* Exact arithmetic: empty reach. */ 0
 });
 
 function longestReach(xy: ArrayLike<number>, half: number): Reach {
@@ -44,9 +44,9 @@ function longestReach(xy: ArrayLike<number>, half: number): Reach {
 		}
 		const { start, end, startsAtVertex, endsAtVertex, overlapsBorder } = segment;
 		if (!startsAtVertex || current.xy.length === 0) {
-			current = /* Exact arithmetic: new reach starts with zero length. */ {
+			current = {
 				xy: [start.x, start.y],
-				length: 0,
+				length: /* Exact arithmetic: new reach starts with zero length. */ 0,
 				borderHits: Number(onBorder(start, half))
 			};
 		}

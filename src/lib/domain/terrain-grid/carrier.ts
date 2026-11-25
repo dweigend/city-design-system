@@ -118,7 +118,11 @@ function baseNodes(
 			/* Exact arithmetic: initial sum of XY coordinates. */ [0, 0]
 		);
 		const [u, v] = toWorld(
-			(column + row * 0.5 + relaxation.center * x + relaxation.neighbor * dx) * spacing,
+			(column +
+				row * /* Exact arithmetic: triangular rows alternate by half a lattice step. */ 0.5 +
+				relaxation.center * x +
+				relaxation.neighbor * dx) *
+				spacing,
 			((row * Math.sqrt(/* Exact arithmetic: equilateral triangle height factor. */ 3)) / 2 +
 				relaxation.center * y +
 				relaxation.neighbor * dy) *
@@ -177,7 +181,11 @@ export function* carrier(
 			v /
 			(((spacing * Math.sqrt(/* Exact arithmetic: equilateral triangle height factor. */ 3)) / 2) *
 				defaults.organicRowScaleRatio);
-		return [u / spacing - row * 0.5, row];
+		return [
+			u / spacing -
+				row * /* Exact arithmetic: triangular rows alternate by half a lattice step. */ 0.5,
+			row
+		];
 	});
 	const columns = axial.map(([column]) => column);
 	const rows = axial.map(([, row]) => row);
@@ -214,14 +222,7 @@ export function* carrier(
 }
 
 export const freeQuad: Carrier = (site, outline, bearing, size, random) =>
-	carrier(
-		site,
-		outline,
-		bearing,
-		size,
-		random.derive('free-quad'),
-		/* Exact arithmetic: free-quad uses the center sample without neighbor averaging. */ {
-			center: 1,
-			neighbor: 0
-		}
-	);
+	carrier(site, outline, bearing, size, random.derive('free-quad'), {
+		center: /* Exact arithmetic: free-quad uses the center sample without neighbor averaging. */ 1,
+		neighbor: /* Exact arithmetic: free-quad uses the center sample without neighbor averaging. */ 0
+	});

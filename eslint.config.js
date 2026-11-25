@@ -23,10 +23,7 @@ const stagePath = 'src/lib/scene/stage/**';
 
 const namedExports = forbid('ExportAllDeclaration', 'Export each public name explicitly.');
 const color = '/#(?:[\\da-f]{8}|[\\da-f]{6}|[\\da-f]{4}|[\\da-f]{3})\\b|(?:rgb|hsl)a?\\(|^--/i';
-const colorValues = forbid(
-	`Literal[value=${color}], TemplateElement[value.cooked=${color}]`,
-	'Use a slot name in headless geometry.'
-);
+const colorValues = 'Use a slot name in headless geometry.';
 const styles = [
 	forbid('SvelteStyleElement', 'Put styles in src/app.css.'),
 	forbid(
@@ -54,12 +51,27 @@ function namedCallee(expression, names) {
 	return `${expression} > :matches(Identifier[name=${pattern}], MemberExpression[property.name=${pattern}], MemberExpression[property.value=${pattern}]).callee`;
 }
 
+/** Matches value acquisition as well as member calls, so local aliases cannot hide a constructor.
+ * @param {string} names
+ */
+function threeConstructors(names) {
+	const name = `/^(${names})$/`;
+	const three = '/^three(?:\\x2f|$)/';
+	return [
+		`ImportDeclaration[source.value=${three}]:not([importKind="type"]) > ImportSpecifier:not([importKind="type"]):matches([imported.name=${name}], [imported.value=${name}])`,
+		`ExportNamedDeclaration[source.value=${three}]:not([exportKind="type"]) > ExportSpecifier:not([exportKind="type"]):matches([local.name=${name}], [local.value=${name}])`,
+		`MemberExpression:matches([property.name=${name}][computed=false], [property.value=${name}])`,
+		`ObjectPattern > Property:matches([key.name=${name}][computed=false], [key.value=${name}])`
+	].join(', ');
+}
+
+const palette = forbid(
+	`Literal[value=${color}], TemplateElement[value.cooked=${color}], ${threeConstructors('Color')}`,
+	colorValues
+);
 const stage = [
 	forbid(
-		namedCallee(
-			'NewExpression',
-			'WebGPURenderer|WebGLRenderer|PerspectiveCamera|OrthographicCamera'
-		),
+		threeConstructors('WebGPURenderer|WebGLRenderer|PerspectiveCamera|OrthographicCamera'),
 		'Create renderers and cameras in src/lib/scene/stage.'
 	),
 	forbid(
@@ -75,7 +87,7 @@ const scopes = [
 		ignores: [kitPath, stagePath, ...headless],
 		rules: [namedExports, kit, ...stage]
 	},
-	{ files: [`${headlessLayers}/**/*.${code}`], rules: [namedExports, kit, ...stage, colorValues] },
+	{ files: [`${headlessLayers}/**/*.${code}`], rules: [namedExports, kit, ...stage, palette] },
 	{ files: [`${kitPath}/*.${code}`], rules: [namedExports, ...stage] },
 	{ files: [`${stagePath}/*.${code}`], rules: [namedExports, kit] },
 	{
@@ -85,7 +97,7 @@ const scopes = [
 	},
 	{
 		files: [`${headlessLayers}/**/*.svelte`],
-		rules: [namedExports, kit, ...stage, colorValues, ...styles, controls]
+		rules: [namedExports, kit, ...stage, palette, ...styles, controls]
 	},
 	{ files: ['src/lib/ui/**/*.svelte'], rules: [namedExports, ...stage, ...styles] },
 	{ files: ['src/lib/scene/stage/**/*.svelte'], rules: [namedExports, kit, ...styles, controls] }

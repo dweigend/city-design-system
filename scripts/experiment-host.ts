@@ -1,5 +1,4 @@
 import { execFileSync } from 'node:child_process';
-import { dirname, resolve } from 'node:path';
 import { readFileSync, readlinkSync } from 'node:fs';
 
 /** Read one Git result without invoking a shell. */
@@ -9,14 +8,15 @@ export function git(cwd: string, ...args: string[]) {
 
 export const lane = 'rebuild';
 
-const worktrees = git('.', 'worktree', 'list', '--porcelain', '-z').split('\0\0');
-const worktree = worktrees.find((entry) => entry.split('\0').includes('branch refs/heads/' + lane));
-if (!worktree) throw Error('Expected a worktree on ' + lane);
-export const integration = worktree.split('\0')[0].slice('worktree '.length);
-
-const repository = dirname(git('.', 'rev-parse', '--path-format=absolute', '--git-common-dir'));
-export const research = resolve(repository, '../city-design-lab/research');
-export const shots = resolve(integration, '_lokal/rebuild-shots');
+/** Find the integration checkout when capturing a preview or delivering a package. */
+export function findIntegration() {
+	const worktrees = git('.', 'worktree', 'list', '--porcelain', '-z').split('\0\0');
+	const worktree = worktrees.find((entry) =>
+		entry.split('\0').includes('branch refs/heads/' + lane)
+	);
+	if (!worktree) throw Error('Expected a worktree on ' + lane);
+	return worktree.split('\0')[0].slice('worktree '.length);
+}
 export const previewPort = 5182;
 export const slot = [
 	'heavy-slot',
@@ -38,21 +38,21 @@ export function requireSlot() {
 		if (readFileSync(proc + '/cmdline', 'utf8').split('\0')[1] === wrapper) return;
 		pid = Number(readFileSync(proc + '/status', 'utf8').match(/^PPid:\s+(\d+)/m)?.[1]);
 	}
-	throw Error('Browser requires heavy-slot. Run ' + slot.join(' ') + ' bun run shot');
+	throw Error('This command requires heavy-slot. Run ' + slot.join(' ') + ' <command>');
 }
 
 /** Bind the local Vite listener to the clean rebuild worktree and revision. */
-export function preview(revision: string) {
+export function preview(integration: string, revision: string) {
 	if (
 		git(integration, 'branch', '--show-current') !== lane ||
 		git(integration, 'rev-parse', 'HEAD') !== revision ||
 		git(integration, 'status', '--porcelain')
 	)
 		throw Error('Preview revision changed or checkout is dirty');
-	return listenerOrigin();
+	return listenerOrigin(integration);
 }
 
-function listenerOrigin() {
+function listenerOrigin(integration: string) {
 	const listener = execFileSync('ss', ['-Hlnpt', 'sport = :' + previewPort], {
 		encoding: 'utf8'
 	}).trim();

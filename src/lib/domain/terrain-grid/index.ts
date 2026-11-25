@@ -96,6 +96,7 @@ type PlanSpecification = {
 	cellSide: number;
 };
 
+const sameSide = /* Exact arithmetic: cell side equals tile size. */ 1;
 const planSpecifications: Record<PlanVariant, PlanSpecification> = {
 	organic: {
 		generate: carrier,
@@ -103,13 +104,13 @@ const planSpecifications: Record<PlanVariant, PlanSpecification> = {
 		defaultSize: terrainGridParams.cellSize.default,
 		cellSide: defaults.quadCellSideRatio
 	},
-	square: /* Exact arithmetic: cell side equals tile size. */ { generate: square, cellSide: 1 },
+	square: { generate: square, cellSide: sameSide },
 	hex: { generate: hex, cellSide: defaults.hexCellSideRatio },
 	triangle: { generate: triangle, cellSide: defaults.triangleCellSideRatio },
-	bands: /* Exact arithmetic: cell side equals tile size. */ { generate: bands, cellSide: 1 },
-	contour: /* Exact arithmetic: cell side equals tile size. */ { generate: contour, cellSide: 1 },
-	polar: /* Exact arithmetic: cell side equals tile size. */ { generate: polar, cellSide: 1 },
-	voronoi: /* Exact arithmetic: cell side equals tile size. */ { generate: voronoi, cellSide: 1 },
+	bands: { generate: bands, cellSide: sameSide },
+	contour: { generate: contour, cellSide: sameSide },
+	polar: { generate: polar, cellSide: sameSide },
+	voronoi: { generate: voronoi, cellSide: sameSide },
 	'free-quad': { generate: freeQuad, checkQuality: true, cellSide: defaults.quadCellSideRatio }
 };
 
@@ -417,8 +418,9 @@ function generateGrid(
 	return { grid, plan };
 }
 
-/** Derives a detached plan from a site, uint32 seed and pure sampler. The default organic
- * variant uses relaxed, split quads. Fixed addresses retain vertices and cells as the crop
+/** Derives a detached plan from a site, uint32 seed and pure sampler. The organic carrier
+ * defaults to 40 m cells and uses relaxed, split quads. Other carriers default to 15 m.
+ * Fixed addresses retain vertices and cells as the crop
  * grows around the same datum. Cells must fit wholly inside the crop. Edges and diagonals
  * sampled at up to 1 m spacing by default reject unavailable ground. Grade defaults to 20% at each
  * interval, or can be limited over whole chords or as a sampled cell height range. Organic and

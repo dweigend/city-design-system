@@ -19,14 +19,14 @@ export type FamilyRecipe = Readonly<{ pattern?: PatternKind; params?: Partial<Pa
 
 const patternKinds: ReadonlySet<PatternKind> = new Set(['plain', 'stripe', 'dots']);
 
-// Exact arithmetic: a plain face has no period and no joint.
-const plain = /* Exact arithmetic: plain faces have no pattern or joint. */ {
-	pitch: 0,
-	share: 0,
-	joint: [0, 0] as const
-};
-// Exact arithmetic: no joint module along the body or up.
+const noPitch = /* Exact arithmetic: a plain face has no period. */ 0;
+const noCoverage = /* Exact arithmetic: a plain face has no pattern marks. */ 0;
 const noJoint = /* Exact arithmetic: no joint in either axis. */ [0, 0] as const;
+const plain = {
+	pitch: noPitch,
+	share: noCoverage,
+	joint: /* Exact arithmetic: a plain face has no joint. */ [0, 0] as const
+};
 
 /** Every model material as data (MAT-3): the pattern it prints and its parameters. A family
  * knows nothing of houses, pages or colour; the palette paints its face and marks (MAT-1). */

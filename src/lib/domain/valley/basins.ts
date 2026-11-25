@@ -9,9 +9,9 @@ export type Basin = { root: number; outlet: number; level: number; area: number;
 // Exact arithmetic: the basin membership array starts with no basin at each vertex.
 const noBasin = /* Exact arithmetic: unassigned basin sentinel. */ -1;
 // Exact arithmetic: area and depth start at the additive and nonnegative maximum identity.
-const emptyBasinMeasures = /* Exact arithmetic: empty basin starts with zero area and depth. */ {
-	area: 0,
-	depth: 0
+const emptyBasinMeasures = {
+	area: /* Exact arithmetic: empty basin starts with zero area and depth. */ 0,
+	depth: /* Exact arithmetic: empty basin starts with zero area and depth. */ 0
 };
 
 function fraction(a: number, b: number, c: number) {

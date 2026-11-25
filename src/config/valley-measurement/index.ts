@@ -18,14 +18,6 @@ export const settings = defineSettings({
 		rationale:
 			'Keeps the registered method comparable across measured rivers and generated valleys.'
 	},
-	measurementCourseSpacingM: {
-		value: 6.25,
-		unit: 'm',
-		meaning: 'Course resampling interval',
-		bounds: { exclusiveMin: 0 },
-		rationale:
-			'Keeps the registered method comparable across measured rivers and generated valleys.'
-	},
 	measurementCornerBearingsDeg: {
 		value: [0, 15, 30, 45, 60, 75, 90],
 		unit: 'deg',
@@ -134,14 +126,6 @@ export const settings = defineSettings({
 		value: 3,
 		unit: 'm',
 		meaning: 'Minimum gain of a terrace step candidate',
-		bounds: { exclusiveMin: 0 },
-		rationale:
-			'Keeps the registered method comparable across measured rivers and generated valleys.'
-	},
-	measurementGentleSlopeLimit: {
-		value: 0.02,
-		unit: 'rise/run',
-		meaning: 'Maximum slope classified as gentle land',
 		bounds: { exclusiveMin: 0 },
 		rationale:
 			'Keeps the registered method comparable across measured rivers and generated valleys.'

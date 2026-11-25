@@ -111,7 +111,7 @@ function addFace(sink: MeshSink, frame: Frame, face: PrintFace) {
 			frame,
 			cell,
 			base,
-			/* Exact arithmetic: unshifted material plane. */ { at: 0 },
+			{ at: /* Exact arithmetic: unshifted material plane. */ 0 },
 			back
 		);
 }
@@ -189,11 +189,11 @@ function collect(
 
 // Exact arithmetic: an empty mesh uses zero triangles.
 function emptySurface(family: Family, level: SurfaceLevel, moduleScale: number): SurfaceMesh {
-	return /* Exact arithmetic: an empty surface contains zero triangles. */ {
+	return {
 		family,
 		level,
 		moduleScale,
-		triangles: 0,
+		triangles: /* Exact arithmetic: an empty surface contains zero triangles. */ 0,
 		meshes: new Map(),
 		lines: []
 	};

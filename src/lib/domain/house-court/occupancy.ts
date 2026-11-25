@@ -221,7 +221,7 @@ function carve(plan: Plan, path: readonly string[]) {
 			id,
 			cell.storeys > 1
 				? { role: 'gate', storeys: cell.storeys }
-				: /* Exact arithmetic: open passage has no built stories. */ { role: 'passage', storeys: 0 }
+				: { role: 'passage', storeys: /* Exact arithmetic: open passage has no built stories. */ 0 }
 		);
 	}
 }
@@ -321,18 +321,18 @@ export function createHouseOccupancy(
 	for (const cell of space.cells) {
 		const span = distances.get(cell.id) ?? 0;
 		if (courtIds.has(cell.id))
-			plan.set(
-				cell.id,
-				/* Exact arithmetic: open court has no built stories. */ { role: 'court', storeys: 0 }
-			);
+			plan.set(cell.id, {
+				role: 'court',
+				storeys: /* Exact arithmetic: open court has no built stories. */ 0
+			});
 		else if (
 			(!fronting(cell) && span > reach) ||
 			(minimumWidthM > 0 && fineCellWidth(cell) < minimumWidthM)
 		)
-			plan.set(
-				cell.id,
-				/* Exact arithmetic: open garden has no built stories. */ { role: 'garden', storeys: 0 }
-			);
+			plan.set(cell.id, {
+				role: 'garden',
+				storeys: /* Exact arithmetic: open garden has no built stories. */ 0
+			});
 		else if ((scale === 'calm' && fronting(cell)) || scale === 'large')
 			plan.set(cell.id, { role: 'wing', storeys: front });
 		else {
@@ -363,10 +363,10 @@ export function createHouseOccupancy(
 	const unbuildable = buildFailure(space, entry?.cell.id, built, rise);
 	if (unbuildable)
 		for (const id of plan.keys())
-			plan.set(
-				id,
-				/* Exact arithmetic: open garden has no built stories. */ { role: 'garden', storeys: 0 }
-			);
+			plan.set(id, {
+				role: 'garden',
+				storeys: /* Exact arithmetic: open garden has no built stories. */ 0
+			});
 	return Object.freeze({
 		spaceId: space.id,
 		cellIds: Object.freeze(space.cells.map(({ id }) => id)),
@@ -385,11 +385,9 @@ export function createHouseOccupancy(
 		}),
 		cells: Object.freeze(
 			space.cells.map(({ id }) => {
-				const { role, storeys } = plan.get(
-					id
-				) ?? /* Exact arithmetic: open garden has no built stories. */ {
+				const { role, storeys } = plan.get(id) ?? {
 					role: 'garden',
-					storeys: 0
+					storeys: /* Exact arithmetic: open garden has no built stories. */ 0
 				};
 				const { built, fromStorey } = cellRoles[role];
 				const toStorey = built ? storeys : 0;

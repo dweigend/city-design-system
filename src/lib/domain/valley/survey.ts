@@ -5,13 +5,13 @@ import type { terrainSampler } from './terrain-sample';
 type Sample = ReturnType<typeof terrainSampler>;
 
 /** Square survey window centered on the origin, in meters. */
-export type SurveyWindow = Readonly<{ sideM: number; spacingM: number; buildableSlope: number }>;
+export type SurveyWindow = Readonly<{ sideM: number; spacingM: number; gentleSlopeLimit: number }>;
 
-/** Default survey window and buildable slope. */
+/** Default survey window and gentle-slope threshold. */
 export const surveyDefaults: SurveyWindow = Object.freeze({
 	sideM: defaults.surveySideM,
 	spacingM: defaults.surveySpacingM,
-	buildableSlope: defaults.surveyBuildableSlopeRatio
+	gentleSlopeLimit: defaults.surveyGentleSlopeRatio
 });
 
 // Exact arithmetic: four adjacent nodes on the rectangular survey lattice.
@@ -41,7 +41,8 @@ export type GroundSurvey = Readonly<{
 	drySlope: Readonly<{ p50: number; p95: number; max: number }>;
 	waterShare: number;
 	lakeArea: number;
-	buildableShare: number;
+	/** Fraction of all survey nodes that are dry and below the gentle-slope threshold. */
+	gentleDryShare: number;
 	faults: HydrologyFaults;
 }>;
 
@@ -134,7 +135,7 @@ function uphillSteps(reaches: readonly Reach[], halfM: number) {
 	return steps;
 }
 
-/** Samples every node of the window once and measures relief, slope, water and buildable land,
+/** Samples every node of the window once and measures relief, slope, water and gentle dry land,
  * and bisects wet–dry grid edges to compare land against water at the same shore. */
 export function surveyGround(
 	sample: Sample,
@@ -142,20 +143,20 @@ export function surveyGround(
 	window: SurveyWindow
 ): GroundSurvey {
 	if (
-		![window.sideM, window.spacingM, window.buildableSlope].every(Number.isFinite) ||
-		!(window.spacingM > 0 && window.sideM > 2 * window.spacingM && window.buildableSlope > 0)
+		![window.sideM, window.spacingM, window.gentleSlopeLimit].every(Number.isFinite) ||
+		!(window.spacingM > 0 && window.sideM > 2 * window.spacingM && window.gentleSlopeLimit > 0)
 	)
 		throw new RangeError('invalid-survey');
 	const nodes = sampleNodes(sample, window);
 	const { side, heights, wet } = nodes;
-	// Exact arithmetic: count and maximum accumulators start at zero.
-	const tally = /* Exact arithmetic: initial values of the survey accumulators. */ {
-		maxSlope: 0,
-		maxWetSlope: 0,
-		water: 0,
-		buildable: 0,
-		lake: 0,
-		shoreBelow: 0
+	const initialCount = /* Exact arithmetic: count and maximum accumulators start at zero. */ 0;
+	const tally = {
+		maxSlope: initialCount,
+		maxWetSlope: initialCount,
+		water: initialCount,
+		gentleDry: initialCount,
+		lake: initialCount,
+		shoreBelow: initialCount
 	};
 	let [lowest, highest] = [Infinity, -Infinity];
 	const levels = new Map<number, { low: number; high: number }>();
@@ -171,12 +172,13 @@ export function surveyGround(
 				tally.maxWetSlope = Math.max(tally.maxWetSlope, slope);
 			} else {
 				drySlopes.push(slope);
-				if (slope < window.buildableSlope) tally.buildable++;
+				if (slope < window.gentleSlopeLimit) tally.gentleDry++;
 			}
 			tally.shoreBelow += shoreFaults(sample, nodes, row, column);
 			if (!nodes.lake[index]) continue;
-			const rowWeight = row === 0 || row === side - 1 ? 0.5 : 1;
-			const columnWeight = column === 0 || column === side - 1 ? 0.5 : 1;
+			const halfWeight = /* Exact arithmetic: boundary nodes cover half an interval along that axis. */ 0.5;
+			const rowWeight = row === 0 || row === side - 1 ? halfWeight : 1;
+			const columnWeight = column === 0 || column === side - 1 ? halfWeight : 1;
 			tally.lake += rowWeight * columnWeight;
 			const water = nodes.water[index];
 			const level = levels.get(nodes.lake[index]);
@@ -204,7 +206,7 @@ export function surveyGround(
 		drySlope: Object.freeze(drySlopeSummary),
 		waterShare: tally.water / count,
 		lakeArea: tally.lake * nodes.spacing ** 2,
-		buildableShare: tally.buildable / count,
+		gentleDryShare: tally.gentleDry / count,
 		faults: Object.freeze({
 			uphillSteps: uphillSteps(reaches, window.sideM / 2),
 			lakeTiltM: Math.max(0, ...Array.from(levels.values(), ({ low, high }) => high - low)),

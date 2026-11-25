@@ -18,18 +18,24 @@ import {
 	readCitySide,
 	readCityDistricts,
 	readCityGrid,
-	readCityParcels
+	readCityParcels,
+	type CityPlanVariant
 } from '../src/lib/world/city-site';
 import { TerrainGrid } from '../src/lib/domain/terrain-grid';
 import { groundContactMetrics, groundMetrics, hubGroundMetrics } from './city-study-ground';
-import { districtMetrics, growthMetrics, latticeMetrics } from './city-study-metrics';
-import { shoreMetrics } from './city-study-shore';
+import {
+	districtMetrics,
+	growthMetrics,
+	latticeMetrics,
+	latticeReplayStable
+} from './city-study-metrics';
+import { shoreFit, shoreMetrics } from './city-study-shore';
 import { measureParcelTiming, parcelGrowthStable, parcelMetrics } from './city-study-parcels';
 import { planMetrics } from './city-study-plan';
 import { footprintMirrorShare, maximumMedianMirrorShare, mirrorSeeds } from './city-study-mirror';
 import { solidMetrics } from './city-study-solids';
 import { summarize, type Row } from './city-study-summary';
-import { footprintCompactnessRange } from './config/city-study';
+import { footprintCompactnessRange, shoreStudySizeM } from './config/city-study';
 import { requireSlot } from './experiment-host';
 
 requireSlot();
@@ -66,6 +72,15 @@ const hash = (value: unknown) => Bun.hash(JSON.stringify(value)).toString(16);
 
 const rows: Row[] = [];
 const shoreRows = [];
+const shoreFitRows: Array<
+	ReturnType<typeof shoreMetrics> & {
+		plan: CityPlanVariant;
+		seed: number;
+		relief: number;
+		runoff: number;
+		shoreFixture: boolean;
+	}
+> = [];
 const parcelRows = [];
 const parcelGrowthRows: Array<{
 	plan: string;
@@ -99,6 +114,9 @@ for (const { relief, runoff, seeds } of terrain) {
 			}
 
 			const replay = createCitySite(undefined, { relief, runoff, seed });
+			const shoreFixture = plan === 'organic' && seed === 1201 && relief === 0;
+			const fit = shoreMetrics(readCityGrid(city, shoreStudySizeM, plan, seed), city.sampleGround);
+			shoreFitRows.push({ plan, seed, relief, runoff, shoreFixture, ...fit });
 			for (const [sizeClass, size] of Object.entries(sizes)) {
 				const [layout, gridMs] = time(() => readCityGrid(city, size, plan, seed));
 				const { grid, areaKm2, datumZ, crossings } = layout;
@@ -162,15 +180,10 @@ for (const { relief, runoff, seeds } of terrain) {
 				const studyLattices = cityLatticesByPlan[plan].filter(
 					(lattice) => sizeClass === 'town' || lattice === 'box' || lattice === 'centered'
 				);
-				const shoreFixture =
-					plan === 'organic' && seed === 1201 && relief === 0 && sizeClass === 'town';
 				const spans = crossings.map(({ path }) => path.lengthM).sort((a, b) => a - b);
 				for (const lattice of studyLattices) {
 					const [frame, latticeMs] = time(() => createCityLattice(columns, datumZ, lattice));
-					// A single largest-plan replay per lattice covers the full input extent.
-					const frameStable =
-						sizeClass !== 'largest' ||
-						hash(createCityLattice(again, datumZ, lattice)) === hash(frame);
+					const frameStable = latticeReplayStable(frame, again, datumZ, lattice);
 					const row: Row = {
 						plan,
 						lattice,
@@ -198,12 +211,12 @@ for (const { relief, runoff, seeds } of terrain) {
 						...latticeMetrics(columns, frame),
 						...solidMetrics(frame),
 						...growth,
+						frameStable,
 						deterministic: gridStable && frameStable,
 						cloneStable,
 						shoreCrossingsValid:
-							(!shoreFixture || spans.length > 0) &&
+							(!shoreFixture || sizeClass !== 'town' || spans.length > 0) &&
 							spans.every((span) => span > 0 && span <= citySiteConfig.crossingMaxLengthM),
-						shoreAlignmentValid: !shoreFixture || (shore.clipped > 0 && shore.alignedEdges > 0),
 						gridMs,
 						districtMs,
 						latticeMs
@@ -248,7 +261,6 @@ function failures(row: Row, kinds: string) {
 		['bay-address', row.unresolvedBayAddresses === 0],
 		['clone', row.cloneStable === true],
 		['crossing-span', row.shoreCrossingsValid === true],
-		['shore-alignment', row.shoreAlignmentValid === true],
 		['folded-cap', row.foldedCaps === 0],
 		['bay-solid', row.orphanSolids === 0 && row.missingSolids === 0],
 		['solid-volume', Number(row.minVolume) > 0],
@@ -290,6 +302,24 @@ function failures(row: Row, kinds: string) {
 }
 
 writeFileSync(resolve(out, 'shore.json'), JSON.stringify(shoreRows, null, 1) + '\n');
+const shoreAcceptance = cityPlanVariants.map((plan) => ({
+	plan,
+	...shoreFit(shoreFitRows.filter((row) => row.plan === plan))
+}));
+const shoreFixtureClipped = shoreFitRows.some(
+	({ shoreFixture, clipped }) => shoreFixture && clipped > 0
+);
+writeFileSync(
+	resolve(out, 'shore-fit.json'),
+	JSON.stringify(
+		{ sizeM: shoreStudySizeM, shoreFixtureClipped, shoreAcceptance, cases: shoreFitRows },
+		null,
+		1
+	) + '\n'
+);
+console.table(shoreAcceptance);
+if (!shoreFixtureClipped)
+	console.error('Organic lowland shoreline fixture did not exercise clipping');
 writeFileSync(resolve(out, 'results.json'), JSON.stringify(rows, null, 1) + '\n');
 const columns = [...new Set(rows.flatMap((row) => Object.keys(row)))];
 writeFileSync(
@@ -328,6 +358,8 @@ const medianMirror =
 console.log('Lowland mirror share', { min: shares[0], median: medianMirror, max: shares.at(-1) });
 if (
 	rows.some(({ pass }) => !pass) ||
+	shoreAcceptance.some(({ pass }) => !pass) ||
+	!shoreFixtureClipped ||
 	parcelRows.some(({ failures }) => failures.length > 0) ||
 	parcelGrowthRows.some(({ stable }) => !stable) ||
 	parts > 3 ||

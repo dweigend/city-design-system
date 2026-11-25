@@ -78,12 +78,11 @@ async function create({
 	scene.add(content.group);
 	let aspect = 1;
 	let widthPx = 1;
-	let viewport: Viewport =
-		/* Exact arithmetic: the initial viewport is one unit wide and centered at the origin. */ {
-			width: 1,
-			metersPerPixel: 1,
-			center: [0, 0, 0]
-		};
+	let viewport: Viewport = {
+		width: /* Exact arithmetic: unit viewport before the first fit. */ 1,
+		metersPerPixel: /* Exact arithmetic: unit scale before the first fit. */ 1,
+		center: /* Exact arithmetic: viewport starts at the origin. */ [0, 0, 0]
+	};
 	let present: Presentation | undefined;
 	let presentAt: Viewport | undefined;
 	let presented: readonly Drawable[] | undefined;
