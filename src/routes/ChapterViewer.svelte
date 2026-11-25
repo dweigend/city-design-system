@@ -1,14 +1,101 @@
-<script lang="ts">
-	import { onMount, type ComponentProps, type Snippet } from 'svelte';
+<script module lang="ts">
+	import type { ComponentProps } from 'svelte';
 	import { StageView } from '../lib/scene/stage-view';
+
+	type StageProps = ComponentProps<typeof StageView>;
+	type AspectFrame = Readonly<{
+		stage: Pick<StageProps, 'drawables' | 'view' | 'fit' | 'label'>;
+		args: Readonly<Record<string, number>>;
+		metric: Readonly<{ label: string; value: number; unit?: string }>;
+	}>;
+
+	export type ChapterAspect = Readonly<{
+		title: string;
+		summary: string;
+		load: () => Promise<{ run: (phase: 'start' | 'comparison') => AspectFrame }>;
+		source: () => Promise<{ default: string }>;
+	}>;
+</script>
+
+<script lang="ts">
+	import { onDestroy, onMount, type Snippet } from 'svelte';
+	import { Button } from '../lib/ui/button';
 	import { IconButton } from '../lib/ui/icon-button';
 
-	let { stage, controls }: { stage: ComponentProps<typeof StageView>; controls?: Snippet } =
-		$props();
+	let {
+		stage,
+		controls,
+		aspects,
+		onAspectStop
+	}: {
+		stage: StageProps;
+		controls?: Snippet;
+		aspects?: readonly ChapterAspect[];
+		onAspectStop?: () => void;
+	} = $props();
 	let viewer: HTMLDivElement;
 	let trigger = $state<HTMLElement | null>(null);
 	let supported = $state(false);
 	let fullscreen = $state(false);
+	let active = $state.raw<ChapterAspect>();
+	let demo = $state.raw<{ frame: AspectFrame; source: string }>();
+	let failed = $state.raw<ChapterAspect>();
+	let requestId = 0;
+	let comparisonTimer: ReturnType<typeof setTimeout> | undefined;
+	const comparisonDelayMs = 2500;
+	const metricFormat = new Intl.NumberFormat('en', { maximumFractionDigits: 3 });
+	const shown = $derived(
+		demo ? { ...stage, ...demo.frame.stage, presentation: undefined, frameWork: undefined } : stage
+	);
+
+	function cancelAspect() {
+		requestId++;
+		clearTimeout(comparisonTimer);
+		comparisonTimer = undefined;
+	}
+
+	onDestroy(cancelAspect);
+
+	function stopAspect() {
+		cancelAspect();
+		active = undefined;
+		demo = undefined;
+		onAspectStop?.();
+		if (fullscreen) trigger?.focus({ preventScroll: true });
+	}
+
+	function failAspect(aspect: ChapterAspect) {
+		stopAspect();
+		failed = aspect;
+	}
+
+	async function toggleAspect(aspect: ChapterAspect) {
+		if (active === aspect) {
+			stopAspect();
+			return;
+		}
+
+		cancelAspect();
+		const request = requestId;
+		active = aspect;
+		demo = undefined;
+		failed = undefined;
+		try {
+			const [{ run }, { default: source }] = await Promise.all([aspect.load(), aspect.source()]);
+			if (request !== requestId) return;
+			demo = { frame: run('start'), source };
+			comparisonTimer = setTimeout(() => {
+				comparisonTimer = undefined;
+				try {
+					demo = { frame: run('comparison'), source };
+				} catch {
+					failAspect(aspect);
+				}
+			}, comparisonDelayMs);
+		} catch {
+			if (request === requestId) failAspect(aspect);
+		}
+	}
 
 	onMount(() => {
 		supported = document.fullscreenEnabled && typeof viewer.requestFullscreen === 'function';
@@ -41,10 +128,17 @@
 <svelte:document onfullscreenchange={syncFullscreen} onkeydown={exitOnEscape} />
 
 <div class="chapter-viewer" bind:this={viewer}>
-	<StageView {...stage} />
+	<StageView {...shown} />
 	{#if controls || supported}
 		<div class="chapter-viewer-hud">
-			{@render controls?.()}
+			{#if !active}
+				{@render controls?.()}
+			{:else}
+				<span class="small chapter-viewer-subject">{active.title}</span>
+				{#if fullscreen}
+					<Button label="Stop" onclick={stopAspect} />
+				{/if}
+			{/if}
 			{#if supported}
 				<IconButton
 					bind:ref={trigger}
@@ -56,3 +150,55 @@
 		</div>
 	{/if}
 </div>
+
+{#if aspects?.length}
+	<ul class="chapter-aspects" aria-label="Single-aspect demos">
+		{#each aspects as aspect (aspect.title)}
+			<li class="chapter-aspect">
+				<div class="chapter-aspect-row">
+					<div>
+						<h2>{aspect.title}</h2>
+						<p class="small">{aspect.summary}</p>
+					</div>
+					{#if !fullscreen || active !== aspect}
+						<Button
+							label={active === aspect ? 'Stop' : 'Play'}
+							onclick={() => void toggleAspect(aspect)}
+						/>
+					{/if}
+				</div>
+				{#if failed === aspect}
+					<p class="small" role="status">Could not load this demo. Select Play to try again.</p>
+				{:else if active === aspect && !demo}
+					<p class="small" role="status">Loading demo…</p>
+				{/if}
+			</li>
+		{/each}
+	</ul>
+	{#if demo && active}
+		<div class="chapter-aspect-details">
+			<dl class="chapter-aspect-values data" aria-live="polite">
+				{#each Object.entries(demo.frame.args) as [name, value] (name)}
+					<div>
+						<dt translate="no">{name}</dt>
+						<dd>{value}</dd>
+					</div>
+				{/each}
+				<div class="chapter-aspect-metric">
+					<dt>{demo.frame.metric.label}</dt>
+					<dd>
+						{metricFormat.format(demo.frame.metric.value)}{#if demo.frame.metric.unit}&nbsp;{demo
+								.frame.metric.unit}{/if}
+					</dd>
+				</div>
+			</dl>
+			<!-- svelte-ignore a11y_no_noninteractive_tabindex (Make the scrolling source reachable by keyboard.) -->
+			<pre
+				class="chapter-aspect-source"
+				role="region"
+				aria-label={`${active.title} source`}
+				tabindex="0"
+				translate="no"><code>{demo.source}</code></pre>
+		</div>
+	{/if}
+{/if}

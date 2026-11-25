@@ -16,6 +16,7 @@
 	import ChapterHeader from '../ChapterHeader.svelte';
 	import ChapterViewer from '../ChapterViewer.svelte';
 	import { chapterAt } from '../chapters';
+	import { aspects } from './aspects';
 
 	const chapter = chapterAt('/landscape');
 	const seeds = [1201, 1301, 1409, 7, 42, 314, 2718, 9001, 65535, 424242, 31337, 8086];
@@ -27,27 +28,42 @@
 		{ value: 'iso', label: 'Iso' },
 		{ value: 'plan', label: 'Plan' }
 	];
-	let seedIndex = $derived(Math.max(0, seeds.indexOf(Number(page.url.searchParams.get('seed')))));
+	const startSeedIndex = $derived(
+		Math.max(0, seeds.indexOf(Number(page.url.searchParams.get('seed'))))
+	);
+	let seedIndex = $derived(startSeedIndex);
 	const seed = $derived(seeds[seedIndex]);
 	function clampedQuery(name: string, fallback: number, low: number, high: number) {
 		const value = Number(page.url.searchParams.get(name) ?? fallback);
 		return Number.isFinite(value) ? Math.min(high, Math.max(low, value)) : fallback;
 	}
-	let relief = $derived(
+	const startRelief = $derived(
 		clampedQuery('relief', reliefParam.default, reliefParam.min, reliefParam.max)
 	);
-	let runoff = $derived(
+	const startRunoff = $derived(
 		clampedQuery('runoff', runoffParam.default, runoffParam.min, runoffParam.max)
 	);
 	const querySinuosity = $derived(
 		Number(page.url.searchParams.get('sinuosity') ?? defaultSinuosity)
 	);
-	let sinuosity = $derived(
+	const startSinuosity = $derived(
 		Number.isFinite(querySinuosity)
 			? Math.min(max, Math.max(min, Number(querySinuosity.toFixed(2))))
 			: defaultSinuosity
 	);
-	let view = $derived<View>(page.url.searchParams.get('view') === 'plan' ? 'plan' : 'iso');
+	const startView = $derived<View>(page.url.searchParams.get('view') === 'plan' ? 'plan' : 'iso');
+	let relief = $derived(startRelief);
+	let runoff = $derived(startRunoff);
+	let sinuosity = $derived(startSinuosity);
+	let view = $derived(startView);
+
+	function resetHero() {
+		seedIndex = startSeedIndex;
+		sinuosity = startSinuosity;
+		relief = startRelief;
+		runoff = startRunoff;
+		view = startView;
+	}
 
 	function prepareValley(seed: number, sinuosity: number, relief: number, runoff: number) {
 		const start = performance.now();
@@ -90,6 +106,8 @@
 	data-triangles={model.triangleCount}
 >
 	<ChapterViewer
+		{aspects}
+		onAspectStop={resetHero}
 		stage={{
 			drawables: model.drawables,
 			view,

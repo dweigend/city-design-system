@@ -243,6 +243,137 @@ journeys('keeps the landscape stage and controls through fullscreen and exit', a
 	await expectIdle();
 });
 
+// A delayed first import must not replace the latest selection. Exercise the real chunks,
+// exact source, keyboard activation and StageView lifecycle because Bun only runs the demos.
+journeys('runs and stops lazy landscape aspects on one stage', async ({ page }) => {
+	await open(page, '/landscape');
+	const canvas = (await readyStages(page, 1)).first();
+	const original = await canvas.elementHandle();
+	const hero = page.getByRole('region', { name: 'River valley' });
+	const enter = page.getByRole('button', { name: 'Enter fullscreen' });
+	const width = await canvas.getAttribute('data-stage-width');
+	const drawableCount = await canvas.getAttribute('data-stage-drawables');
+	const meander = 'River meander';
+	const relief = 'Valley relief and contours';
+	const tributary = 'Tributary runoff and side-lake';
+	const card = (name: string) =>
+		hero.getByRole('listitem').filter({ has: page.getByRole('heading', { name, exact: true }) });
+	const play = (name: string) => card(name).getByRole('button', { name: 'Play' });
+	const source = (name: string) => page.getByRole('region', { name: `${name} source` });
+	const frames = async () => Number(await canvas.getAttribute('data-stage-frames'));
+
+	await expect(page.locator('.chapter-aspect-source')).toHaveCount(0);
+	await page.getByRole('button', { name: 'New terrain' }).click();
+	await page.getByRole('radio', { name: 'Plan' }).click();
+	await expect(hero.getByText('Seed 1301')).toBeVisible();
+
+	const beforePlay = await frames();
+	await play(meander).focus();
+	await page.keyboard.press('Enter');
+	await expect(source(meander)).toBeVisible();
+	const file = await readFile(
+		new URL('../../src/routes/landscape/aspects/meander.ts', import.meta.url),
+		'utf8'
+	);
+	expect(await source(meander).locator('code').textContent()).toBe(file);
+	await expect(canvas).toHaveAttribute('aria-label', 'Plan of the isolated main river channel');
+	await expect(page.locator('canvas')).toHaveCount(1);
+	await expect(canvas).toHaveAttribute('data-stage-drawables', '1');
+	await expect.poll(frames).toBeGreaterThan(beforePlay);
+	expect(await distinctPixels(canvas)).toBe(true);
+	const meanderMetric = hero.getByText('Measured sinuosity', { exact: true }).locator('..');
+	await expect(meanderMetric).toContainText('1.255');
+	await hero.screenshot({ path: journeys.info().outputPath('landscape-aspect-desktop.png') });
+
+	const manifest = JSON.parse(
+		await readFile(
+			new URL('../../.svelte-kit/output/client/.vite/manifest.json', import.meta.url),
+			'utf8'
+		)
+	) as Record<string, { file: string }>;
+	const reliefFile = manifest['src/routes/landscape/aspects/relief.ts'].file;
+	const reliefChunk = (url: URL) => url.pathname.endsWith('/' + reliefFile);
+	let held = false;
+	const release = Promise.withResolvers<void>();
+	await page.route(reliefChunk, async (route) => {
+		held = true;
+		await release.promise;
+		await route.continue();
+	});
+	try {
+		await play(relief).click();
+		await expect.poll(() => held).toBe(true);
+		await expect(card(relief).getByRole('status')).toHaveText('Loading demo…');
+		await play(tributary).click();
+		await expect(source(tributary)).toBeVisible();
+		const loaded = page.waitForResponse((response) => reliefChunk(new URL(response.url())));
+		release.resolve();
+		await (await loaded).finished();
+	} finally {
+		release.resolve();
+	}
+	await expect(source(tributary)).toBeVisible();
+	await expect(source(relief)).toHaveCount(0);
+	await expect(hero.getByText('Peak river discharge', { exact: true })).toBeVisible();
+
+	await page.setViewportSize({ width: 390, height: 844 });
+	await page.getByRole('radio', { name: 'Dark' }).click();
+	await expect(canvas).toHaveAttribute('data-stage-theme', 'dark');
+	expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(390);
+	await hero.screenshot({ path: journeys.info().outputPath('landscape-aspect-mobile-dark.png') });
+	await expect(source(tributary)).toBeVisible();
+	await expect(source(relief)).toHaveCount(0);
+	await page.setViewportSize({ width: 1366, height: 900 });
+	await expect(page.locator('canvas')).toHaveCount(1);
+
+	await card(tributary).getByRole('button', { name: 'Stop' }).click();
+	await expect(source(tributary)).toHaveCount(0);
+	await expect(hero.getByText('Seed 1201')).toBeVisible();
+	await page.getByRole('radio', { name: 'Plan' }).click();
+	await play(relief).click();
+	await expect(source(relief)).toBeVisible();
+	await expect(hero.getByText('Contour interval', { exact: true })).toBeVisible();
+	await enter.click();
+	const fullscreen = page.locator('.chapter-viewer:fullscreen');
+	await expect(fullscreen.locator('canvas')).toHaveCount(1);
+	await fullscreen.getByRole('button', { name: 'Stop' }).click();
+	await expect(fullscreen.getByRole('button', { name: 'Exit fullscreen' })).toBeFocused();
+	await page.keyboard.press('Escape');
+	await expect(enter).toHaveAccessibleName('Enter fullscreen');
+	await expect(enter).toBeFocused();
+
+	await expect(canvas).toHaveAttribute('data-stage-view', 'iso');
+	await expect(canvas).toHaveAttribute('data-stage-width', width ?? '');
+	await expect(canvas).toHaveAttribute('data-stage-drawables', drawableCount ?? '');
+	await expect(hero.getByText('Seed 1201')).toBeVisible();
+	await expect(page.locator('.chapter-aspect-source')).toHaveCount(0);
+	await expect(page.locator('canvas')).toHaveCount(1);
+	expect(await original.evaluate((element) => element === document.querySelector('canvas'))).toBe(
+		true
+	);
+
+	// Wait beyond the comparison delay to catch both an idle frame loop and an uncancelled timer.
+	const idleFrames = await frames();
+	const idleRafs = await page.evaluate(
+		() =>
+			new Promise<number>((resolve) => {
+				const original = window.requestAnimationFrame.bind(window);
+				let scheduled = 0;
+				window.requestAnimationFrame = (callback) => {
+					scheduled++;
+					return original(callback);
+				};
+				window.setTimeout(() => {
+					window.requestAnimationFrame = original;
+					resolve(scheduled);
+				}, 2800);
+			})
+	);
+	expect(idleRafs).toBe(0);
+	expect(await frames()).toBe(idleFrames);
+	await expect(page.locator('.chapter-aspect-source')).toHaveCount(0);
+});
+
 // City tabs and focus must change the displayed subject. This catches dead controls
 // and stale renders in the page wiring. Module tests cover the focus policy. No hooks are added.
 journeys('switches city steps and focuses on parcels', async ({ page }) => {

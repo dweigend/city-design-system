@@ -426,6 +426,54 @@
 		border-block-start: var(--hair) solid var(--line);
 		background: color-mix(in oklab, var(--paper) 92%, transparent);
 	}
+	.chapter-viewer-subject { margin-inline-end: auto; }
+	.chapter-aspects {
+		display: grid;
+		margin: var(--space-4) 0 0;
+		padding: 0;
+		list-style: none;
+	}
+	.chapter-aspect {
+		padding-block: var(--space-3);
+		border-block-end: var(--hair) solid var(--line);
+	}
+	.chapter-aspect-row {
+		display: grid;
+		grid-template-columns: minmax(0, 1fr) auto;
+		align-items: center;
+		gap: var(--space-3);
+	}
+	.chapter-aspect h2 {
+		font-size: var(--text-m);
+		text-wrap: balance;
+	}
+	.chapter-aspect [role='status'] { margin-block-start: var(--space-2); }
+	.chapter-aspect-details {
+		display: grid;
+		gap: var(--space-3);
+		margin-block-start: var(--space-4);
+		min-inline-size: 0;
+	}
+	.chapter-aspect-values {
+		display: flex;
+		flex-wrap: wrap;
+		gap: var(--space-2) var(--space-4);
+		margin: 0;
+		font-variant-numeric: tabular-nums;
+	}
+	.chapter-aspect-values dt { color: var(--ink-2); }
+	.chapter-aspect-values dd { margin: 0; }
+	.chapter-aspect-metric { font-weight: 600; }
+	.chapter-aspect-source {
+		margin: 0;
+		padding: var(--space-3);
+		max-block-size: 16rem;
+		overflow: auto;
+		background: var(--paper-2);
+		border: var(--hair) solid var(--line);
+		font: var(--text-xs) / 1.5 var(--font-mono);
+		tab-size: 2;
+	}
 	.valley-sliders {
 		display: grid;
 		flex: 1 1 24rem;

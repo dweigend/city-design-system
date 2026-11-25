@@ -3,6 +3,6 @@
 	"compilerOptions": {
 		"types": ["$app/types", "node", "bun"]
 	},
-	"include": ["src/**/*.test.ts", "scripts/**/*.ts"],
+	"include": ["src/app.d.ts", "src/**/*.test.ts", "scripts/**/*.ts"],
 	"exclude": ["scripts/fixtures/rules"]
 }
