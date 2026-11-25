@@ -15,10 +15,10 @@ card grain is shading, not geometry.
 - Patterns are laid in the coordinates of a body box (`patch.pattern`, built by
   `createPatternFrame` from all faces of the body; default the patch's own box) and fitted to whole
   periods over the body. Stripes use the long axis on the roof and long walls and the other
-  horizontal axis on the end walls. Each dark band sits at the center of its period, so both
-  walls meet at a period boundary at every corner. The roof and long walls share the same bands
-  along the eaves. Dot grids use the two body axes in the face (MAT-9). `createClad` builds the
-  box for claddings that name the same `body`.
+  horizontal axis on the end walls. Each dark band sits at the center of its period, so the four
+  vertical corners of a frame-aligned rectangular body lie at a period boundary on both walls. The
+  roof and long walls share the same bands along the eaves. Dot grids use the two body axes in the
+  face (MAT-9). `createClad` builds the box for claddings that name the same `body`.
 - Set `options.recipe` or a cladding's `recipe` to choose a pattern and override its pitch,
   printed share and joint spacing for that build. Omitted fields come from the named family.
   Painting uses the named family's palette, with graphite marks if the recipe adds a pattern to

@@ -26,9 +26,9 @@ function range(outline: readonly Vec2[], value: (point: Vec2) => number) {
 }
 
 /** Prints centered bands across the body's long axis, using the other horizontal axis on end
- * walls. Each axis fits whole periods over the body, so wall corners lie at period boundaries
- * on both faces and long walls share their phase with the roof at the eaves. Bands are cut
- * around openings. */
+ * walls. Each axis fits whole periods over the body, so the four vertical corners of a
+ * frame-aligned rectangular body lie at period boundaries on both faces and long walls share their
+ * phase with the roof at the eaves. Bands are cut around openings. */
 export function stripeMarks(face: PrintFace, params: PatternParams): Vec2[][] {
 	const long = /* Exact arithmetic: first pattern axis. */ 0;
 	const across = /* Exact arithmetic: second pattern axis. */ 1;

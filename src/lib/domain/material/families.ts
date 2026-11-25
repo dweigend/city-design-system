@@ -1,8 +1,8 @@
 import { materialSettings as m } from '../../../config/material';
 import { createCatalog, type CatalogRow } from '../../core/catalog';
 
-/** How a family prints its face: one plain tone, black and white stripes across the body's long
- * axis, or a regular grid of dots over the two body axes that lie in the face. */
+/** How a family prints its face: one plain tone, centered black and white stripes that wrap the
+ * body, or a regular grid of dots over the two body axes that lie in the face. */
 export type PatternKind = 'plain' | 'stripe' | 'dots';
 
 /** Pattern parameters in meters before fitting to a body: the period, the printed share of it,
