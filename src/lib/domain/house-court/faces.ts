@@ -139,10 +139,10 @@ function hidden(
 ): boolean {
 	const mid: Vec2 = [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2];
 	return s.cell.sides.some(({ neighbour }, i) => {
+		if (neighbour === null) return false;
 		const wall = side(s.cell.quad, i);
 		const offset = (mid[0] - wall.a[0]) * wall.normal[0] + (mid[1] - wall.a[1]) * wall.normal[1];
 		if (Math.abs(offset) > faceToleranceM) return false;
-		if (neighbour === null) return false;
 		for (let storey = s.fromStorey; storey < s.toStorey; storey += 1)
 			if (!builtAt(ctx, neighbour, storey)) return false;
 		return true;

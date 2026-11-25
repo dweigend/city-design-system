@@ -79,12 +79,21 @@ export function placeTownBlockHouses(
  * Unbuildable parcels retain their IDs and reasons, and stay garden. */
 export function createTownBlockHouses(...args: Parameters<typeof placeTownBlockHouses>) {
 	const { placed, unbuildable } = placeTownBlockHouses(...args);
-	const walls = placed.map(readParcelHouseWalls);
+	const walls = placed.length > 1 ? placed.map(readParcelHouseWalls) : [];
 	return {
 		placed: placed.map((house, i) => ({
 			...house,
-			adjoiningWalls: walls.flatMap((group, j) => (i === j ? [] : group))
+			adjoiningWalls: adjoiningWalls(walls, i)
 		})),
 		unbuildable
 	};
+}
+
+function adjoiningWalls(walls: readonly AdjoiningWall[][], own: number) {
+	const adjoining: AdjoiningWall[] = [];
+	for (let i = 0; i < walls.length; i++) {
+		if (i === own) continue;
+		for (const wall of walls[i]) adjoining.push(wall);
+	}
+	return adjoining;
 }

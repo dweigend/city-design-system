@@ -1,17 +1,16 @@
 import {
 	Box3,
 	BufferGeometry,
-	Float32BufferAttribute,
+	BufferAttribute,
 	InstancedBufferAttribute,
 	Mesh,
 	Sphere,
-	Uint32BufferAttribute,
 	type Group,
 	type Object3D
 } from 'three/webgpu';
 import { LineSegments2 } from 'three/addons/lines/webgpu/LineSegments2.js';
 import { defaults } from '../../../config/stage';
-import { lineGeometry, type Edges } from './edges';
+import { lineGeometry } from './edges';
 import { renderOrder, segmentData, type ProjectedPart, type StrokeSource } from './part';
 import type { batchMaterials, PartLook } from './rows';
 
@@ -20,7 +19,7 @@ export type BatchedPart = ProjectedPart & {
 	look?: Pick<
 		PartLook,
 		'opacity' | 'strokeOpacity' | 'hidden' | 'visible' | 'veil' | 'scale' | 'offset'
-	>;
+	> & { glass: boolean };
 };
 type Materials = ReturnType<typeof batchMaterials>;
 type Range = { start: number; count: number };
@@ -67,50 +66,82 @@ export function displayedBounds(part: ProjectedPart, output: Box3, scale: number
 	return output;
 }
 
+const xyz = /* Exact arithmetic: components per vertex or normal. */ 3;
+const zOffset = /* Exact arithmetic: Z component offset in an XYZ vertex. */ 2;
+const scalar = /* Exact arithmetic: one component per owner or index. */ 1;
+const segmentStride = /* Exact arithmetic: two XYZ endpoints per segment. */ 6;
+
+function fillSize(parts: readonly BatchedPart[], smooth: boolean) {
+	let vertices = 0;
+	let indices = 0;
+	for (const { arrays } of parts) {
+		if (!arrays) continue;
+		vertices += smooth ? arrays.positions.length / xyz : arrays.indices.length;
+		indices += arrays.indices.length;
+	}
+	return { vertices, indices };
+}
+
+// Three switches width at the primitive restart index. A smooth mesh can have unused vertices.
+const firstUint32Index = /* Exact arithmetic: reserved maximum uint16 index. */ 0xffff;
+
+function needsWideIndex(parts: readonly BatchedPart[], smooth: boolean, vertices: number) {
+	if (vertices <= firstUint32Index) return false;
+	if (!smooth) return true;
+	let end = vertices;
+	for (let i = parts.length - 1; i >= 0 && end > firstUint32Index; i--) {
+		const { arrays } = parts[i];
+		if (!arrays) continue;
+		end -= arrays.positions.length / xyz;
+		if (arrays.indices.some((index) => end + index >= firstUint32Index)) return true;
+	}
+	return false;
+}
+
 function fillBatch(
 	parts: readonly BatchedPart[],
 	materials: Materials,
 	smooth: boolean,
 	mesh?: Mesh<BufferGeometry, Materials['opaque']>
 ) {
-	const positions: number[] = [];
-	const indices: number[] = [];
-	const owners: number[] = [];
+	const size = fillSize(parts, smooth);
+	if (!size.indices) return;
+	const positions = new Float32Array(size.vertices * xyz);
+	const owners = new Uint32Array(size.vertices);
+	const indices = needsWideIndex(parts, smooth, size.vertices)
+		? new Uint32Array(size.indices)
+		: new Uint16Array(size.indices);
 	const ranges = new Map<BatchedPart, Range>();
+	let vertex = 0;
+	let start = 0;
 	for (const part of parts) {
 		const source = part.arrays;
 		if (!source) continue;
-		const start = indices.length;
-		const offset = owners.length;
+		const count = source.indices.length;
+		const vertices = smooth ? source.positions.length / xyz : count;
+		owners.fill(part.row, vertex, vertex + vertices);
 		if (smooth) {
-			for (const value of source.positions) positions.push(value);
-			for (let i = 0; i < source.positions.length; i += 3) owners.push(part.row);
-			for (const index of source.indices) indices.push(offset + index);
+			positions.set(source.positions, vertex * xyz);
+			for (let i = 0; i < count; i++) indices[start + i] = vertex + source.indices[i];
 		} else {
-			// Keep flat faces of object studies. Vertices cannot be shared across a hard fold.
-			for (const index of source.indices) {
-				const i = index * /* Exact arithmetic: XYZ components per vertex. */ 3;
-				positions.push(source.positions[i], source.positions[i + 1], source.positions[i + 2]);
-				indices.push(owners.length);
-				owners.push(part.row);
+			// Flat faces cannot share vertices across a hard fold.
+			for (let i = 0; i < count; i++) {
+				const from = source.indices[i] * xyz;
+				const to = (vertex + i) * xyz;
+				positions[to] = source.positions[from];
+				positions[to + 1] = source.positions[from + 1];
+				positions[to + zOffset] = source.positions[from + zOffset];
+				indices[start + i] = vertex + i;
 			}
 		}
-		ranges.set(part, { start, count: indices.length - start });
+		ranges.set(part, { start, count });
+		start += count;
+		vertex += vertices;
 	}
-	if (!ranges.size) return;
 	const geometry = new BufferGeometry()
-		.setAttribute(
-			'position',
-			new Float32BufferAttribute(positions, /* Exact arithmetic: XYZ components per vertex. */ 3)
-		)
-		.setAttribute(
-			'aPartIndex',
-			new Uint32BufferAttribute(
-				owners,
-				/* Exact arithmetic: each vertex stores one owner index. */ 1
-			)
-		)
-		.setIndex(indices);
+		.setAttribute('position', new BufferAttribute(positions, xyz))
+		.setAttribute('aPartIndex', new BufferAttribute(owners, scalar))
+		.setIndex(new BufferAttribute(indices, scalar));
 	geometry.computeVertexNormals();
 	const opaque = mesh ?? new Mesh(geometry, materials.opaque);
 	opaque.geometry = geometry;
@@ -129,33 +160,43 @@ function strokeBatch(
 	materials: Materials,
 	previous?: readonly LineSegments2[]
 ) {
-	const edges: Edges = { segments: [], fronts: [], backs: [] };
-	const rows: number[] = [];
+	let endpoints = 0;
+	let normalCount = 0;
+	for (const {
+		source: { edges }
+	} of members) {
+		endpoints += edges.segments.length;
+		normalCount += edges.fronts.length;
+	}
+	const edges = {
+		segments: new Float32Array(endpoints),
+		fronts: new Float32Array(normalCount),
+		backs: new Float32Array(normalCount)
+	};
+	const rows = new Uint32Array(endpoints / segmentStride);
 	const ranges: StrokeRange[] = [];
+	let start = 0;
+	let normal = 0;
 	for (const { part, source } of members) {
 		ranges.push({
 			part,
 			source,
-			start: edges.segments.length,
+			start,
 			scale: /* Exact arithmetic: identity stroke scale. */ 1,
 			offset: /* Exact arithmetic: identity stroke translation. */ 0
 		});
-		for (const channel of ['segments', 'fronts', 'backs'] as const)
-			for (const value of source.edges[channel]) edges[channel].push(value);
-		for (
-			let i = 0;
-			i < source.edges.segments.length;
-			i += /* Exact arithmetic: two XYZ endpoints per segment. */ 6
-		)
-			rows.push(part.row);
+		const next = start + source.edges.segments.length;
+		edges.segments.set(source.edges.segments, start);
+		edges.fronts.set(source.edges.fronts, normal);
+		edges.backs.set(source.edges.backs, normal);
+		rows.fill(part.row, start / segmentStride, next / segmentStride);
+		start = next;
+		normal += source.edges.fronts.length;
 	}
 	const geometry = lineGeometry(edges);
 	geometry.setAttribute(
 		'aPartIndex',
-		new InstancedBufferAttribute(
-			new Uint32Array(rows),
-			/* Exact arithmetic: one owner index per stroke. */ 1
-		)
+		new InstancedBufferAttribute(rows, /* Exact arithmetic: one owner index per stroke. */ 1)
 	);
 	const painters = {
 		explicit: [materials.front, materials.back],
@@ -367,7 +408,7 @@ export function packChunk(materials: Materials, group: Group, smooth: boolean) {
 			sorted.set(part, alpha);
 		}
 		alpha.body.visible = true;
-		alpha.body.material = part.drawable.finish === 'glass' ? materials.glass : materials.alpha;
+		alpha.body.material = look.glass ? materials.glass : materials.alpha;
 		scratch.getBoundingSphere(alpha.sphere);
 		if (look.veil && !alpha.veil) {
 			alpha.veil = new Mesh(alpha.body.geometry, materials.veil);

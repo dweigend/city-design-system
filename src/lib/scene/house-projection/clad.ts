@@ -150,16 +150,37 @@ export function houseCladdings(
 	programmed = false,
 	addressed = false
 ): Cladding[] {
-	const drawn = lowerLevel(level, undefined);
-	const plan = planHouseMaterials(materials, house, seed);
+	return claddingsForPlan(
+		faces,
+		materials,
+		planHouseMaterials(materials, house, seed),
+		budget,
+		lowerLevel(level, undefined),
+		programmed,
+		addressed
+	);
+}
+
+function claddingsForPlan(
+	faces: readonly HouseFace[],
+	materials: HouseMaterials,
+	plan: Plan,
+	budget: number,
+	level: SurfaceLevel,
+	programmed: boolean,
+	addressed: boolean
+): Cladding[] {
+	if (!readLevelDetail(level).parts) return [];
 	const recessed = new Set(faces.filter(({ openings }) => openings.length).map(({ body }) => body));
 	const clad = faces.flatMap((face) => {
 		if (programmed && (face.program?.phase === 'retained' || face.program?.use === 'greenhouse'))
 			return [];
 		const material = materialOf(materials, plan, face);
-		const skin = material && skinOf(material, face, drawn, recessed.has(face.body));
+		if (!material) return [];
+		const skin = skinOf(material, face, level, recessed.has(face.body));
+		if (!skin) return [];
 		const area = faceAreaM2(face);
-		return material && skin && area > 0 ? [{ face, material, skin, area }] : [];
+		return area > 0 ? [{ face, material, skin, area }] : [];
 	});
 	const total = clad.reduce((sum, { area }) => sum + area, 0);
 	return clad.map(({ face, material, skin, area }) => {
@@ -238,19 +259,19 @@ function buildHouse(
 	const placed = placement ? move(shown, placement.translation, placement.radians) : shown;
 	const moved = placement ? faces.map((face) => place(face, placement)) : faces;
 	const seed = options.seed ?? 0;
-	const claddings = houseCladdings(
+	const plan = planHouseMaterials(materials, object.id, seed);
+	const claddings = claddingsForPlan(
 		moved,
 		materials,
+		plan,
 		options.budget,
 		level,
-		object.id,
-		seed,
 		!!options.program,
 		!!options.addressed
 	);
 	const result = {
 		clad: createClad(placed, claddings, { level }),
-		plan: planHouseMaterials(materials, object.id, seed),
+		plan,
 		level
 	};
 	cache.set(key, result);
@@ -325,24 +346,39 @@ function projectPlain(
 			];
 		})
 	);
-	const groups = new Map<string, Drawable[]>();
-	for (const [i, drawable] of resolveSurfaces(placed, assignment).entries()) {
+	const resolved = resolveSurfaces(placed, assignment).map((drawable, i) => {
 		const slot = placed.parts[i].slot;
 		const body = materials.slots[slot] !== undefined;
-		const surface = assignment[slot];
-		const address = program?.parts.get(drawable.id);
-		const key = addressed
-			? drawable.id
-			: JSON.stringify([body, surface, address?.program, address?.storeySpan]);
-		const group = groups.get(key) ?? [];
-		group.push(
-			paintHousePhase({ ...drawable, ...(body ? { creaseAngleRad: plainCreaseRad } : {}) }, program)
+		return paintHousePhase(
+			body ? { ...drawable, creaseAngleRad: plainCreaseRad } : drawable,
+			program
 		);
-		groups.set(key, group);
-	}
-	const drawables = Array.from(groups.values(), mergeHouseDrawables);
+	});
+	const drawables = addressed
+		? resolved
+		: groupPlainDrawables(resolved, placed, materials, assignment, program);
 	if (!program) cached.set(key, drawables);
 	return [...drawables];
+}
+
+function groupPlainDrawables(
+	resolved: Drawable[],
+	object: PlaceableObject,
+	materials: HouseMaterials,
+	assignment: SurfaceAssignment,
+	program: ProgramDrawing | undefined
+) {
+	const groups = new Map<string, Drawable[]>();
+	for (const [i, drawable] of resolved.entries()) {
+		const slot = object.parts[i].slot;
+		const body = materials.slots[slot] !== undefined;
+		const address = program?.parts.get(drawable.id);
+		const key = JSON.stringify([body, assignment[slot], address?.program, address?.storeySpan]);
+		const group = groups.get(key);
+		if (group) group.push(drawable);
+		else groups.set(key, [drawable]);
+	}
+	return Array.from(groups.values(), mergeHouseDrawables);
 }
 
 /** Keeps each body's triangle range for crease extraction in a merged drawing. */

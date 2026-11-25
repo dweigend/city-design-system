@@ -47,12 +47,30 @@ export function boxMesh(boxes: readonly Box[]): Shape {
 
 /** Joins a nonempty list of convex planar polygons, each wound outward, into one mesh. */
 export function faceMesh(faces: readonly (readonly Vec3[])[]): Shape {
-	const positions: number[] = [];
-	const indices: number[] = [];
+	let vertexCount = 0;
+	let triangleCount = 0;
 	for (const face of faces) {
-		const first = positions.length / 3;
-		for (const point of face) positions.push(...point);
-		for (let k = 1; k + 1 < face.length; k += 1) indices.push(first, first + k, first + k + 1);
+		vertexCount += face.length;
+		triangleCount += Math.max(0, face.length - 2);
+	}
+	const stride = /* Exact arithmetic: three coordinates per vertex and indices per triangle. */ 3;
+	const positions = new Array<number>(vertexCount * stride);
+	const indices = new Array<number>(triangleCount * stride);
+	let vertex = 0;
+	let coordinate = 0;
+	let index = 0;
+	for (const face of faces) {
+		for (const [x, y, z] of face) {
+			positions[coordinate++] = x;
+			positions[coordinate++] = y;
+			positions[coordinate++] = z;
+		}
+		for (let k = 1; k + 1 < face.length; k++) {
+			indices[index++] = vertex;
+			indices[index++] = vertex + k;
+			indices[index++] = vertex + k + 1;
+		}
+		vertex += face.length;
 	}
 	return { kind: 'mesh', positions, indices };
 }

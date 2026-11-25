@@ -26,13 +26,21 @@ export function parcelGroundRange(
 			const [b, c] = [quad[k], quad[k + 1]];
 			const longest = Math.max(distance(a, b), distance(b, c), distance(c, a));
 			const n = Math.max(1, Math.ceil(longest / groundSampleSpacingM));
-			for (let u = 0; u <= n; u += 1)
-				for (let v = 0; v <= n - u; v += 1)
-					sample([
-						a[0] + (u * (b[0] - a[0]) + v * (c[0] - a[0])) / n,
-						a[1] + (u * (b[1] - a[1]) + v * (c[1] - a[1])) / n
-					]);
+			sampleTriangle(a, b, c, n, sample);
 		}
 	}
 	return { low, high };
+}
+
+function sampleTriangle(a: Vec2, b: Vec2, c: Vec2, n: number, sample: (point: Vec2) => void) {
+	const [ax, ay] = a;
+	const bx = b[0] - ax;
+	const by = b[1] - ay;
+	const cx = c[0] - ax;
+	const cy = c[1] - ay;
+	for (let u = 0; u <= n; u++) {
+		const ux = u * bx;
+		const uy = u * by;
+		for (let v = 0; v <= n - u; v++) sample([ax + (ux + v * cx) / n, ay + (uy + v * cy) / n]);
+	}
 }

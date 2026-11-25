@@ -48,23 +48,34 @@ export function creases(
 ): Edges {
 	const limit = creaseAngleRad === undefined ? creaseDot : Math.cos(creaseAngleRad);
 	const edges = new Map<string, Edge>();
-	for (let i = 0; i < indices.length; i += 3) {
-		const triangle = indices.slice(i, i + triangleVertices);
-		const points = triangle.map((index) =>
-			new Vector3().fromArray(positions, index * xyzComponents)
-		);
-		const [a, b, c] = points;
-		const front = b.clone().sub(a).cross(c.clone().sub(a)).normalize();
-		if (!front.lengthSq()) continue;
-		const keys = points.map((point) =>
-			point
-				.toArray()
-				.map((x) => Math.round(x * weldPerMeter))
-				.join(',')
-		);
+	const keys = new Map<number, string>();
+	const a = new Vector3();
+	const b = new Vector3();
+	const c = new Vector3();
+
+	function keyAt(index: number) {
+		let key = keys.get(index);
+		if (key === undefined) {
+			key = vertexKey(positions, index * xyzComponents);
+			keys.set(index, key);
+		}
+		return key;
+	}
+
+	for (let i = 0; i < indices.length; i += triangleVertices) {
+		const triangle = [indices[i], indices[i + 1], indices[i + 2]];
+		a.fromArray(positions, triangle[0] * xyzComponents);
+		b.fromArray(positions, triangle[1] * xyzComponents);
+		c.fromArray(positions, triangle[2] * xyzComponents);
+		b.sub(a).cross(c.sub(a)).normalize();
+		if (!b.lengthSq()) continue;
+		const front = b.clone();
 		for (let j = 0; j < triangleVertices; j += 1) {
-			const next = (j + 1) % triangleVertices;
-			const key = [keys[j], keys[next]].sort().join('/');
+			const start = triangle[j];
+			const end = triangle[(j + 1) % triangleVertices];
+			const from = keyAt(start);
+			const to = keyAt(end);
+			const key = from < to ? from + '/' + to : to + '/' + from;
 			const edge = edges.get(key);
 			if (edge) {
 				if (!edge.back) {
@@ -72,27 +83,21 @@ export function creases(
 					if (faces) edge.backTriangle = triangle;
 				}
 			} else {
-				edges.set(key, {
-					start: triangle[j],
-					end: triangle[next],
-					front,
-					frontTriangle: faces ? triangle : undefined
-				});
+				edges.set(key, { start, end, front, frontTriangle: faces ? triangle : undefined });
 			}
 		}
 	}
-	const segments = [];
+	const segments: number[] = [];
 	const fronts = [];
 	const backs = [];
 	for (const { start, end, front, back, frontTriangle, backTriangle } of edges.values()) {
 		if (back && front.dot(back) > limit) continue;
-		segments.push(
-			...positions.slice(start * xyzComponents, start * xyzComponents + xyzComponents),
-			...positions.slice(end * xyzComponents, end * xyzComponents + xyzComponents)
-		);
+		appendPoint(segments, positions, start);
+		appendPoint(segments, positions, end);
 		vertices?.push(start, end);
-		fronts.push(...front.toArray());
-		backs.push(...(back ?? front).toArray());
+		fronts.push(front.x, front.y, front.z);
+		const other = back ?? front;
+		backs.push(other.x, other.y, other.z);
 		if (faces && frontTriangle) {
 			faces.fronts.push(...frontTriangle);
 			faces.backs.push(...(backTriangle ?? frontTriangle));
@@ -109,16 +114,22 @@ export type Edges = {
 	faces?: EdgeFaces;
 };
 
-export function lineGeometry({ segments, fronts, backs }: Edges) {
+type LineArrays = Edges | { segments: Float32Array; fronts: Float32Array; backs: Float32Array };
+
+function floatArray(values: number[] | Float32Array) {
+	return values instanceof Float32Array ? values : new Float32Array(values);
+}
+
+export function lineGeometry({ segments, fronts, backs }: LineArrays) {
 	const geometry = new LineSegmentsGeometry().setPositions(segments);
 	if (fronts.length) {
 		geometry.setAttribute(
 			'edgeFront',
-			new InstancedBufferAttribute(new Float32Array(fronts), xyzComponents)
+			new InstancedBufferAttribute(floatArray(fronts), xyzComponents)
 		);
 		geometry.setAttribute(
 			'edgeBack',
-			new InstancedBufferAttribute(new Float32Array(backs), xyzComponents)
+			new InstancedBufferAttribute(floatArray(backs), xyzComponents)
 		);
 	}
 	return geometry;
@@ -132,15 +143,20 @@ export function edgeGeometry(
 	return lineGeometry(creases(positions, indices, creaseAngleRad));
 }
 
+function appendPoint(output: number[], positions: readonly number[], index: number) {
+	const i = index * xyzComponents;
+	output.push(positions[i], positions[i + 1], positions[i + 2]);
+}
+
+function vertexKey(positions: readonly number[], i: number) {
+	return `${Math.round(positions[i] * weldPerMeter)},${Math.round(positions[i + 1] * weldPerMeter)},${Math.round(positions[i + 2] * weldPerMeter)}`;
+}
+
 function weldVertices(positions: readonly number[]) {
 	const keys = new Map<string, number>();
 	const welded = new Array<number>(positions.length / 3);
 	for (let i = 0; i < welded.length; i++) {
-		const base = i * xyzComponents;
-		const key = positions
-			.slice(base, base + xyzComponents)
-			.map((value) => Math.round(value * weldPerMeter))
-			.join(',');
+		const key = vertexKey(positions, i * xyzComponents);
 		const existing = keys.get(key);
 		if (existing === undefined) keys.set(key, i);
 		welded[i] = existing ?? i;
@@ -176,7 +192,7 @@ export function boundaries(
 	const welded = weldVertices(positions);
 	// With separate cell indices, extract each rim before deduplicating shared segments.
 	const edges = openEdges(perCell ? indices : indices.map((index) => welded[index]), welded.length);
-	const segments = [];
+	const segments: number[] = [];
 	const normals = [];
 	const drawn = new Set<number>();
 	for (const key of edges) {
@@ -185,10 +201,8 @@ export function boundaries(
 		const segment = edgeKey(a, b, welded.length);
 		if (a === b || drawn.has(segment)) continue;
 		drawn.add(segment);
-		segments.push(
-			...positions.slice(a * xyzComponents, a * xyzComponents + xyzComponents),
-			...positions.slice(b * xyzComponents, b * xyzComponents + xyzComponents)
-		);
+		appendPoint(segments, positions, a);
+		appendPoint(segments, positions, b);
 		normals.push(...planNormal);
 		vertices?.push(a, b);
 	}

@@ -298,7 +298,7 @@
 	}
 
 	/** Brings the queue in line with the document: new requests wait, removed ones are cancelled. */
-	function sync(previews?: ReadonlyMap<string, Drawable | undefined>) {
+	function sync(previews?: ReadonlyMap<string, Drawable | undefined>, settleTogether = false) {
 		const next = new Map(cache.read().map((request) => [request.placement.id, request]));
 		for (const id of requests.keys()) if (!next.has(id)) queue.cancel(id);
 		requests = next;
@@ -307,10 +307,10 @@
 				const request = next.get(id);
 				if (request && body) bodies.set(request, body);
 			}
-		submit();
+		submit(settleTogether);
 	}
 
-	function submit() {
+	function submit(settleTogether = false) {
 		if (open) return;
 		const details = readDetails();
 		for (const [id, request] of requests) {
@@ -322,17 +322,19 @@
 			queue.submit({ id, key, run: () => build(detail) });
 		}
 		compose();
-		frameWork = queue.readWaiting() ? { run: pump } : undefined;
+		frameWork = queue.readWaiting() ? { run: () => pump(settleTogether) } : undefined;
 	}
 
 	let shownAt = 0;
 	let unshown = false;
 
-	/** Builds within the frame budget; shows new houses at a calm interval and when all are done. */
-	function pump() {
+	/** Builds within the frame budget. Restores publish detail together to avoid repacking the
+	 * same tiles as individual houses replace their silhouettes. */
+	function pump(settleTogether: boolean) {
 		unshown = queue.advance().length > 0 || unshown;
 		const done = queue.readWaiting() === 0;
-		if (unshown && (done || performance.now() - shownAt >= showIntervalMs)) compose();
+		if (unshown && (done || (!settleTogether && performance.now() - shownAt >= showIntervalMs)))
+			compose();
 		else waiting = queue.readWaiting();
 		return !done;
 	}
@@ -706,7 +708,7 @@
 			hovered = undefined;
 			selectedId = undefined;
 			lastSkipped = new Map();
-			sync();
+			sync(undefined, true);
 			status = `Loaded ${plural(next.readHistory().placements, 'placement')}.`;
 		} catch (error) {
 			fail(error);

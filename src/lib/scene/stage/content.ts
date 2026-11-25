@@ -96,6 +96,26 @@ type Chunk = {
 };
 type Part = BatchedPart & { chunk?: Chunk };
 
+/** A color-only row update leaves mesh visibility, ordering and bounds alone. */
+function updateBatchLook(part: Part, look: PartLook) {
+	const { opacity, strokeOpacity, hidden, visible, veil, scale, offset } = look;
+	const glass = part.drawable.finish === 'glass';
+	const previous = part.look;
+	if (
+		previous?.opacity === opacity &&
+		previous.strokeOpacity === strokeOpacity &&
+		previous.hidden === hidden &&
+		previous.visible === visible &&
+		previous.veil === veil &&
+		previous.scale === scale &&
+		previous.offset === offset &&
+		previous.glass === glass
+	)
+		return false;
+	part.look = { opacity, strokeOpacity, hidden, visible, veil, scale, offset, glass };
+	return true;
+}
+
 export type TerrainAnchor = Readonly<{ index: number; position: Vec3; warp: Vec2 }>;
 
 export function displayTerrainAnchor(
@@ -391,10 +411,8 @@ export function createContent(
 			for (const part of all ? parts : restyle) {
 				const look = read(part.drawable, part.bounds.isEmpty() === false);
 				if (part.chunk) {
-					const { opacity, strokeOpacity, hidden, visible, veil, scale, offset } = look;
-					part.look = { opacity, strokeOpacity, hidden, visible, veil, scale, offset };
+					if (updateBatchLook(part, look)) refresh.add(part.chunk);
 					rows.write(part.row, part.drawable, look);
-					refresh.add(part.chunk);
 				}
 				if (part.fill || part.individual.length) styleIndividual(part, look, veil, landscape);
 			}

@@ -11,6 +11,7 @@ import {
 	Scene,
 	Vector3
 } from 'three/webgpu';
+import { LineSegments2 } from 'three/addons/lines/webgpu/LineSegments2.js';
 import { dotProduct, displacement, type Vec3 } from '../../core/geometry';
 import { required } from '../../core/invariant';
 import type { Drawable } from '../surface';
@@ -720,6 +721,81 @@ test('reconciles a moving hover marker without reattaching fixed children', () =
 	expect(adds).toBe(0);
 	expect(removes).toBe(0);
 	for (const [child, parent] of fixed) expect(child.parent).toBe(parent);
+	content.delete();
+});
+
+test.each([true, false])('packs exact fill and stroke buffers (smooth: %s)', (smooth) => {
+	const content = createContent(strokeMaterials(smooth), drawingPalette(), smooth);
+	const drawables = [boxAt('first', 4), boxAt('second', 10)];
+	expect(content.show(drawables)).toBe(2);
+	content.update(appearance, false);
+
+	const tile = required(content.parts[0].chunk?.group, 'packed tile');
+	const fill = required(
+		tile.children.find(
+			(child): child is Mesh => child instanceof Mesh && !(child instanceof LineSegments2)
+		),
+		'fill pass'
+	);
+	const line = required(
+		tile.children.find((child) => child instanceof LineSegments2),
+		'stroke pass'
+	);
+	const positions: number[] = [];
+	const indices: number[] = [];
+	const owners: number[] = [];
+	for (const { arrays, row } of content.parts) {
+		if (!arrays) throw new Error('Expected a packed source');
+		const offset = owners.length;
+		const points = smooth
+			? arrays.positions
+			: arrays.indices.flatMap((index) => arrays.positions.slice(index * 3, index * 3 + 3));
+		positions.push(...points);
+		indices.push(...arrays.indices.map((index, i) => offset + (smooth ? index : i)));
+		owners.push(...Array<number>(points.length / 3).fill(row));
+	}
+	const fillGeometry = fill.geometry;
+	expect(fillGeometry.getAttribute('position').array).toEqual(new Float32Array(positions));
+	expect(fillGeometry.getAttribute('aPartIndex').array).toEqual(new Uint32Array(owners));
+	expect(fillGeometry.index?.array).toEqual(new Uint16Array(indices));
+	const reference = new BufferGeometry()
+		.setAttribute('position', new Float32BufferAttribute(positions, 3))
+		.setIndex(indices);
+	reference.computeVertexNormals();
+	expect(fillGeometry.getAttribute('normal').array).toEqual(reference.getAttribute('normal').array);
+	reference.dispose();
+
+	const sources = content.parts.flatMap(({ sources }) => sources.map(({ edges }) => edges));
+	const strokeGeometry = line.geometry;
+	expect(segmentData(strokeGeometry).array).toEqual(
+		new Float32Array(sources.flatMap(({ segments }) => segments))
+	);
+	expect(strokeGeometry.getAttribute('edgeFront').array).toEqual(
+		new Float32Array(sources.flatMap(({ fronts }) => fronts))
+	);
+	expect(strokeGeometry.getAttribute('edgeBack').array).toEqual(
+		new Float32Array(sources.flatMap(({ backs }) => backs))
+	);
+	expect(strokeGeometry.getAttribute('aPartIndex').array).toEqual(
+		new Uint32Array(
+			content.parts.flatMap(({ row, sources }) =>
+				sources.flatMap(({ edges }) => Array<number>(edges.segments.length / 6).fill(row))
+			)
+		)
+	);
+
+	const packs = content.chunkBuilds;
+	const tinted = drawables.map((part) => ({
+		...part,
+		color: '--ink' as const,
+		grain: { amount: 0.2, cellM: 1 }
+	}));
+	expect(hasSameGeometry(content.parts, tinted)).toBe(true);
+	expect(content.show(tinted)).toBe(0);
+	content.update((part) => ({ ...appearance(part), color: new Color('black') }), false);
+	expect(content.chunkBuilds).toBe(packs);
+	expect(fill.geometry).toBe(fillGeometry);
+	expect(line.geometry).toBe(strokeGeometry);
 	content.delete();
 });
 

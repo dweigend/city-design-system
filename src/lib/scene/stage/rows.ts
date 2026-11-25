@@ -81,31 +81,29 @@ export function createRows() {
 			const base = id * rowSize;
 			const { color, strokeColor, opacity, strokeOpacity, hidden, recede, scale, offset } = look;
 			const { top, lit, shadow } = part.faces ?? levels;
-			buffer.value.array.set(
-				[
-					color.r,
-					color.g,
-					color.b,
-					opacity,
-					top,
-					lit,
-					shadow,
-					Number(part.flat === true),
-					scale,
-					offset,
-					part.grain?.amount ?? 0,
-					part.grain?.cellM ?? 1,
-					strokeColor.r,
-					strokeColor.g,
-					strokeColor.b,
-					strokeOpacity,
-					hidden,
-					recede,
-					part.hatch ?? 0,
-					look.visible ? (part.strokeSegments ? look.width : 1) : 0
-				],
-				base
-			);
+			// The fields below follow the storage layout above.
+			const array = buffer.value.array;
+			let i = base;
+			array[i++] = color.r;
+			array[i++] = color.g;
+			array[i++] = color.b;
+			array[i++] = opacity;
+			array[i++] = top;
+			array[i++] = lit;
+			array[i++] = shadow;
+			array[i++] = Number(part.flat === true);
+			array[i++] = scale;
+			array[i++] = offset;
+			array[i++] = part.grain?.amount ?? 0;
+			array[i++] = part.grain?.cellM ?? 1;
+			array[i++] = strokeColor.r;
+			array[i++] = strokeColor.g;
+			array[i++] = strokeColor.b;
+			array[i++] = strokeOpacity;
+			array[i++] = hidden;
+			array[i++] = recede;
+			array[i++] = part.hatch ?? 0;
+			array[i] = look.visible ? (part.strokeSegments ? look.width : 1) : 0;
 			mark(base);
 		},
 		flush() {
