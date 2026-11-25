@@ -1,6 +1,6 @@
 import type { Vec2, Vec3 } from '../../core/geometry';
 import { PlaceableObject, type Anchor } from '../../core/object';
-import { cellAreaM2, cellCenter, type CellSpace } from '../cell-space';
+import { cellAreaM2, cellCenter, readStoreyElevation, type CellSpace } from '../cell-space';
 import { createWorldReference } from '../../core/ref';
 import { Random } from '../../core/random';
 import { courtSides, entranceStepCell, entranceSteps, galleries, stair, stairSide } from './access';
@@ -9,6 +9,7 @@ import { caps, figureOpenings, trees } from './dress';
 import { cellSolids, type CellSolid } from './fills';
 import { additionFrames, structure } from './structure';
 import { envelopeFaces, solidFaces, type HouseFace } from './faces';
+import { extrusion } from './solids';
 import { readHouseStyle } from './scale';
 import { houseStyles, type HouseStyle } from './styles';
 import { entranceSide, side } from './boxes';
@@ -178,7 +179,12 @@ function solidParts(
 					slicePartId(cell.id, 'body', ctx.space.datumIndex + from),
 					role,
 					[[cell.id, from, from + 1]],
-					() => solid.faces,
+					() =>
+						extrusion(
+							solid.outline,
+							readStoreyElevation(ctx.space, from),
+							readStoreyElevation(ctx.space, from + 1)
+						),
 					{ body: true }
 				);
 			}).flat();
@@ -191,7 +197,7 @@ function solidParts(
 
 function envelopeParts(ctx: Context, detail: HouseDetail, references: boolean): HousePart[] {
 	if (!ctx.style.fill.kinds.includes('envelope')) return [];
-	if (detail === 'block') return envelope(ctx, 'mass');
+	if (detail === 'block') return envelope(ctx, 'mass', references);
 	return [
 		...envelope(ctx, 'wall', references),
 		...(ctx.style.parts.rims ? envelopeRims(ctx, 'rim') : []),
@@ -330,26 +336,30 @@ const houseId = (space: CellSpace) => `house/${space.id}`;
  * and `plot`. No colours; slots name roles (MAT-1). Anchors: `entrance` on the frontage at lane
  * level, `court` at the own court's centre or at the middle of the longest built side onto a
  * shared court. Occupancy of another space (by cell identities) or another style throws
- * RangeError. Adjoining walls suppress openings on the covered portion of a party wall. */
+ * RangeError. Adjoining walls suppress openings on the covered portion of a party wall.
+ * Addressed detail splits occupied bodies at the public storey addresses. */
 export function createHouseObject(
 	space: CellSpace,
 	house: HouseOccupancy,
 	detail: HouseDetail,
 	style: HouseStyle = houseStyles.neutral,
-	adjoiningWalls: readonly AdjoiningWall[] = []
+	adjoiningWalls: readonly AdjoiningWall[] = [],
+	addressed = false
 ): PlaceableObject {
 	const used = readHouseStyle(space, style, house.inputs.seed, house.scale);
 	const ctx = context(space, house, used, adjoiningWalls);
-	return createObject(ctx, detail, allParts(ctx, house, detail));
+	return createObject(ctx, detail, allParts(ctx, house, detail, addressed));
 }
 
-/** Assembles geometry and matching addresses in one pass for a storey-aware projection. */
+/** Assembles geometry and matching addresses in one pass. Addressed detail uses one body per
+ * occupied storey with the same IDs as the public house-part references. */
 export function createHouseAssembly(
 	space: CellSpace,
 	house: HouseCourt,
 	detail: HouseDetail,
 	style: HouseStyle,
-	adjoiningWalls: readonly AdjoiningWall[] = []
+	adjoiningWalls: readonly AdjoiningWall[] = [],
+	addressed = false
 ) {
 	const ctx = context(
 		space,
@@ -357,7 +367,7 @@ export function createHouseAssembly(
 		readHouseStyle(space, style, house.inputs.seed, house.scale),
 		adjoiningWalls
 	);
-	const parts = allParts(ctx, house, detail);
+	const parts = allParts(ctx, house, detail, addressed);
 	return {
 		object: createObject(ctx, detail, parts),
 		addresses: partAddresses(house.id, space, house, parts)
@@ -398,14 +408,15 @@ export function houseFaces(
 	house: HouseOccupancy,
 	detail: HouseDetail,
 	style: HouseStyle = houseStyles.neutral,
-	adjoiningWalls: readonly AdjoiningWall[] = []
+	adjoiningWalls: readonly AdjoiningWall[] = [],
+	addressed = false
 ): readonly HouseFace[] {
 	const used = readHouseStyle(space, style, house.inputs.seed, house.scale);
 	const ctx = context(space, house, used, adjoiningWalls);
 	const solids = cellSolids(ctx);
 	const faces = [
-		...(used.fill.kinds.includes('envelope') ? envelopeFaces(ctx, 'wall', solids) : []),
-		...solidFaces(ctx, solids)
+		...(used.fill.kinds.includes('envelope') ? envelopeFaces(ctx, 'wall', solids, addressed) : []),
+		...solidFaces(ctx, solids, addressed)
 	];
 	return detail === 'block' ? faces.map((face) => ({ ...face, slot: 'mass' })) : faces;
 }

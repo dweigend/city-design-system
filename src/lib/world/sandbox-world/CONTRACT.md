@@ -29,10 +29,33 @@ uncut plan, buildable subset, growth ranks and columns belong to the selected ca
 opening a sandbox.
 Voronoi saves from the earlier corner rule belong to the previous address namespace.
 
-The placement cache attaches to one document. It stages each delta and rebuilds incoming
-placements and any neighbors whose party-wall exposure changed.
+## Placement replay and projection
 
-The exchange example reopens one `sandbox/3` save in separate plan and spatial readers. It
+Supply generated place records to `createDocument(stock)` to start with a populated baseline.
+Player strokes can overwrite that stock or clear a slot. Undo and redo keep the original
+placements available for recovery. The [document contract](../../domain/sandbox-document/CONTRACT.md)
+defines the stock, history, and override fields in `sandbox/4`. The world reads compatible
+`sandbox/3` saves and writes `sandbox/4`, keeping the saved position and redo history.
+A retained orphan resolves again when the host returns in the same world.
+
+A cell override changes the top of an existing built column. The count is an integer measured
+from the cell's original floor. The house clamps positive counts to the allowed parcel height.
+A count of zero clears the column and leaves an open passage at a gate. Invalid cells and changes
+that leave an unusable entrance, shared court access, or house cause the stroke to fail before
+wall exposure and part addresses are derived.
+
+A finish carries a world-scoped house-part reference and a material family with an optional
+palette tone. The reference must name the placement's parcel. A missing part leaves its saved
+finish dormant. When the part returns, the finish applies again. A remove-and-place type swap
+starts with the new record's finishes. Undo restores those of the previous record.
+
+The placement cache attaches to one document. Changes in structural inputs resolve occupancy
+and rebuild neighbors whose party-wall exposure changes. A finish-only edit reuses the house
+and its exposure and restyles its projected surfaces. Scene applies the family face and any
+grain allowed at the current detail to the addressed part and its existing cladding. It keeps
+the drawable shapes and authored geometry, including pattern meshes and strokes.
+
+The exchange example reopens one `sandbox/4` save in separate plan and spatial readers. It
 passes rail and ground survey records alongside the save and resolves parcel, house, grove,
 lane, bridge, storey and part refs against the shared world. The rail record encodes the straight
 line's infinite radius as `unbounded`.

@@ -3,7 +3,9 @@ import {
 	readLevelDetail,
 	type CladObject,
 	type Family,
-	type FamilySlot
+	type FamilySlot,
+	modelTones,
+	type ModelTone
 } from '../../domain/material';
 import { modelGrain, pencilStroke } from '../material';
 import type { PlaceableObject } from '../../core/object';
@@ -13,25 +15,6 @@ import { resolveSurfaces, type Drawable, type Surface, type SurfaceAssignment } 
  * transparency mode (COLOR-8). */
 export type MaterialDisplay = 'normal' | 'transparency';
 
-/** The tones of the model palette (MAT-11): warm neutrals, saturated matte solids, a signal pair
- * for accents and the flat roof tone. Each names a `--model-<tone>` token. */
-export const modelTones = Object.freeze([
-	'white',
-	'cream',
-	'chocolate',
-	'grey',
-	'cork',
-	'blue',
-	'yellow',
-	'pink',
-	'orange',
-	'red',
-	'roof',
-	'lawn',
-	'canopy'
-] as const);
-/** One tone of the model palette. */
-export type ModelTone = (typeof modelTones)[number];
 /** A model material: a family and, for a tinted family, its tone. */
 export type ModelMaterial = Readonly<{ family: Family; tone?: ModelTone }>;
 
@@ -193,3 +176,5 @@ export function projectGrove(object: PlaceableObject): Drawable[] {
 		canopy: matte('--model-canopy')
 	}).map((part) => (part.id === 'lawn' ? { ...part, strokeSegments: [] } : part));
 }
+
+export { modelTones, type ModelTone };

@@ -1,6 +1,7 @@
 import type { HostAddress, Placement } from '../../core/asset-registry';
 import { Random } from '../../core/random';
 import { createWorldReference, encodeKey, readWorldReference, type Ref } from '../../core/ref';
+import { familyNames, modelTones, type Family, type ModelTone } from '../material';
 import { defaults } from '../../../config/sandbox-document';
 
 export type WorldIdentity = Readonly<{
@@ -11,16 +12,31 @@ export type WorldIdentity = Readonly<{
 	topologyRevision: string;
 	registryRevision: string;
 }>;
+export type FinishOverride = Readonly<{ ref: Ref<'house-part'>; family: Family; tone?: ModelTone }>;
+
+export type PlacementOverrides = Readonly<{
+	cellOverrides?: Readonly<Record<string, number>>;
+	finishOverrides?: readonly FinishOverride[];
+}>;
+
+type ReplaceOverrides = Readonly<{
+	cellOverrides?: PlacementOverrides['cellOverrides'] | null;
+	finishOverrides?: PlacementOverrides['finishOverrides'] | null;
+}>;
 export type SandboxPlacement = Placement &
+	PlacementOverrides &
 	Readonly<{
 		id: string;
 		hostReference: Ref<HostAddress['kind']>;
 		registryRevision: string;
 	}>;
 export type SandboxEdit =
-	| (Omit<Placement, 'seed'> & { readonly kind: 'place'; readonly seed?: number })
+	| (Omit<Placement, 'seed'> &
+			PlacementOverrides & { readonly kind: 'place'; readonly seed?: number })
 	| Readonly<{ kind: 'remove'; id: string }>
-	| Readonly<{ kind: 'replace'; id: string; params: Placement['params']; seed?: number }>;
+	| (Readonly<{ kind: 'replace'; id: string; params: Placement['params']; seed?: number }> &
+			ReplaceOverrides);
+export type StockEdit = Extract<SandboxEdit, { kind: 'place' }>;
 export type PlacementChange = Readonly<{
 	id: string;
 	before: SandboxPlacement | undefined;
@@ -125,8 +141,48 @@ export function readParams(input: unknown): Placement['params'] {
 	);
 }
 
+function readCells(input: unknown) {
+	const cells = Object.entries(record(input)).sort(([a], [b]) => (a < b ? -1 : Number(a > b)));
+	for (const [id, count] of cells)
+		if (!id || typeof count !== 'number' || !Number.isSafeInteger(count) || count < 0)
+			throw new SandboxDataError('Expected a nonnegative integer storey count for a fine cell');
+	return Object.freeze(Object.fromEntries(cells.map(([id, count]) => [id, number(count)])));
+}
+
+function readFinishes(input: unknown): readonly FinishOverride[] {
+	if (!Array.isArray(input)) throw new SandboxDataError('Expected a list of part finishes');
+	const keys = new Set<string>();
+	const finishes = input.map((item: unknown): FinishOverride => {
+		const { ref: inputRef, family, tone } = record(item);
+		const ref = readWorldReference(inputRef);
+		if (ref?.kind !== 'house-part' || keys.has(ref.key))
+			throw new SandboxDataError('Expected a distinct house-part reference for each finish');
+		if (!familyNames.some((id) => id === family))
+			throw new SandboxDataError('Unknown material family');
+		if (tone !== undefined && !modelTones.some((id) => id === tone))
+			throw new SandboxDataError('Unknown material tone');
+		keys.add(ref.key);
+		return Object.freeze({
+			ref: createWorldReference(ref.world, 'house-part', ref.key),
+			family: family as Family,
+			...(tone === undefined ? {} : { tone: tone as ModelTone })
+		});
+	});
+	return Object.freeze(
+		finishes.sort(({ ref: a }, { ref: b }) => (a.key < b.key ? -1 : Number(a.key > b.key)))
+	);
+}
+
+function overrideOf<T>(input: unknown, read: (input: unknown) => T, kind: unknown) {
+	if (input === undefined) return undefined;
+	if (input === null && kind === 'replace') return null;
+	return read(input);
+}
+
 export function edit(input: unknown): SandboxEdit {
-	const { kind, assetId, host, params, seed, id } = record(input);
+	const { kind, assetId, host, params, seed, id, cellOverrides, finishOverrides } = record(input);
+	const cells = overrideOf(cellOverrides, readCells, kind);
+	const finishes = overrideOf(finishOverrides, readFinishes, kind);
 	const explicit = seed === undefined ? {} : { seed: seedValue(seed) };
 	switch (kind) {
 		case 'place':
@@ -135,12 +191,23 @@ export function edit(input: unknown): SandboxEdit {
 				assetId: name(assetId),
 				host: hostAddress(host),
 				params: readParams(params),
+				...(cells && Object.keys(cells).length ? { cellOverrides: cells } : {}),
+				...(finishes?.length ? { finishOverrides: finishes } : {}),
 				...explicit
 			});
 		case 'remove':
 			return Object.freeze({ kind, id: name(id) });
 		case 'replace':
-			return Object.freeze({ kind, id: name(id), params: readParams(params), ...explicit });
+			return Object.freeze({
+				kind,
+				id: name(id),
+				params: readParams(params),
+				...explicit,
+				...(cells === undefined
+					? {}
+					: { cellOverrides: cells && Object.keys(cells).length ? cells : null }),
+				...(finishes === undefined ? {} : { finishOverrides: finishes?.length ? finishes : null })
+			});
 		default:
 			throw new SandboxDataError('Unknown sandbox edit');
 	}
@@ -161,8 +228,11 @@ export function savedEdit(operation: SandboxEdit, world: WorldIdentity) {
 		: operation;
 }
 
-export function replayEdit(input: unknown, world: WorldIdentity) {
-	const operation = record(input);
+export function replayEdit(input: unknown, world: WorldIdentity, readsOverrides = true) {
+	const source = record(input);
+	const operation: Record<string, unknown> = readsOverrides
+		? source
+		: { ...source, cellOverrides: undefined, finishOverrides: undefined };
 	if (operation.kind !== 'place') return edit(operation);
 	const host = readWorldReference(operation.host);
 	if (!host || host.world !== world.id) throw new SandboxDataError('Invalid saved host reference');
@@ -198,10 +268,11 @@ const defaultPlacementSeed = /* Exact arithmetic: default seed in the placement 
 
 export function placement(
 	world: WorldIdentity,
-	{ assetId, host, params, seed }: Extract<SandboxEdit, { kind: 'place' }>
+	{ assetId, host, params, seed, ...operation }: StockEdit
 ): SandboxPlacement {
 	const reference = readHostReference(world, host);
 	return Object.freeze({
+		...placementOverrides(world, host, operation),
 		id: placementId(reference),
 		assetId,
 		hostReference: reference,
@@ -219,11 +290,71 @@ export function placement(
 	});
 }
 
+function placementOverrides(
+	world: Pick<WorldIdentity, 'id'>,
+	host: HostAddress,
+	overrides: PlacementOverrides
+) {
+	const { cellOverrides, finishOverrides } = overrides;
+	if ((cellOverrides || finishOverrides) && host.kind !== 'parcel')
+		throw new SandboxDataError('House overrides require a parcel');
+	for (const { ref } of finishOverrides ?? []) {
+		let key: unknown;
+		try {
+			key = JSON.parse(ref.key);
+		} catch {
+			throw new SandboxDataError('Invalid house-part key');
+		}
+		// A house-part key is the house owner and a local part ID.
+		if (
+			ref.world !== world.id ||
+			!Array.isArray(key) ||
+			key.length !== 2 ||
+			host.kind !== 'parcel' ||
+			key[0] !== 'house/' + host.id ||
+			typeof key[1] !== 'string' ||
+			!key[1] ||
+			encodeKey(key) !== ref.key
+		)
+			throw new SandboxDataError('Finish reference does not belong to this parcel and world');
+	}
+	return {
+		...(cellOverrides ? { cellOverrides } : {}),
+		...(finishOverrides ? { finishOverrides } : {})
+	};
+}
+
+export function hasSamePlacementStructure(a: SandboxPlacement, b: SandboxPlacement) {
+	return (
+		a.id === b.id &&
+		a.assetId === b.assetId &&
+		a.seed === b.seed &&
+		JSON.stringify(a.params) === JSON.stringify(b.params) &&
+		JSON.stringify(a.cellOverrides) === JSON.stringify(b.cellOverrides)
+	);
+}
+
 export function replace(
 	before: SandboxPlacement,
-	{ params, seed = before.seed }: Extract<SandboxEdit, { kind: 'replace' }>
-) {
-	if (seed === before.seed && JSON.stringify(params) === JSON.stringify(before.params))
-		return before;
-	return Object.freeze({ ...before, params, seed });
+	{
+		params,
+		seed = before.seed,
+		cellOverrides = before.cellOverrides,
+		finishOverrides = before.finishOverrides
+	}: Extract<SandboxEdit, { kind: 'replace' }>
+): SandboxPlacement {
+	const after = { ...before, params, seed };
+	delete after.cellOverrides;
+	delete after.finishOverrides;
+	Object.assign(
+		after,
+		placementOverrides({ id: before.hostReference.world }, before.host, {
+			cellOverrides: cellOverrides ?? undefined,
+			finishOverrides: finishOverrides ?? undefined
+		})
+	);
+	return hasSamePlacementStructure(before, after) &&
+		JSON.stringify(before.finishOverrides) === JSON.stringify(after.finishOverrides)
+		? before
+		: Object.freeze(after);
 }

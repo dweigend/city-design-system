@@ -19,7 +19,14 @@ export function projectProgrammedHouse(
 	display: DisplayLevel,
 	options: CladHouseOptions
 ) {
-	const { object, addresses } = createHouseAssembly(space, house, detail, style, walls);
+	const { object, addresses } = createHouseAssembly(
+		space,
+		house,
+		detail,
+		style,
+		walls,
+		options.addressed
+	);
 	const draw = Random.create({ seed: house.inputs.seed }).derive('stock');
 	return projectCladHouse(object, faces, materials, display, {
 		...options,

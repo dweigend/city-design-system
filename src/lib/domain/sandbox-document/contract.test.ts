@@ -1,4 +1,5 @@
 import { describe, expect, test } from 'bun:test';
+import { defaults } from '../../../config/sandbox-document';
 import type { HostAddress } from '../../core/asset-registry';
 import {
 	createSandboxDocument,
@@ -213,4 +214,28 @@ test('guards staging, amendment, history changes and projection initialization',
 	document.attach(() => {});
 	document.redo();
 	expect(restoreSandboxDocument(document.serialize()).serialize()).toBe(document.serialize());
+});
+
+test('rejects oversized UTF-8 saves and excessive redo edits before starting replay', () => {
+	const document = createSandboxDocument(world);
+	const saved = JSON.parse(document.serialize());
+	const resolver = () => {
+		throw new Error('Replay must never start');
+	};
+	const bytes = defaults.maxRestoreBytes;
+	expect(() => restoreSandboxDocument(' '.repeat(bytes + 1), world, resolver)).toThrow(
+		'restore byte limit'
+	);
+	const oversizedUtf8 = JSON.stringify({ ...saved, padding: '田'.repeat(Math.floor(bytes / 2)) });
+	expect(oversizedUtf8.length).toBeLessThan(bytes);
+	expect(() => restoreSandboxDocument(oversizedUtf8, world, resolver)).toThrow(
+		'restore byte limit'
+	);
+	const edits = Array.from({ length: defaults.maxRestoreEdits + 1 }, () => ({
+		kind: 'remove',
+		id: 'test'
+	}));
+	expect(() =>
+		restoreSandboxDocument(JSON.stringify({ ...saved, strokes: [edits] }), world, resolver)
+	).toThrow('restore edit limit');
 });

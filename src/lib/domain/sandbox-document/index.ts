@@ -1,4 +1,5 @@
 /** Module: Records reversible, world-scoped edits to addressed asset placements. */
+import { defaults } from '../../../config/sandbox-document';
 import type { HostAddress, Placement } from '../../core/asset-registry';
 import { readWorldReference, type ReferenceResolution } from '../../core/ref';
 import {
@@ -11,6 +12,10 @@ import {
 	record,
 	replayEdit,
 	savedEdit,
+	hasSamePlacementStructure,
+	type FinishOverride,
+	type PlacementOverrides,
+	type StockEdit,
 	SandboxDataError,
 	worldIdentity,
 	type PlacementChange,
@@ -29,7 +34,15 @@ export {
 	/** A rebuildable placement with its stable slot ID, scoped host, and registry revision. */
 	type SandboxPlacement,
 	/** World ID, optional plan scope and seed, and the snapshot revisions for saved edits. */
-	type WorldIdentity
+	type WorldIdentity,
+	/** Semantic material on a world-scoped house part. */
+	type FinishOverride,
+	/** Optional sparse column heights and part finishes on a house placement. */
+	type PlacementOverrides,
+	/** A place edit used to seed the generated baseline. */
+	type StockEdit,
+	/** Compares the occupancy inputs for two records of one placement. */
+	hasSamePlacementStructure
 };
 
 /** The requested address already hosts its single placement. */
@@ -49,7 +62,9 @@ type ResolveParams = (
 	host: HostAddress,
 	params: Placement['params']
 ) => Placement['params'];
-const format = 'sandbox/3';
+type ValidatePlacement = (placement: SandboxPlacement, checkCells: boolean) => void;
+const format = 'sandbox/4';
+const compatibleFormat = 'sandbox/3';
 const noChanges: readonly PlacementChange[] = Object.freeze([]);
 
 export {
@@ -69,22 +84,32 @@ export class UnsupportedSandboxVersionError extends SandboxDataError {
 	override name = 'UnsupportedSandboxVersionError';
 }
 
-/** Creates an empty document. Each exact host has one slot. A transaction is atomic.
+/** Creates an editable document with optional generated stock. Each exact host has one slot.
  * A caller may prepare the derived state from the change list before the transaction takes effect.
  * The optional resolver validates and canonicalizes every staged placement and replacement.
  * Callbacks can read the document. A nested write throws SandboxDataError.
  * If preparation throws, the document and its history retain their prior state. */
-export function createSandboxDocument(identity: WorldIdentity, resolveParams?: ResolveParams) {
-	return createDocument(identity, resolveParams);
+export function createSandboxDocument(
+	identity: WorldIdentity,
+	resolveParams?: ResolveParams,
+	options: Readonly<{ stock?: readonly StockEdit[]; validate?: ValidatePlacement }> = {}
+) {
+	return createDocument(identity, resolveParams, options);
 }
 
 function createDocument(
 	identity: WorldIdentity,
-	resolveParams?: ResolveParams,
+	resolveParams: ResolveParams | undefined,
+	{
+		stock = [],
+		validate
+	}: Readonly<{ stock?: readonly StockEdit[]; validate?: ValidatePlacement }>,
 	replaying?: () => boolean
 ) {
 	const world = worldIdentity(identity);
 	const placements = new Map<string, SandboxPlacement>();
+	const baseline = new Map<string, SandboxPlacement>();
+	const stockEdits: StockEdit[] = [];
 	const history: Transaction[] = [];
 	const orphans = new WeakSet<SandboxPlacement>();
 	const available = (record: SandboxPlacement | undefined) =>
@@ -154,8 +179,11 @@ function createDocument(
 					operation.params
 				);
 				const after = placement(world, { ...operation, params });
-				if (current(after.id)) throw new OccupiedHostError('Host already occupied: ' + after.id);
+				const prior = current(after.id);
+				if (prior && prior !== baseline.get(after.id))
+					throw new OccupiedHostError('Host already occupied: ' + after.id);
 				if (orphan) orphans.add(after);
+				else validate?.(after, true);
 				edits.push(Object.freeze({ ...operation, params, seed: after.seed }));
 				staged.set(after.id, after);
 				continue;
@@ -165,13 +193,14 @@ function createDocument(
 			if (!before) throw new MissingPlacementError('Missing placement: ' + id);
 			if (operation.kind === 'remove') {
 				edits.push(operation);
-				staged.set(id, undefined);
+				staged.set(id, before === baseline.get(id) ? undefined : baseline.get(id));
 				continue;
 			}
 			const { params, orphan } = preparePlacement(before.assetId, before.host, operation.params);
 			const resolved = Object.freeze({ ...operation, params });
 			const after = replace(before, resolved);
 			if (orphan) orphans.add(after);
+			else validate?.(after, !hasSamePlacementStructure(before, after));
 			edits.push(resolved);
 			staged.set(id, after);
 		}
@@ -215,8 +244,21 @@ function createDocument(
 		return changes;
 	}
 
+	for (const input of stock) {
+		const { edits, changes } = stage([input]);
+		const operation = edits[0];
+		const after = changes[0]?.after;
+		if (operation?.kind !== 'place' || !after || baseline.has(after.id))
+			throw new SandboxDataError('Expected one stock placement per host');
+		publish(changes);
+		baseline.set(after.id, after);
+		stockEdits.push(operation);
+	}
+
 	return Object.freeze({
 		world,
+		/** Reads the generated placement originally assigned to a host, including an orphan. */
+		readStock: (host: HostAddress) => baseline.get(readPlacementId(world, host)),
 		/** Attaches one derived projection to this document and initializes it from active records.
 		 * All later changes prepare that projection before publishing history. */
 		attach(prepare: Prepare) {
@@ -286,6 +328,9 @@ function createDocument(
 			return JSON.stringify({
 				format,
 				world,
+				...(stockEdits.length
+					? { stock: stockEdits.map((operation) => savedEdit(operation, world)) }
+					: {}),
 				strokes: history.map(({ edits }) => edits.map((operation) => savedEdit(operation, world))),
 				position
 			});
@@ -301,9 +346,21 @@ export function restoreSandboxDocument(
 	json: string,
 	expectedWorld?: WorldIdentity,
 	resolveParams?: ResolveParams,
-	compatibleRegistryRevisions: readonly string[] = []
+	compatibleRegistryRevisions: readonly string[] = [],
+	validate?: ValidatePlacement
 ) {
-	const { format: version, world, strokes, position } = record(JSON.parse(json) as unknown);
+	if (
+		json.length > defaults.maxRestoreBytes ||
+		new TextEncoder().encode(json).length > defaults.maxRestoreBytes
+	)
+		throw new SandboxDataError('Sandbox save exceeds the restore byte limit');
+	let input: unknown;
+	try {
+		input = JSON.parse(json);
+	} catch (cause) {
+		throw new SandboxDataError('Invalid sandbox JSON', { cause });
+	}
+	const { format: version, world, strokes, position, stock = [] } = record(input);
 	if (version === 'sandbox/1')
 		throw new UnsupportedSandboxVersionError('This save lacks terrain and topology revisions');
 	if (version === 'sandbox/2')
@@ -311,14 +368,25 @@ export function restoreSandboxDocument(
 			'Sandbox/2 uses incompatible placement and movement addresses'
 		);
 	if (
-		version !== format ||
+		(version !== format && version !== compatibleFormat) ||
 		!Array.isArray(strokes) ||
+		!Array.isArray(stock) ||
+		(version === compatibleFormat && stock.length > 0) ||
 		!Number.isSafeInteger(position) ||
 		typeof position !== 'number' ||
 		position < 0 ||
 		position > strokes.length
 	)
 		throw new SandboxDataError('Invalid sandbox format or history position');
+	let editCount = stock.length;
+	for (const stroke of strokes) {
+		if (!Array.isArray(stroke) || !stroke.length)
+			throw new SandboxDataError('Expected a stroke with at least one edit');
+		editCount += stroke.length;
+		if (editCount > defaults.maxRestoreEdits) break;
+	}
+	if (editCount > defaults.maxRestoreEdits)
+		throw new SandboxDataError('Sandbox save exceeds the restore edit limit');
 	const saved = worldIdentity(world);
 	const identity = expectedWorld ? worldIdentity(expectedWorld) : saved;
 	if (
@@ -332,11 +400,22 @@ export function restoreSandboxDocument(
 	)
 		throw new SandboxDataError('This document uses a different asset registry revision');
 	let replaying = true;
-	const document = createDocument(identity, resolveParams, () => replaying);
+	const stockEdits = stock.map((operation): StockEdit => {
+		const edit = replayEdit(operation, saved);
+		if (edit.kind !== 'place') throw new SandboxDataError('Expected a stock place edit');
+		return edit;
+	});
+	const document = createDocument(
+		identity,
+		resolveParams,
+		{ stock: stockEdits, validate },
+		() => replaying
+	);
 	for (const input of strokes) {
 		if (
 			!Array.isArray(input) ||
-			!document.apply(input.map((operation) => replayEdit(operation, saved))).length
+			!document.apply(input.map((operation) => replayEdit(operation, saved, version === format)))
+				.length
 		)
 			throw new SandboxDataError('Expected a stroke that changes the document');
 	}

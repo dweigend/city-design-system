@@ -13,6 +13,9 @@ import {
 	restoreSandboxDocument,
 	readHostReference,
 	type SandboxPlacement,
+	type PlacementOverrides,
+	type StockEdit,
+	SandboxDataError,
 	UnavailableHostError
 } from '../../domain/sandbox-document';
 import {
@@ -32,7 +35,12 @@ import {
 	type CityGrid,
 	type CitySite
 } from '../city-site';
-import { createTownParcelSites, readParcelHouseWalls, type ParcelHouseRecipe } from '../house-site';
+import {
+	createParcelHouseObject,
+	createTownParcelSites,
+	readParcelHouseWalls,
+	type ParcelHouseRecipe
+} from '../house-site';
 import { readSandboxIdentity } from './identity';
 
 /** Maintains active objects by placement ID. */
@@ -137,7 +145,8 @@ export function createSandboxWorld(
 		customTerrainRevision,
 		customTerrainId
 	);
-	const createDocument = () => createSandboxDocument(identity, prepare);
+	const createDocument = (stock?: readonly StockEdit[]) =>
+		createSandboxDocument(identity, prepare, { stock, validate: validateOverrides });
 
 	const hosts = new Map<TopologyHostKind, (id: string) => CityAssetHost | undefined>([
 		[
@@ -190,13 +199,33 @@ export function createSandboxWorld(
 			throw new UnavailableHostError('Placement has an incompatible reference or registry');
 	}
 
+	function validateOverrides(placement: SandboxPlacement, checkCells: boolean) {
+		const { assetId, cellOverrides, finishOverrides } = placement;
+		if (!cellOverrides && !finishOverrides) return;
+		if (readAsset(assetId).kind !== 'house')
+			throw new SandboxDataError('House overrides require a house asset');
+		if (!checkCells || !cellOverrides) return;
+		try {
+			const result = resolveHouse(placement);
+			if (result?.status !== 'placed')
+				throw new RangeError('Unbuildable parcel: ' + result?.reason);
+		} catch (cause) {
+			if (!(cause instanceof RangeError)) throw cause;
+			throw new SandboxDataError('Invalid cell overrides: ' + cause.message, { cause });
+		}
+	}
+
 	function resolveHouse(placement: SandboxPlacement) {
 		validatePlacement(placement);
-		const { assetId, host, params, seed } = placement;
+		const { assetId, host, params, seed, cellOverrides } = placement;
 		if (host.kind !== 'parcel' || readAsset(assetId).kind !== 'house') return undefined;
 		const site = readParcelSite(host.id);
 		if (!site) throw new UnavailableHostError('Unavailable house parcel: ' + host.id);
-		return placeParcelHouseAsset(assetId, site, { ...prepare(assetId, host, params), seed });
+		return placeParcelHouseAsset(assetId, site, {
+			...prepare(assetId, host, params),
+			seed,
+			cellOverrides
+		});
 	}
 
 	function resolveAvailableHouse(placement: SandboxPlacement) {
@@ -274,7 +303,7 @@ export function createSandboxWorld(
 
 	return Object.freeze({
 		world: Object.freeze(identity),
-		/** Creates an empty editable document using this world’s registry and snapshot. */
+		/** Creates an editable document with optional stock using this world's registry and snapshot. */
 		createDocument,
 		holdings,
 		movement,
@@ -321,8 +350,14 @@ export function createSandboxWorld(
 			return value ? { status: 'resolved', value } : { status: 'missing' };
 		},
 		/** Creates a placement edit with resolved parameters to preserve its defaults in saves. */
-		place(assetId: string, host: HostAddress, params: Placement['params'] = {}) {
+		place(
+			assetId: string,
+			host: HostAddress,
+			params: Placement['params'] = {},
+			overrides: PlacementOverrides = {}
+		) {
 			return {
+				...overrides,
 				kind: 'place',
 				assetId,
 				host,
@@ -336,15 +371,27 @@ export function createSandboxWorld(
 		build(placement: SandboxPlacement) {
 			validatePlacement(placement);
 			const { assetId, host, params, seed } = placement;
+			if (placement.cellOverrides) {
+				const result = resolveHouse(placement);
+				if (result?.status !== 'placed')
+					throw new SandboxDataError('Cannot build overridden house');
+				return createParcelHouseObject(result, 'full');
+			}
 			return buildAsset(assetId, resolveHost(host), params, seed);
 		},
 		/** Restores a same-world document against this snapshot, retaining unavailable hosts as orphans. */
 		restore(json: string) {
-			return restoreSandboxDocument(json, identity, prepare, [
-				// Registry additions preserve the existing asset builders and parameter schemas.
-				'city-assets/2',
-				'city-assets/3'
-			]);
+			return restoreSandboxDocument(
+				json,
+				identity,
+				prepare,
+				[
+					// Registry additions preserve the existing asset builders and parameter schemas.
+					'city-assets/2',
+					'city-assets/3'
+				],
+				validateOverrides
+			);
 		}
 	});
 }

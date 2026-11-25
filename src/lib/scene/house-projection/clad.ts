@@ -50,6 +50,8 @@ export type CladHouseOptions = Readonly<{
 	/** Optional palette tint for the matte bodies at the plain level. Defaults to white board. */
 	plainTone?: ModelTone;
 	program?: ProgramDrawing;
+	/** Keeps each part and its cladding independently addressable. */
+	addressed?: boolean;
 }>;
 
 /** Plan area of a face in square meters, its outline (or rectangle) less its openings. */
@@ -145,7 +147,8 @@ export function houseCladdings(
 	level: SurfaceLevel | SurfaceLevelAlias = 'near',
 	house = '',
 	seed = /* Exact arithmetic: neutral default draw seed. */ 0,
-	programmed = false
+	programmed = false,
+	addressed = false
 ): Cladding[] {
 	const drawn = lowerLevel(level, undefined);
 	const plan = planHouseMaterials(materials, house, seed);
@@ -162,7 +165,11 @@ export function houseCladdings(
 	return clad.map(({ face, material, skin, area }) => {
 		const patch = patchOf(face, skin, Math.floor((budget * area) / total));
 		return {
-			role: programmed && face.program ? `use:${face.program.use}:${face.slot}` : face.slot,
+			role: addressed
+				? JSON.stringify([face.body, face.program?.use ?? null])
+				: programmed && face.program
+					? `use:${face.program.use}:${face.slot}`
+					: face.slot,
 			family: material.family,
 			...(material.tone ? { tone: material.tone } : {}),
 			body: face.body,
@@ -221,7 +228,8 @@ function buildHouse(
 		options.budget,
 		options.seed ?? 0,
 		options.placement ?? null,
-		!!options.program
+		!!options.program,
+		!!options.addressed
 	]);
 	const found = cache.get(key);
 	if (found) return found;
@@ -237,7 +245,8 @@ function buildHouse(
 		level,
 		object.id,
 		seed,
-		!!options.program
+		!!options.program,
+		!!options.addressed
 	);
 	const result = {
 		clad: createClad(placed, claddings, { level }),
@@ -278,13 +287,13 @@ const plainDrawings = new WeakMap<
 function projectPlain(
 	object: PlaceableObject,
 	materials: HouseMaterials,
-	{ placement, plainTone, program, seed }: CladHouseOptions
+	{ placement, plainTone, program, seed, addressed }: CladHouseOptions
 ): Drawable[] {
 	const byMaterial = plainDrawings.get(object) ?? new WeakMap();
 	plainDrawings.set(object, byMaterial);
 	const cached = byMaterial.get(materials) ?? new Map<string, Drawable[]>();
 	byMaterial.set(materials, cached);
-	const key = JSON.stringify([placement, plainTone]);
+	const key = JSON.stringify([placement, plainTone, !!addressed]);
 	const found = !program && cached.get(key);
 	if (found) return [...found];
 
@@ -322,7 +331,9 @@ function projectPlain(
 		const body = materials.slots[slot] !== undefined;
 		const surface = assignment[slot];
 		const address = program?.parts.get(drawable.id);
-		const key = JSON.stringify([body, surface, address?.program, address?.storeySpan]);
+		const key = addressed
+			? drawable.id
+			: JSON.stringify([body, surface, address?.program, address?.storeySpan]);
 		const group = groups.get(key) ?? [];
 		group.push(
 			paintHousePhase({ ...drawable, ...(body ? { creaseAngleRad: plainCreaseRad } : {}) }, program)
@@ -391,7 +402,9 @@ export function projectCladHouse(
 	const drawables = paintClad(house.clad, 'normal', plain).map((drawable): Drawable => {
 		const slot = ownParts.get(drawable.id);
 		const token =
-			slot === undefined && options.program ? useColorOfCladding(drawable.id) : undefined;
+			slot === undefined && options.program
+				? useColorOfCladding(drawable.id, options.addressed)
+				: undefined;
 		const drawing = {
 			...drawable,
 			id: slot !== undefined ? drawable.id : `${object.id}/${drawable.id}`,
@@ -407,9 +420,14 @@ export function projectCladHouse(
 	return { drawables, triangles: house.clad.triangles };
 }
 
-function useColorOfCladding(id: string) {
-	const [kind, use] = decodeURIComponent(id.split('/')[0]).split(':');
-	return kind === 'use' && Object.hasOwn(houseUseColors, use)
+function useColorOfCladding(id: string, addressed?: boolean) {
+	const role = decodeURIComponent(id.split('/')[0]);
+	const use = addressed
+		? (JSON.parse(role) as readonly [string, string | null])[1]
+		: role.startsWith('use:')
+			? role.split(':')[1]
+			: undefined;
+	return use && Object.hasOwn(houseUseColors, use)
 		? houseUseColors[use as keyof typeof houseUseColors]
 		: undefined;
 }

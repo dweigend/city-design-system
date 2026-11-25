@@ -79,3 +79,10 @@ export {
 	/** Backing thickness for a free plate in meters. */
 	samplePlateBackingM
 } from './plate';
+
+export {
+	/** The public tones of the model palette (MAT-11). */
+	modelTones,
+	/** One tone of the model palette. */
+	type ModelTone
+} from './tones';

@@ -77,3 +77,6 @@ export function projectHouse(object: PlaceableObject, level: DisplayLevel): Draw
 		...(fillAlpha < 1 ? { fillAlpha, occlude: true } : {})
 	}));
 }
+
+/** Applies semantic part finishes to a previously projected addressed house. */
+export { paintHouseFinishes } from './finishes';

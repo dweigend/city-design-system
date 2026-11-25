@@ -37,6 +37,8 @@ export type HouseInputs = Readonly<{
 	width?: number;
 	complexity?: number;
 	seed: number;
+	/** Target occupied storey counts for existing columns, keyed by fine-cell ID. */
+	cellOverrides?: Readonly<Record<string, number>>;
 }>;
 
 /** What the site tells the house: the rise in meters from the lane at the frontage to the cell
@@ -83,7 +85,7 @@ export type HouseOccupancy = Readonly<{
 	entrances: readonly (readonly string[])[];
 	scale: HouseScale;
 	courtAccess: boolean;
-	unbuildable?: 'no-frontage-route' | 'no-built-cells' | 'entrance-below-lane';
+	unbuildable?: 'no-frontage-route' | 'no-built-cells' | 'entrance-below-lane' | 'no-court-route';
 	site: Readonly<{
 		entranceRiseM: number;
 		corner: boolean;
@@ -229,6 +231,34 @@ function buildFailure(space: CellSpace, entry: string | undefined, built: string
 	if (rise < -entranceStepRiseM) return 'entrance-below-lane';
 }
 
+function applyCellOverrides(
+	plan: Plan,
+	overrides: NonNullable<HouseInputs['cellOverrides']>,
+	cap: number
+) {
+	for (const [id, count] of Object.entries(overrides)) {
+		const cell = plan.get(id);
+		if (!cell || !cellRoles[cell.role].built)
+			throw new RangeError('No built column at fine cell: ' + id);
+		if (!Number.isSafeInteger(count) || count < 0)
+			throw new RangeError('Invalid occupied storey count at fine cell: ' + id);
+		const { fromStorey } = cellRoles[cell.role];
+		if (count > 0)
+			plan.set(id, { ...cell, storeys: fromStorey + Math.min(cap - fromStorey, count) });
+		else
+			plan.set(id, {
+				role: cell.role === 'gate' ? 'passage' : 'garden',
+				storeys: /* Exact arithmetic: a cleared column has no occupied storeys. */ 0
+			});
+	}
+}
+
+function hasBuiltCourtSide(space: CellSpace, plan: Plan) {
+	return space.cells.some(
+		({ id, sides }) => (plan.get(id)?.storeys ?? 0) > 0 && sides.some(({ court }) => court)
+	);
+}
+
 /** Rounds a requested height to the nearest storey boundary, with ties rounding up. */
 function storeysAtHeight(space: CellSpace, height: number): number {
 	if (space.storeyHeightM !== undefined) return Math.round(height / space.storeyHeightM);
@@ -355,8 +385,26 @@ export function createHouseOccupancy(
 	for (const path of paths) carve(plan, path);
 	if (!paths.length && entranceRiseM > entranceStepRiseM) carve(plan, entrances[0]);
 	raise(plan, random, tendencies);
+	// Overrides keep the base and passage roles, so the carved paths to own courts stay open.
+	const overrides = inputs.cellOverrides;
+	const hasOverrides = overrides !== undefined && Object.keys(overrides).length > 0;
+	const hasCourtSide = hasOverrides && courtAccess && hasBuiltCourtSide(space, plan);
+	const entryId = entry?.cell.id;
+	const entranceWasBuilt = entryId !== undefined && (plan.get(entryId)?.storeys ?? 0) > 0;
+	if (hasOverrides) applyCellOverrides(plan, overrides, cap);
 	const built = [...plan].filter(([, { storeys }]) => storeys > 0).map(([id]) => id);
-	const unbuildable = buildFailure(space, entry?.cell.id, built, rise);
+	const entranceCleared =
+		hasOverrides &&
+		entranceWasBuilt &&
+		entryId !== undefined &&
+		plan.get(entryId)?.role === 'garden';
+	const unbuildable =
+		buildFailure(space, entryId, built, rise) ??
+		(entranceCleared
+			? 'no-frontage-route'
+			: hasCourtSide && !hasBuiltCourtSide(space, plan)
+				? 'no-court-route'
+				: undefined);
 	if (unbuildable)
 		for (const id of plan.keys())
 			plan.set(id, {
@@ -368,7 +416,11 @@ export function createHouseOccupancy(
 		cellIds: Object.freeze(space.cells.map(({ id }) => id)),
 		styleId,
 		inputs: Object.freeze({ height, width, complexity, seed: random.seed }),
-		storeys: unbuildable ? 0 : Math.max(top, front),
+		storeys: unbuildable
+			? 0
+			: hasOverrides
+				? Math.max(...[...plan.values()].map(({ storeys }) => storeys))
+				: Math.max(top, front),
 		entrances: Object.freeze((unbuildable ? [] : entrances).map((path) => Object.freeze(path))),
 		scale,
 		courtAccess,

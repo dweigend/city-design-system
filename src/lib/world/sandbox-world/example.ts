@@ -109,7 +109,7 @@ function readGroveCanopies(
 	]);
 }
 
-/** Produces a fixed sandbox/3 exchange and independent plan and spatial readers of it. */
+/** Produces a fixed sandbox/4 exchange and independent plan and spatial readers of it. */
 export function boundaryExample() {
 	const { world, town, parcels } = example();
 	const { site, layout, columns } = town;

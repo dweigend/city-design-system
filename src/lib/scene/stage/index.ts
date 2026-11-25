@@ -49,3 +49,6 @@ function create(options: StageOptions) {
 
 /** Opens a WebGPU stage on the supplied canvas. Rejects if WebGPU cannot initialise. */
 export const Stage = Object.freeze({ create });
+
+/** Checks whether an ordered drawable update can reuse the stage's current geometry. */
+export { hasSameGeometry as readGeometryMatch } from './content';

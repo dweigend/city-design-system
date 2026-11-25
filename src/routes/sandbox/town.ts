@@ -2,7 +2,11 @@ import { defaults } from '../../config/sandbox-brush';
 import type { Vec3 } from '../../lib/core/geometry';
 import type { CellSpace } from '../../lib/domain/cell-space';
 import type { Parcel } from '../../lib/domain/parcels';
-import type { createSandboxDocument, SandboxPlacement } from '../../lib/domain/sandbox-document';
+import type {
+	createSandboxDocument,
+	FinishOverride,
+	SandboxPlacement
+} from '../../lib/domain/sandbox-document';
 import {
 	readHouseFeatures,
 	type HouseFeatures,
@@ -54,6 +58,21 @@ export type PlacementRequest = Readonly<{
 	program?: readonly Pick<HouseStorey, 'storey' | 'phase' | 'use'>[];
 	build?: (detail: Detail) => readonly Drawable[];
 }>;
+
+type ProjectPlacement = (
+	detail: Detail,
+	finishes?: readonly FinishOverride[]
+) => readonly Drawable[];
+type TownRequest = PlacementRequest & Readonly<{ project?: ProjectPlacement }>;
+
+function withPlacement(request: TownRequest, placement: SandboxPlacement): TownRequest {
+	const { project } = request;
+	return {
+		...request,
+		placement,
+		...(project ? { build: (detail: Detail) => project(detail, placement.finishOverrides) } : {})
+	};
+}
 
 /** Uses the Architecture Town fixture as the opening subject of the editable city. */
 export function createTownSandbox() {
@@ -159,27 +178,36 @@ export function createTownSandbox() {
 		parcels,
 		/** Turns the current placements and their party walls into deferred build requests. */
 		createCache: (document: ReturnType<typeof createSandboxDocument>) =>
-			createPlacementCache<PlacementRequest>(
+			createPlacementCache<TownRequest>(
 				document,
-				(placement, house, adjoining): PlacementRequest => {
+				(placement, house, adjoining) => {
 					const tone = toneOf(placement.assetId);
 					const parcel =
 						placement.host.kind === 'parcel' ? parcels.get(placement.host.id) : undefined;
 					const where = parcel && { parcel };
 					if (house?.status === 'unbuildable') return { placement, ...where, reason: house.reason };
 					if (house)
-						return {
-							placement,
-							house,
-							...where,
-							salience: {
-								block: house.parcel.blockId,
-								features: readHouseFeatures(house.space, house.house)
+						return withPlacement(
+							{
+								placement,
+								house,
+								...where,
+								salience: {
+									block: house.parcel.blockId,
+									features: readHouseFeatures(house.space, house.house)
+								},
+								program: readStoreyProgram(house.house.cells),
+								project: (detail, finishes) =>
+									projection.projectParcelHouse(
+										house,
+										adjoining,
+										placement.id,
+										{ ...detail, tone },
+										finishes
+									)
 							},
-							program: readStoreyProgram(house.house.cells),
-							build: (detail) =>
-								projection.projectParcelHouse(house, adjoining, placement.id, { ...detail, tone })
-						};
+							placement
+						);
 					const object = world.build(placement);
 					return {
 						placement,
@@ -188,7 +216,8 @@ export function createTownSandbox() {
 							projection.projectPlacement(object, kinds.get(placement.assetId) ?? '', placement.id)
 					};
 				},
-				world.resolveHouse
+				world.resolveHouse,
+				withPlacement
 			)
 	};
 }

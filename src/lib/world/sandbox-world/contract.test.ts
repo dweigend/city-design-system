@@ -156,7 +156,11 @@ test('builds only arriving records and removes only departing records', () => {
 	expect(cache.readChanges().built).toEqual(changes.map(({ id }) => id));
 	expect(cache.read()).toHaveLength(31);
 	document.undo();
-	expect(cache.readChanges()).toEqual({ built: [], removed: changes.map(({ id }) => id) });
+	expect(cache.readChanges()).toEqual({
+		built: [],
+		removed: changes.map(({ id }) => id),
+		restyled: []
+	});
 	expect(cache.read()[0]).toBe(existing);
 	document.redo();
 	expect(cache.read()).toHaveLength(31);
@@ -286,11 +290,11 @@ test('rebuilds an occupied party-wall neighbour on paint and undo and reuses an 
 	fail = false;
 	const idB = readPlacementId(world.world, b.placement.host);
 	document.apply([edit(b.house.parcel.id)]);
-	expect(cache.readChanges()).toEqual({ built: [idB, a.placement.id], removed: [] });
+	expect(cache.readChanges()).toEqual({ built: [idB, a.placement.id], removed: [], restyled: [] });
 	const contact = cache.read().find(({ id }) => id === a.placement.id)?.exposure;
 	expect(contact).not.toBe(before.find(({ id }) => id === a.placement.id)?.exposure);
 	document.undo();
-	expect(cache.readChanges()).toEqual({ built: [a.placement.id], removed: [idB] });
+	expect(cache.readChanges()).toEqual({ built: [a.placement.id], removed: [idB], restyled: [] });
 	expect(cache.read()).toEqual(before);
 	expect(cache.read().find(({ id }) => id === c.placement.id)).toBe(untouched);
 	document.redo();
@@ -329,10 +333,10 @@ test('derives snapshot identity from the resolved city size, terrain and topolog
 	expect(differentGround.restore(saved).world).toEqual(differentGround.world);
 	expect(world.listAssets('ground')).toEqual([]);
 	expect(world.listAssets('parcel').length).toBeGreaterThan(0);
-	expect(() => world.restore(saved.replace('sandbox/3', 'sandbox/2'))).toThrow(
+	expect(() => world.restore(saved.replace('sandbox/4', 'sandbox/2'))).toThrow(
 		UnsupportedSandboxVersionError
 	);
-	expect(() => world.restore(saved.replace('sandbox/3', 'sandbox/1'))).toThrow(
+	expect(() => world.restore(saved.replace('sandbox/4', 'sandbox/1'))).toThrow(
 		'lacks terrain and topology revisions'
 	);
 }, 20000);
@@ -550,7 +554,7 @@ test('passes adjoining walls to the builder in code-unit placement order', () =>
 	]);
 });
 
-test('persists mixed house and grove placement geometry through erasure and sandbox/3 replay', () => {
+test('persists mixed house and grove placement geometry through erasure and sandbox/4 replay', () => {
 	const { world, parcels } = example();
 	const document = world.createDocument();
 	const host = (id: string) => ({ kind: 'parcel', id }) as const;
@@ -580,7 +584,7 @@ test('persists mixed house and grove placement geometry through erasure and sand
 	expect(document.readPlacements().map(world.build)).toEqual(both);
 
 	const saved = document.serialize();
-	expect(JSON.parse(saved).format).toBe('sandbox/3');
+	expect(JSON.parse(saved).format).toBe('sandbox/4');
 	const restored = world.restore(saved);
 	expect(restored.serialize()).toBe(saved);
 	expect(restored.readPlacements().map(world.build)).toEqual(both);
@@ -657,6 +661,7 @@ test('restores the pre-sculpture sandbox/3 log with identical placement geometry
 	expect(document.readOrphans()).toEqual([]);
 	expect(JSON.parse(document.serialize())).toEqual({
 		...saved,
+		format: 'sandbox/4',
 		world: { ...saved.world, registryRevision: 'city-assets/4' }
 	});
 
@@ -677,6 +682,29 @@ test('restores the pre-sculpture sandbox/3 log with identical placement geometry
 	];
 	expect(geometryHashes()).toEqual(geometry);
 	expect(document.readHistory()).toEqual({ placements: 2, strokes: 3, position: 2 });
+
+	// Read the captured save against a snapshot where the second parcel is unavailable.
+	const missing = placements[1];
+	const reduced = restoreSandboxDocument(
+		preSculptureSave,
+		{ ...document.world, topologyRevision: 'without-second-parcel' },
+		(_asset, host, params) => {
+			if (host.kind === 'parcel' && host.id === missing.hostReference.key)
+				throw new UnavailableHostError('Parcel disappeared');
+			return params;
+		},
+		['city-assets/3']
+	);
+	expect(reduced.readHistory()).toEqual({ placements: 1, strokes: 3, position: 2 });
+	expect(reduced.readOrphans()).toEqual([missing]);
+	reduced.redo();
+	expect(reduced.readOrphans()).toEqual([]);
+	reduced.undo();
+	expect(reduced.readOrphans()).toEqual([missing]);
+	const resurrected = world.restore(reduced.serialize());
+	expect(resurrected.readPlacements()).toEqual(placements);
+	resurrected.redo();
+	expect(resurrected.readPlacements()).toEqual(placements.slice(0, 1));
 
 	document.redo();
 	expect(document.readPlacements()).toEqual(placements.slice(0, 1));

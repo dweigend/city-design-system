@@ -7,6 +7,7 @@ import { openingRects, openingStoreys } from './parts';
 import { defaults } from '../../../config/house-court';
 import { exposedWall, fitsOpening, type WallRect } from './wall-contact';
 import type { StoreyProgram } from '../massing';
+import { slicePartId } from './part-refs';
 
 const { faceToleranceM } = defaults;
 
@@ -131,7 +132,11 @@ export function roofFace(slot: string, body: string, ring: readonly Vec3[]): Hou
 
 /** True when a side of a solid's outline lies on a cell side hidden by another body for the whole
  * run by another built cell of the same house. */
-function hidden(ctx: Context, s: CellSolid, [a, b]: readonly [Vec2, Vec2]): boolean {
+function hidden(
+	ctx: Context,
+	s: Pick<CellSolid, 'cell' | 'fromStorey' | 'toStorey'>,
+	[a, b]: readonly [Vec2, Vec2]
+): boolean {
 	const mid: Vec2 = [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2];
 	return s.cell.sides.some(({ neighbour }, i) => {
 		const wall = side(s.cell.quad, i);
@@ -147,7 +152,11 @@ function hidden(ctx: Context, s: CellSolid, [a, b]: readonly [Vec2, Vec2]): bool
 /** Wall faces of the flat-sided solids (blocks and chamfers), one per outline side over the run,
  * without the sides another body hides; their figure openings stay drawn in front. Roof faces: the
  * planar tops of wedge roofs and the flat top of every flat-sided solid without a roof solid. */
-export function solidFaces(ctx: Context, solids: readonly CellSolid[]): HouseFace[] {
+export function solidFaces(
+	ctx: Context,
+	solids: readonly CellSolid[],
+	addressed = false
+): HouseFace[] {
 	const roofed = new Set(
 		solids.filter(({ key }) => key.endsWith('/roof')).map(({ cell }) => cell.id)
 	);
@@ -160,12 +169,32 @@ export function solidFaces(ctx: Context, solids: readonly CellSolid[]): HouseFac
 					? [programFace(ctx, s.cell, s.fromStorey - 1, roofFace(s.slot, s.key, s.faces[1]))]
 					: [];
 			if (!s.flat) return [];
-			const z0 = level(ctx, s.fromStorey);
+			const body = (storey: number) =>
+				addressed && !s.key.includes('/capsule/')
+					? slicePartId(s.cell.id, 'body', ctx.space.datumIndex + storey)
+					: s.key;
 			const z1 = level(ctx, s.toStorey);
-			const walls = s.outline.flatMap((a, i) => {
-				const wall = side(s.outline, i);
-				return hidden(ctx, s, [a, wall.b]) ? [] : wallFaces(ctx, s.slot, s.key, wall, z0, z1);
-			});
+			const runs = addressed
+				? Array.from({ length: s.toStorey - s.fromStorey }, (_, offset) => {
+						const from = s.fromStorey + offset;
+						return { cell: s.cell, fromStorey: from, toStorey: from + 1 };
+					})
+				: [s];
+			const walls = runs.flatMap((run) =>
+				s.outline.flatMap((a, i) => {
+					const wall = side(s.outline, i);
+					return hidden(ctx, run, [a, wall.b])
+						? []
+						: wallFaces(
+								ctx,
+								s.slot,
+								body(run.fromStorey),
+								wall,
+								level(ctx, run.fromStorey),
+								level(ctx, run.toStorey)
+							);
+				})
+			);
 			const top =
 				tops.get(s.cell.id) === s && !roofed.has(s.cell.id)
 					? [
@@ -197,12 +226,19 @@ function flushAcross(ctx: Context, cell: FineCell, i: number, storey: number): b
 }
 
 /** Runs of storeys over which one cell side is exposed, as [from, to). */
-function exposedRuns(ctx: Context, cell: FineCell, i: number, from: number, to: number) {
+function exposedRuns(
+	ctx: Context,
+	cell: FineCell,
+	i: number,
+	from: number,
+	to: number,
+	addressed: boolean
+) {
 	const runs: [number, number][] = [];
 	for (let storey = from; storey < to; storey += 1) {
 		if (flushAcross(ctx, cell, i, storey)) continue;
 		const last = runs.at(-1);
-		if (last && last[1] === storey && !ctx.occupancy.get(cell.id)?.program?.length)
+		if (!addressed && last && last[1] === storey && !ctx.occupancy.get(cell.id)?.program?.length)
 			last[1] = storey + 1;
 		else runs.push([storey, storey + 1]);
 	}
@@ -215,7 +251,8 @@ function exposedRuns(ctx: Context, cell: FineCell, i: number, from: number, to: 
 export function envelopeFaces(
 	ctx: Context,
 	slot: string,
-	solids: readonly CellSolid[]
+	solids: readonly CellSolid[],
+	addressed = false
 ): HouseFace[] {
 	const roofed = new Set(
 		solids.filter(({ key }) => key.endsWith('/roof')).map(({ cell }) => cell.id)
@@ -223,28 +260,32 @@ export function envelopeFaces(
 	return ctx.space.cells.flatMap((cell) => {
 		const house = ctx.occupancy.get(cell.id);
 		if (!house || house.toStorey <= house.fromStorey) return [];
+		const body = (storey: number) =>
+			addressed ? slicePartId(cell.id, 'envelope', ctx.space.datumIndex + storey) : 'envelope';
 		const walls = cell.quad.flatMap((_, i) =>
-			exposedRuns(ctx, cell, i, house.fromStorey, house.toStorey).flatMap(([from, to]) => {
-				const openings = Array.from(
-					{ length: Math.max(0, Math.min(to, openingStoreys(ctx, house)) - from) },
-					(_, k) => openingRects(ctx, cell, i, from + k)
-				).flat();
-				return wallFaces(
-					ctx,
-					slot,
-					'envelope',
-					side(envelopeRing(ctx, cell, from), i),
-					level(ctx, from),
-					level(ctx, to),
-					openings
-				).map((face) => programFace(ctx, cell, from, face));
-			})
+			exposedRuns(ctx, cell, i, house.fromStorey, house.toStorey, addressed).flatMap(
+				([from, to]) => {
+					const openings = Array.from(
+						{ length: Math.max(0, Math.min(to, openingStoreys(ctx, house)) - from) },
+						(_, k) => openingRects(ctx, cell, i, from + k)
+					).flat();
+					return wallFaces(
+						ctx,
+						slot,
+						body(from),
+						side(envelopeRing(ctx, cell, from), i),
+						level(ctx, from),
+						level(ctx, to),
+						openings
+					).map((face) => programFace(ctx, cell, from, face));
+				}
+			)
 		);
 		const top = roofed.has(cell.id)
 			? undefined
 			: roofFace(
 					slot,
-					'envelope',
+					body(house.toStorey - 1),
 					envelopeRing(ctx, cell, house.toStorey - 1).map(([x, y]): Vec3 => [
 						x,
 						y,

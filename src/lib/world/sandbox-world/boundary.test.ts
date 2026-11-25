@@ -19,13 +19,13 @@ function readCrownRings(object: PlaceableObject) {
 	return rings;
 }
 
-test('plan and spatial consumers reopen the same addressed sandbox/3 exchange', () => {
+test('plan and spatial consumers reopen the same addressed sandbox/4 exchange', () => {
 	const fixture = boundaryExample();
 	const exchange = fixture.readExchange();
 	const wire = JSON.stringify(exchange);
 	const replay = () => JSON.parse(wire) as typeof exchange;
 	expect(replay()).toEqual(exchange);
-	expect(JSON.parse(exchange.document).format).toBe('sandbox/3');
+	expect(JSON.parse(exchange.document).format).toBe('sandbox/4');
 	expect(new Set(exchange.refs.map(({ kind }) => kind))).toEqual(
 		new Set(['parcel', 'placement', 'storey', 'house-part', 'lane', 'bridge', 'rail', 'ground'])
 	);

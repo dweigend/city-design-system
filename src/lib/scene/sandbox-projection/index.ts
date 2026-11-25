@@ -3,15 +3,22 @@ import type { Vec2 } from '../../core/geometry';
 import { move, type PlaceableObject } from '../../core/object';
 import { defaults } from '../../../config/sandbox-projection';
 import type { CellStorey, FineCell } from '../../domain/cell-space';
-import { houseFaces, type AdjoiningWall, type HouseStyleName } from '../../domain/house-court';
+import {
+	createHouseObject,
+	houseFaces,
+	type AdjoiningWall,
+	type HouseStyleName
+} from '../../domain/house-court';
 import type { SurfaceLevel } from '../../domain/material';
 import type { Parcel } from '../../domain/parcels';
+import type { FinishOverride } from '../../domain/sandbox-document';
 import type { createSandboxWorld } from '../../world/sandbox-world';
 import { cityWindow, type CityGrid, type CitySite } from '../../world/city-site';
-import { createParcelHouseObject, type PlacedParcelHouse } from '../../world/house-site';
+import type { PlacedParcelHouse } from '../../world/house-site';
 import { projectCityTerrain } from '../city-volume-projection';
 import {
 	houseMaterials,
+	paintHouseFinishes,
 	projectCladHouse,
 	projectHouse,
 	projectProgrammedHouse
@@ -82,6 +89,55 @@ export function createSandboxProjection(site: CitySite, layout: CityGrid, holdin
 		return [origin[0] + x * east - y * north, origin[1] + x * north + y * east];
 	}
 
+	const noWalls: readonly AdjoiningWall[] = Object.freeze([]);
+	type HouseDetail = Readonly<{ level: SurfaceLevel; budget: number; tone: ModelTone }>;
+	type Drawing = Readonly<{ budget: number; tone: ModelTone; parts: readonly Drawable[] }>;
+	const houses = new WeakMap<
+		PlacedParcelHouse,
+		WeakMap<readonly AdjoiningWall[], Map<SurfaceLevel, Drawing>>
+	>();
+
+	function readHouseDrawing(
+		placed: PlacedParcelHouse,
+		walls: readonly AdjoiningWall[],
+		{ level, budget, tone }: HouseDetail
+	) {
+		const byWalls =
+			houses.get(placed) ?? new WeakMap<readonly AdjoiningWall[], Map<SurfaceLevel, Drawing>>();
+		houses.set(placed, byWalls);
+		const wallKey = walls.length ? walls : noWalls;
+		const byLevel = byWalls.get(wallKey) ?? new Map<SurfaceLevel, Drawing>();
+		byWalls.set(wallKey, byLevel);
+		const cached = byLevel.get(level);
+		if (cached?.budget === budget && cached.tone === tone) return cached.parts;
+		const { style, house, space } = placed;
+		if (!Object.hasOwn(houseMaterials, style.id))
+			throw new RangeError('No sandbox materials for ' + style.id);
+		const plain = level === 'plain';
+		const detail = plain ? 'block' : 'full';
+		const faces = plain ? [] : houseFaces(space, house, 'full', style, walls, true);
+		const materials = houseMaterials[style.id as HouseStyleName];
+		const options = {
+			budget,
+			placement: { translation: offset, radians: -bearing },
+			level,
+			seed: house.inputs.seed,
+			plainTone: tone,
+			addressed: true
+		};
+		const { drawables } = house.cells.some(({ program }) => program?.length)
+			? projectProgrammedHouse(placed, detail, walls, faces, materials, 'full', options)
+			: projectCladHouse(
+					createHouseObject(space, house, detail, style, walls, true),
+					faces,
+					materials,
+					'full',
+					options
+				);
+		byLevel.set(level, { budget, tone, parts: drawables });
+		return drawables;
+	}
+
 	return Object.freeze({
 		background: [...terrain.drawables, ...terrain.projectParcels(holdings)],
 		toLocal,
@@ -112,43 +168,14 @@ export function createSandboxProjection(site: CitySite, layout: CityGrid, holdin
 			placed: PlacedParcelHouse,
 			adjoiningWalls: readonly AdjoiningWall[],
 			placementId: string,
-			detail: Readonly<{ level: SurfaceLevel; budget: number; tone: ModelTone }>
+			detail: HouseDetail,
+			finishOverrides: readonly FinishOverride[] = []
 		): Drawable[] {
-			const { style, house, space } = placed;
-			if (!Object.hasOwn(houseMaterials, style.id))
-				throw new RangeError('No sandbox materials for ' + style.id);
-			const plain = detail.level === 'plain';
-			const placement = { translation: offset, radians: -bearing };
-			const faces = plain ? [] : houseFaces(space, house, 'full', style, adjoiningWalls);
-			const materials = houseMaterials[style.id as HouseStyleName];
-			const options = {
-				budget: detail.budget,
-				placement,
-				level: detail.level,
-				seed: house.inputs.seed,
-				plainTone: detail.tone
-			};
-			if (house.cells.some(({ program }) => program?.length))
-				return address(
-					projectProgrammedHouse(
-						placed,
-						plain ? 'block' : 'full',
-						adjoiningWalls,
-						faces,
-						materials,
-						'full',
-						options
-					).drawables,
-					placementId
-				);
-			const { drawables } = projectCladHouse(
-				createParcelHouseObject(placed, plain ? 'block' : 'full', adjoiningWalls),
-				faces,
-				materials,
-				'full',
-				options
+			const parts = readHouseDrawing(placed, adjoiningWalls, detail);
+			return address(
+				paintHouseFinishes(parts, placed.house.id, finishOverrides, detail.level),
+				placementId
 			);
-			return address(drawables, placementId);
 		},
 		/** Drapes a single contour on displayed ground so it remains visible above plan strokes. */
 		projectHover(parcel: Pick<Parcel, 'outline'>): Drawable {
