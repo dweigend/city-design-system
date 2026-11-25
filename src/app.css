@@ -427,6 +427,22 @@
 		background: color-mix(in oklab, var(--paper) 92%, transparent);
 	}
 	.chapter-viewer-subject { margin-inline-end: auto; }
+	.paths-hero { --water: var(--river-water); }
+	.paths-hero .chapter-viewer-hud { align-items: end; justify-content: flex-start; }
+	.paths-hero .chapter-viewer-hud > .control-icon-button { margin-inline-start: auto; }
+	.paths-metrics { padding-block-start: var(--space-3); }
+	@media (max-width: 720px) {
+		.paths-hero .chapter-viewer:not(:fullscreen) > .frame {
+			block-size: auto;
+			aspect-ratio: 4 / 3;
+		}
+		.paths-hero .chapter-viewer-hud {
+			display: grid;
+			grid-template-columns: repeat(2, minmax(0, 1fr));
+		}
+		.paths-hero .chapter-viewer-hud .control-with-icon { text-align: start; }
+		.paths-hero .chapter-viewer-hud .control-choice { justify-items: start; }
+	}
 	.page > .control-tabs:has(> .city-hero) { inline-size: 100%; }
 	.city-hero .chapter-viewer-hud { align-items: end; }
 	.city-hero .control-tabs-list { margin-inline-end: auto; }

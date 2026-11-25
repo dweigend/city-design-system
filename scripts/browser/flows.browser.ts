@@ -979,6 +979,78 @@ journeys('renders on demand, stays idle and tears down cleanly after unmount', a
 	expect(postUnmountRafs).toBe(0);
 });
 
+for (const viewport of [
+	{ width: 1440, height: 900 },
+	{ width: 390, height: 844 }
+]) {
+	for (const colorScheme of ['light', 'dark'] as const) {
+		journeys(
+			`updates the /paths schematic at ${viewport.width}px in ${colorScheme} mode`,
+			async ({ page }) => {
+				await page.setViewportSize(viewport);
+				await page.emulateMedia({ colorScheme });
+				await open(page, '/paths');
+				await expect(page.locator('canvas[data-stage-ready="true"]')).toBeVisible({
+					timeout: 5_000
+				});
+				const canvas = (await readyStages(page, 1)).first();
+				await expect(canvas).toHaveAttribute('data-stage-theme', colorScheme);
+				expect(await distinctPixels(canvas)).toBe(true);
+				expect((await canvas.boundingBox())?.width).toBeGreaterThan(viewport.width * 0.85);
+				const overflow = () => page.evaluate(() => document.documentElement.scrollWidth);
+				const metrics = page.locator('.paths-metrics dd');
+				const ground = ['8', '8', '0', '162.4 m', '0 m', '0'];
+				await expect(metrics).toHaveText(ground);
+				expect(await overflow()).toBe(viewport.width);
+
+				await renderedChange(canvas, () => choose(page, 'Walkway level', 'Level 1 (+7 m)'));
+				await expect(metrics).toHaveText(['10', '11', '3', '144 m', '7 m', '2']);
+				await renderedChange(canvas, () => choose(page, 'Walkway level', 'Level 2 (+14 m)'));
+				await expect(metrics).toHaveText(['12', '14', '6', '124.3 m', '14 m', '2']);
+				expect(await overflow()).toBe(viewport.width);
+
+				await renderedChange(canvas, () => choose(page, 'Route', 'Gate → Quay'));
+				await expect(metrics).toHaveText(['12', '14', '6', '138.1 m', '14 m', '2']);
+				await choose(page, 'Route', 'Gate → Court');
+				await renderedChange(canvas, () => choose(page, 'Walkway level', 'Ground only'));
+				await expect(metrics).toHaveText(ground);
+
+				const options = page.getByRole('combobox', { name: 'Route', exact: true });
+				await options.focus();
+				await page.keyboard.press('Enter');
+				await expect(page.getByRole('listbox')).toBeVisible();
+				await page.keyboard.press('Escape');
+				await expect(page.getByRole('listbox')).toBeHidden();
+				await expect(options).toBeFocused();
+
+				const view = page.getByRole('radiogroup', { name: 'View', exact: true });
+				await renderedChange(canvas, async () => {
+					await view.getByRole('radio', { name: 'Iso' }).focus();
+					await page.keyboard.press('ArrowRight');
+				});
+				await expect(view.getByRole('radio', { name: 'Plan' })).toBeChecked();
+				await expect(canvas).toHaveAttribute('data-stage-view', 'plan');
+				expect(await overflow()).toBe(viewport.width);
+
+				const enter = page.getByRole('button', { name: 'Enter fullscreen' });
+				await enter.focus();
+				await page.keyboard.press('Enter');
+				const fullscreen = page.locator('.chapter-viewer:fullscreen');
+				await expect(fullscreen.locator('canvas')).toHaveCount(1);
+				await choose(page, 'Walkway level', 'Level 1 (+7 m)');
+				await fullscreen.getByRole('button', { name: 'Exit fullscreen' }).click();
+				await expect(enter).toBeFocused();
+				await expect(metrics).toHaveText(['10', '11', '3', '144 m', '7 m', '2']);
+
+				await expect(page.getByRole('link', { name: 'City and valley demo' })).toHaveAttribute(
+					'href',
+					'/paths/valley'
+				);
+			}
+		);
+	}
+}
+
 // Direct acceptance URLs on /paths/valley must activate after hydration instead of keeping the
 // prerendered default town framing. Protects the preserved #63/#64 acceptance views.
 journeys('applies /paths/valley acceptance query views after hydration', async ({ page }) => {
