@@ -25,13 +25,16 @@ import { projectTerrainField } from './field';
 import { flatTolerance, graphite, grain, levels, sun, type drawingPalette } from './tone';
 import { terrainColor } from './terrain';
 
-const finishOpacity = /* Exact arithmetic: unit opacity is opaque and zero omits the fill. */ {
-	matte: 1,
-	gloss: 1,
+const opaqueFill = /* Exact arithmetic: full opacity renders an opaque fill. */ 1;
+const noFill = /* Exact arithmetic: zero opacity omits the fill for line-only parts. */ 0;
+
+const finishOpacity = {
+	matte: opaqueFill,
+	gloss: opaqueFill,
 	glass: defaults.stageGlassOpacity,
-	line: 0,
-	terrain: 1,
-	shadow: 1
+	line: noFill,
+	terrain: opaqueFill,
+	shadow: opaqueFill
 } satisfies Record<Finish, number>;
 
 const finishes = createCatalog({

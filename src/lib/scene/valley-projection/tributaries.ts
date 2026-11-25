@@ -50,7 +50,7 @@ export function tributaryStrokes(
 			const dx = bx - ax;
 			const dy = by - ay;
 			const span = dx * dx + dy * dy;
-			if (span < defaults.valleyTributaryMinSpanM) continue;
+			if (span < defaults.valleyTributaryMinSpanSqM2) continue;
 			const points = project([ax, ay], [bx, by]).map(([x, y, groundZ]): Vec3 => {
 				const t = ((x - ax) * dx + (y - ay) * dy) / span;
 				return [

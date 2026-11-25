@@ -61,11 +61,23 @@ export const settings = defineSettings({
 		meaning: 'Width of selected crossing strokes',
 		rationale: 'Highlights connections over the river.'
 	},
+	cityCrossingStrokeOpacity: {
+		value: 1,
+		unit: 'ratio',
+		meaning: 'Opacity of selected crossing strokes',
+		rationale: 'Keeps crossing lines crisp over water and banks.'
+	},
 	cityLaneStrokePx: {
 		value: 1.2,
 		unit: 'CSS px',
 		meaning: 'Width of reserved lane outlines',
 		rationale: 'Shows lane hierarchy without competing with crossings.'
+	},
+	cityLaneStrokeOpacity: {
+		value: 1,
+		unit: 'ratio',
+		meaning: 'Opacity of reserved lane outlines',
+		rationale: 'Keeps lane outlines readable across plan surfaces.'
 	},
 	cityParcelStrokePx: {
 		value: 0.7,

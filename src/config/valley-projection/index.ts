@@ -235,11 +235,17 @@ export const settings = defineSettings({
 		meaning: 'Bucket side length for draping tributaries over terrain',
 		rationale: 'Limits drape queries to nearby facets.'
 	},
-	valleyTributaryMinSpanM: {
+	valleyTributaryMinSpanSqM2: {
 		value: 1e-8,
-		unit: 'm',
-		meaning: 'Minimum clipped tributary segment length',
+		unit: 'm²',
+		meaning: 'Minimum squared length of a clipped tributary segment',
 		rationale: 'Drops fragments that collapse at the window boundary.'
+	},
+	valleyTributaryStrokeOpacity: {
+		value: 1,
+		unit: 'ratio',
+		meaning: 'Opacity of projected tributary centerlines',
+		rationale: 'Keeps thin tributary strokes legible across shaded ground.'
 	},
 	valleyTributaryLiftM: {
 		value: 0.15,

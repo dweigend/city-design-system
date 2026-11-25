@@ -141,7 +141,8 @@ export function stageNavigation(
 				event.key === '+' || event.key === '='
 					? defaults.stageKeyZoomIn
 					: event.key === '-'
-						? defaults.stageKeyZoomOut
+						? /* Exact arithmetic: reciprocal reverses one zoom-in step. */ 1 /
+							defaults.stageKeyZoomIn
 						: 1;
 			if (event.key === 'Home') reset();
 			else if (dx || dy || ratio !== 1) move(center, { x: center.x + dx, y: center.y + dy }, ratio);

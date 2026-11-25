@@ -91,7 +91,7 @@ function traceTributaries(
 				stroke: {
 					color: landscape.water.color,
 					width: tributaryWidthPx,
-					opacity: /* Exact arithmetic: unit opacity makes these strokes fully opaque. */ 1
+					opacity: defaults.valleyTributaryStrokeOpacity
 				}
 			}
 		: undefined;

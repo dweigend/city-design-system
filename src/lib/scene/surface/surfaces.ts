@@ -160,7 +160,7 @@ export const planOverlaySurfaces = Object.freeze({
 		stroke: {
 			color: '--path',
 			width: defaults.cityCrossingStrokePx,
-			opacity: /* Exact arithmetic: unit opacity keeps the crossing stroke fully opaque. */ 1
+			opacity: defaults.cityCrossingStrokeOpacity
 		}
 	},
 	lanes: {
@@ -170,7 +170,7 @@ export const planOverlaySurfaces = Object.freeze({
 		stroke: {
 			color: '--path',
 			width: defaults.cityLaneStrokePx,
-			opacity: /* Exact arithmetic: unit opacity keeps the lane stroke fully opaque. */ 1
+			opacity: defaults.cityLaneStrokeOpacity
 		}
 	},
 	parcels: {

@@ -63,11 +63,11 @@ export type {
 	GroundSurvey,
 	/** Counts of violations of drainage and water surface invariants. */
 	HydrologyFaults,
-	/** Regular valley raster with elevation bands in meters. */
+	/** Regular valley raster with heights and waterHeights in meters and bands indexing valleyBands. */
 	HeightGrid,
 	/** A solved lake with closed plan rings, surface elevation in meters, and outlet information. */
 	DrainageLake,
-	/** Ordered river centerline in packed XY meters, with its length and sinuosity. */
+	/** Ordered river centerline in packed XY meters, bankfullWidth and wetWidth in meters, and downstream bearing in radians from positive X. */
 	RiverCourse,
 	/** Square survey side and node spacing in meters, with buildable slope as rise over run. */
 	SurveyWindow

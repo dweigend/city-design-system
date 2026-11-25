@@ -103,12 +103,6 @@ export const cameraSettings = defineSettings({
 		meaning: 'Zoom multiplier per plus key press',
 		rationale: 'Steps inward by a fixed proportional increment.'
 	},
-	stageKeyZoomOut: {
-		value: 0.8,
-		unit: 'ratio',
-		meaning: 'Zoom multiplier per minus key press',
-		rationale: 'Reverses the proportional zoom-in increment.'
-	},
 	stageWheelZoomRate: {
 		value: 0.0017,
 		unit: '1/CSS px',
