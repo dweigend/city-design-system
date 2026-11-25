@@ -53,7 +53,7 @@ test('frontage cells of a calm house share one eaves line', () => {
 			front.map(({ id }) => house.cells.find((cell) => cell.id === id)?.toStorey)
 		);
 		expect(heights.size).toBe(1);
-		expect([...heights][0]).toBeGreaterThanOrEqual(4 - defaults.eavesToleranceStoreys);
+		expect([...heights][0]).toBeGreaterThanOrEqual(3);
 	}
 });
 

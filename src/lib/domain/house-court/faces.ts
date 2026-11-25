@@ -6,7 +6,7 @@ import type { CellSolid } from './fills';
 import { openingRects, openingStoreys } from './parts';
 import { defaults } from '../../../config/house-court';
 import { exposedWall, fitsOpening, type WallRect } from './wall-contact';
-import type { StoreyProgram } from './occupancy';
+import type { StoreyProgram } from '../massing';
 
 const { faceToleranceM } = defaults;
 

@@ -2,7 +2,7 @@ import type { Vec2 } from '../../core/geometry';
 import type { Random } from '../../core/random';
 import { defaults } from '../../../config/house-court';
 import { readStoreyElevation, readStoreyHeight, type FineCell } from '../cell-space';
-import type { HouseCell } from './occupancy';
+import type { HouseCell } from '../massing';
 import { envelopeRing, type Context } from './context';
 import {
 	chamfered,

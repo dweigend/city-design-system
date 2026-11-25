@@ -3,7 +3,7 @@ import { encodeKey, type Ref } from '../../core/ref';
 import { readStoreyKey, type CellSpace } from '../cell-space';
 import { boxMesh, faceMesh, type Box } from './boxes';
 import type { Vec3 } from '../../core/geometry';
-import type { HouseOccupancy, StoreyProgram } from './occupancy';
+import type { HouseOccupancy, StoreyProgram } from '../massing';
 
 export type StoreyRun = readonly [cellId: string, fromStorey: number, toStorey: number];
 export type HousePart = Part &

@@ -19,11 +19,9 @@ import {
 	houseScale,
 	type AdjoiningWall,
 	type HouseDetail,
-	type HouseInputs,
-	type HouseSite,
-	type HouseStyle,
-	type HouseScale
+	type HouseStyle
 } from '../../domain/house-court';
+import type { HouseInputs, HouseSite, HouseScale } from '../../domain/massing';
 import type { AddressedParcel, ParcelBlock, ParcelPortal, PlanPolygon } from '../../domain/parcels';
 import {
 	createCityVerticalRecipe,

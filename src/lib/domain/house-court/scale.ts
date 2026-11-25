@@ -1,13 +1,10 @@
 import { Random } from '../../core/random';
 import { defaults } from '../../../config/house-court';
 import { cellAreaM2, type CellSpace } from '../cell-space';
+import type { HouseScale } from '../massing';
 import type { HouseStyle } from './styles';
 
 const { calmAreaM2, cellsPerColour, largeUnitAreaM2 } = defaults;
-
-/** How the house rule reads a cell space: `calm` for a small town parcel, `large` for one
- * building over a large unit, `regular` for everything between (the R11 fixtures). */
-export type HouseScale = 'calm' | 'regular' | 'large';
 
 /** The scale of a cell space by its area: large from the large unit area, calm up to the calm
  * area, regular otherwise. */
@@ -15,11 +12,6 @@ export function houseScale(space: CellSpace): HouseScale {
 	const area = space.cells.reduce((sum, cell) => sum + cellAreaM2(cell), 0);
 	if (area >= largeUnitAreaM2) return 'large';
 	return area <= calmAreaM2 ? 'calm' : 'regular';
-}
-
-/** True when a cell side opens onto a shared court beyond the parcel. */
-export function hasCourtAccess(space: CellSpace): boolean {
-	return space.cells.some(({ sides }) => sides.some(({ court }) => court));
 }
 
 /** Draws `count` distinct entries of a list in seeded order, or the list when it is shorter. */

@@ -5,7 +5,8 @@ import { readWorldReference, type ReferenceResolution } from '../../core/ref';
 import { createPolygonIndex } from '../../core/polygon-index';
 import type { CityColumn } from '../../domain/city-volume';
 import type { CellStorey, FineCell } from '../../domain/cell-space';
-import { readHousePartRefs, type HousePartRef, type HouseStorey } from '../../domain/house-court';
+import { readHousePartRefs, type HousePartRef } from '../../domain/house-court';
+import type { HouseStorey } from '../../domain/massing';
 import { planEdges, type PlanEdge } from '../../domain/terrain-grid';
 import {
 	createSandboxDocument,

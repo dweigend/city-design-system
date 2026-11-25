@@ -1,6 +1,6 @@
 import type { CellSpace } from '../cell-space';
 import { side } from './boxes';
-import type { HouseOccupancy } from './occupancy';
+import type { HouseOccupancy } from '../massing';
 
 /** What makes a house give orientation in a picture (MAT-15): its tallest storey count, whether
  * it turns a corner (frontage on two sides that meet at an angle) and whether it is a large house

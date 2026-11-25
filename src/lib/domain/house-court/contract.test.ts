@@ -15,9 +15,9 @@ import {
 	type CellSpace,
 	type Parcel
 } from '../cell-space';
+import { cellRoles } from '../massing';
 import { example, mixedStoreyExample } from './example';
 import {
-	cellRoles,
 	createHouseCourt,
 	createHouseAssembly,
 	createHouseObject,

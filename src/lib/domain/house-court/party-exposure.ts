@@ -1,6 +1,6 @@
 import { readStoreyElevation, type CellSpace } from '../cell-space';
 import { side } from './boxes';
-import type { HouseOccupancy } from './occupancy';
+import type { HouseOccupancy } from '../massing';
 import { exposedWall, type AdjoiningWall } from './wall-contact';
 
 /** Identifies the exposed portions of parcel-boundary storeys after adjoining occupancy.

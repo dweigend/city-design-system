@@ -10,14 +10,13 @@ import {
 } from './part-refs';
 import { defaults } from '../../../config/house-court';
 import { readStoreyElevation, readStoreyHeight, type FineCell } from '../cell-space';
-import { side, type Box } from './boxes';
+import { entranceSide, side, type Box } from './boxes';
 import { extrusion, type Faces } from './solids';
 import { builtAt, envelopeRing, type Context } from './context';
-import type { HouseCell } from './occupancy';
+import type { HouseCell } from '../massing';
 import { envelopeSlices, shellFaces, shells, shellStoreyRuns } from './shells';
 import { entranceGround } from './access';
 import { cellSolids, type CellSolid } from './fills';
-import { entranceSide } from './graph';
 import { exposedWall, fitsOpening, type WallRect } from './wall-contact';
 
 const {

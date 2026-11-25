@@ -1,26 +1,5 @@
 /** Module: Builds a house and its court from occupied storeys of a cell space. */
 
-/** What a fine cell is to the house, as a data table of roles. */
-export {
-	/** House cell roles that record whether the role carries closed volume. */
-	cellRoles,
-	/** Role of one fine cell. */
-	type CellRole
-} from './roles';
-
-/** Inputs, per-cell occupancy and the occupancy rule of a house around a court. */
-export type {
-	/** Cell occupancy with an inclusive first and exclusive last built storey. */
-	HouseCell,
-	/** Shared block inputs in meters and the unitless complexity, plus a uint32 seed. */
-	HouseInputs,
-	/** Frontage rise and lowest ground elevation in meters, plus block corner status. */
-	HouseSite,
-	/** One occupied storey with an explicit use and construction phase. */
-	HouseStorey,
-	/** Construction phases and uses assigned to an occupied piece of the datum stack. */
-	StoreyProgram
-} from './occupancy';
 /** Local addresses and world-scoped references for house parts. */
 export type {
 	/** A part's identity and the addressed storeys it serves. */
@@ -29,16 +8,12 @@ export type {
 	HousePartRef
 } from './part-refs';
 
-/** Scale of a cell space, shared court access and the style row as one house applies it. */
+/** Area-based scale and the style row as one house applies it. */
 export {
-	/** True when a cell side opens onto a shared court beyond the parcel. */
-	hasCourtAccess,
 	/** Classifies a cell space by parcel area using the calm and large limits. */
 	houseScale,
 	/** The style row as one house of this scale applies it. */
-	readHouseStyle,
-	/** Area class of a cell space used by the house rule. */
-	type HouseScale
+	readHouseStyle
 } from './scale';
 
 /** Slots per drawing detail, the house object builder and its figures. */

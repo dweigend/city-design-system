@@ -1,5 +1,6 @@
 import { defaults } from '../../../config/house-projection';
-import type { HousePartAddress, StoreyProgram } from '../../domain/house-court';
+import type { HousePartAddress } from '../../domain/house-court';
+import type { StoreyProgram } from '../../domain/massing';
 import { readDisplayPresentation } from '../focus';
 import type { Drawable, Surface } from '../surface';
 import { houseLevels } from './levels';

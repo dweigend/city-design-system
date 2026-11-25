@@ -8,11 +8,10 @@ import {
 } from './part-refs';
 import { defaults } from '../../../config/house-court';
 import { readStoreyElevation, readStoreyHeight, type FineCell } from '../cell-space';
-import { side, type Box } from './boxes';
+import { entranceSide, side, type Box } from './boxes';
 import { extrusion } from './solids';
-import type { HouseCell } from './occupancy';
+import { entranceStepRiseM, type HouseCell } from '../massing';
 import type { Context } from './context';
-import { entranceSide } from './graph';
 
 const {
 	galleryComplexityRatio,
@@ -22,7 +21,6 @@ const {
 	railingThicknessM,
 	stairRiserM,
 	courtStairWidthM,
-	entranceStepRiseM,
 	entranceStairWidthM,
 	entranceStepGoingM,
 	plotThicknessM

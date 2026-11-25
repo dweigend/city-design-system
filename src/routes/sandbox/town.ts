@@ -4,11 +4,10 @@ import type { Parcel } from '../../lib/domain/parcels';
 import type { createSandboxDocument, SandboxPlacement } from '../../lib/domain/sandbox-document';
 import {
 	readHouseFeatures,
-	type HouseCell,
 	type HouseFeatures,
-	type HouseStorey,
 	type HouseStyleName
 } from '../../lib/domain/house-court';
+import type { HouseCell, HouseStorey } from '../../lib/domain/massing';
 import { blockTriangleBudget } from '../../lib/scene/house-projection';
 import type { SurfaceLevel } from '../../lib/domain/material';
 import { projectSketch } from '../../lib/scene/sketch';

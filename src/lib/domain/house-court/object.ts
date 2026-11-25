@@ -4,7 +4,6 @@ import { cellAreaM2, cellCenter, type CellSpace } from '../cell-space';
 import { createWorldReference } from '../../core/ref';
 import { Random } from '../../core/random';
 import { courtSides, entranceStepCell, entranceSteps, galleries, stair, stairSide } from './access';
-import { entranceSide } from './graph';
 import type { Context } from './context';
 import { caps, figureOpenings, trees } from './dress';
 import { cellSolids, type CellSolid } from './fills';
@@ -12,13 +11,13 @@ import { additionFrames, structure } from './structure';
 import { envelopeFaces, solidFaces, type HouseFace } from './faces';
 import { readHouseStyle } from './scale';
 import { houseStyles, type HouseStyle } from './styles';
-import { side } from './boxes';
+import { entranceSide, side } from './boxes';
 import {
 	createHouseOccupancy,
 	type HouseInputs,
 	type HouseOccupancy,
 	type HouseSite
-} from './occupancy';
+} from '../massing';
 import {
 	partAddresses,
 	lazyFaceParts,
@@ -256,7 +255,17 @@ export function createHouseCourt(
 	style: HouseStyle = houseStyles.neutral,
 	site: HouseSite = {}
 ): HouseCourt {
-	const house = createHouseOccupancy(space, inputs, style, site);
+	const house = createHouseOccupancy(
+		space,
+		inputs,
+		{
+			styleId: style.id,
+			tendencies: style.occupancy,
+			largeCourt: style.large.court,
+			largeRoofHasFigure: style.large.roof.some((kind) => kind !== 'flat')
+		},
+		site
+	);
 	const id = houseId(space);
 	let addresses: readonly HousePartAddress[] | undefined;
 	const ctx = () =>

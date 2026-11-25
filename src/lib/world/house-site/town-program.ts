@@ -1,6 +1,6 @@
 import { defaults } from '../../../config/house-site';
 import { Random } from '../../core/random';
-import type { StoreyProgram } from '../../domain/house-court';
+import type { StoreyProgram } from '../../domain/massing';
 import { riverCityRecipe, type CityVerticalRecipe } from '../city-site';
 import type { ParcelHouseRecipe } from './parcel';
 

@@ -11,21 +11,25 @@ import {
 } from '../cell-space';
 import {
 	boundaryDepth,
-	entranceSide,
+	components,
 	frontageCentre,
 	frontageDistance,
 	frontageSegments,
 	fronting,
-	hops
+	hops,
+	readEntranceMidpoint,
+	readEntranceSide
 } from './graph';
-import { defaults } from '../../../config/house-court';
+import { defaults } from '../../../config/massing';
 import { cellRoles, type CellRole } from './roles';
 import { hasCourtAccess, type HouseScale } from './scale';
-import { houseStyles, type HouseStyle } from './styles';
 
 const blockInputs = createBlockInputs();
 
-const { eavesToleranceStoreys, cornerRiseStoreys, largeStoreys, entranceStepRiseM } = defaults;
+const { eavesToleranceStoreys, cornerRiseStoreys, largeStoreys } = defaults;
+
+/** Rise in meters above which the lane entrance takes steps. */
+export const entranceStepRiseM = defaults.entranceStepRiseM;
 
 /** Shared block inputs in meters and the unitless complexity, plus a uint32 seed. */
 export type HouseInputs = Readonly<{
@@ -90,7 +94,24 @@ export type HouseOccupancy = Readonly<{
 
 type Plan = Map<string, { role: CellRole; storeys: number }>;
 
-type Occupancy = HouseStyle['occupancy'];
+/** Plain parameters for stepped heights, seeded jitter, and open ground storeys. */
+export type HouseOccupancyTendencies = Readonly<{
+	rearDropRatio: number;
+	courtStepComplexityRatio: number;
+	courtStepStoreys: number;
+	jitterComplexityRatio: number;
+	jitterShareRatio: number;
+	jitterStoreys: number;
+	groundOpenRatio: number;
+}>;
+
+/** Resolved occupancy parameters supplied by the caller's style row. */
+export type HouseOccupancyParameters = Readonly<{
+	styleId: string;
+	tendencies: HouseOccupancyTendencies;
+	largeCourt: boolean;
+	largeRoofHasFigure: boolean;
+}>;
 
 /** Storeys of a calm frontage cell: the house's eaves line, risen at a block corner. */
 // Exact arithmetic: one storey is the smallest built run.
@@ -107,7 +128,7 @@ function cellStoreys(
 	faceCourt: boolean,
 	random: Random,
 	complexity: number,
-	rule: Occupancy
+	rule: HouseOccupancyTendencies
 ) {
 	let storeys = top - Math.round(complexity * rule.rearDropRatio * rear * (top - 1));
 	if (faceCourt && complexity >= rule.courtStepComplexityRatio) storeys -= rule.courtStepStoreys;
@@ -122,7 +143,7 @@ function cellStoreys(
 }
 
 /** Wing cells of two or more storeys stand on an open ground storey with the style's share. */
-function raise(plan: Plan, random: Random, rule: Occupancy) {
+function raise(plan: Plan, random: Random, rule: HouseOccupancyTendencies) {
 	for (const [id, cell] of plan)
 		if (
 			cell.role === 'wing' &&
@@ -186,31 +207,6 @@ function shapeInputs({ height, width, complexity }: HouseInputs) {
 		([, value]) => value !== undefined
 	);
 	return Object.fromEntries(entries) as Partial<Record<'height' | 'width' | 'complexity', number>>;
-}
-
-function neighboursIn(space: Map<string, FineCell>, id: string, court: ReadonlySet<string>) {
-	return (space.get(id)?.sides ?? []).flatMap(({ neighbour }) =>
-		neighbour && court.has(neighbour) ? [neighbour] : []
-	);
-}
-
-function components(space: CellSpace, court: ReadonlySet<string>): string[][] {
-	const byId = new Map(space.cells.map((cell) => [cell.id, cell]));
-	const seen = new Set<string>();
-	const groups: string[][] = [];
-	for (const { id } of space.cells) {
-		if (!court.has(id) || seen.has(id)) continue;
-		const group = [id];
-		seen.add(id);
-		for (let k = 0; k < group.length; k += 1)
-			for (const neighbour of neighboursIn(byId, group[k], court))
-				if (!seen.has(neighbour)) {
-					seen.add(neighbour);
-					group.push(neighbour);
-				}
-		groups.push(group);
-	}
-	return groups;
 }
 
 function carve(plan: Plan, path: readonly string[]) {
@@ -289,7 +285,7 @@ function readCellProgram(
 export function createHouseOccupancy(
 	space: CellSpace,
 	inputs: HouseInputs,
-	style: HouseStyle = houseStyles.neutral,
+	{ styleId, tendencies, largeCourt, largeRoofHasFigure }: HouseOccupancyParameters,
 	site: HouseSite = {}
 ): HouseOccupancy {
 	const random = Random.create({ seed: inputs.seed });
@@ -298,7 +294,7 @@ export function createHouseOccupancy(
 	if (!segments.length) throw new RangeError('A house needs at least one frontage side');
 	const scale = site.scale ?? 'regular';
 	const courtAccess = hasCourtAccess(space);
-	const ownCourt = !courtAccess && (scale !== 'large' || style.large.court);
+	const ownCourt = !courtAccess && (scale !== 'large' || largeCourt);
 	const depth = boundaryDepth(space);
 	const deepest = Math.max(...depth.values());
 	const courtIds = new Set(
@@ -309,7 +305,7 @@ export function createHouseOccupancy(
 	const distances = new Map(space.cells.map((cell) => [cell.id, frontageDistance(cell, segments)]));
 	const farthest = Math.max(...distances.values());
 	const reach = scale === 'large' ? Infinity : width;
-	const roofRoom = style.large.roof.some((kind) => kind !== 'flat') ? 1 : 0;
+	const roofRoom = largeRoofHasFigure ? 1 : 0;
 	const cap =
 		scale === 'large'
 			? Math.max(1, Math.min(largeStoreys, space.storeyCount - roofRoom))
@@ -344,7 +340,7 @@ export function createHouseOccupancy(
 				role: 'wing',
 				storeys: Math.min(
 					front,
-					cellStoreys(cell, top, rear, faceCourt, random, complexity, style.occupancy)
+					cellStoreys(cell, top, rear, faceCourt, random, complexity, tendencies)
 				)
 			});
 		}
@@ -352,13 +348,13 @@ export function createHouseOccupancy(
 	const courts = components(space, courtIds);
 	const paths = courts.map((court) => entrancePath(space, court)).filter((path) => path.length);
 	const entrances = paths.length ? paths : [frontDoor(space, plan)];
-	const entry = entranceSide(space, entrances);
-	const laneZ = entry && site.groundAtEntrance?.(entry.wall.at(1 / 2, 0));
+	const entry = readEntranceSide(space, entrances);
+	const laneZ = entry && site.groundAtEntrance?.(readEntranceMidpoint(entry.cell, entry.index));
 	const rise = laneZ === undefined ? (site.entranceRiseM ?? 0) : space.baseZ - laneZ;
 	const entranceRiseM = Math.max(0, rise);
 	for (const path of paths) carve(plan, path);
 	if (!paths.length && entranceRiseM > entranceStepRiseM) carve(plan, entrances[0]);
-	raise(plan, random, style.occupancy);
+	raise(plan, random, tendencies);
 	const built = [...plan].filter(([, { storeys }]) => storeys > 0).map(([id]) => id);
 	const unbuildable = buildFailure(space, entry?.cell.id, built, rise);
 	if (unbuildable)
@@ -370,7 +366,7 @@ export function createHouseOccupancy(
 	return Object.freeze({
 		spaceId: space.id,
 		cellIds: Object.freeze(space.cells.map(({ id }) => id)),
-		styleId: style.id,
+		styleId,
 		inputs: Object.freeze({ height, width, complexity, seed: random.seed }),
 		storeys: unbuildable ? 0 : Math.max(top, front),
 		entrances: Object.freeze((unbuildable ? [] : entrances).map((path) => Object.freeze(path))),

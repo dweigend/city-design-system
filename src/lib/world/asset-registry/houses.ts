@@ -5,9 +5,9 @@ import {
 	createHouseCourt,
 	createHouseObject,
 	houseStyles,
-	type HouseInputs,
 	type HouseStyle
 } from '../../domain/house-court';
+import type { HouseInputs } from '../../domain/massing';
 
 import { createParcelHouse, createParcelHouseObject, type ParcelHouseSite } from '../house-site';
 import type { CityAssetHost } from './hosts';

@@ -1,5 +1,7 @@
 import type { Vec2, Vec3 } from '../../core/geometry';
 import type { Shape } from '../../core/object';
+import type { CellSpace } from '../cell-space';
+import { readEntranceSide } from '../massing';
 
 /** An upright box: centre in meters, size along the side direction, across it and up, and the
  * side direction in radians about Z. */
@@ -71,4 +73,12 @@ export function side(quad: readonly Vec2[], i: number) {
 			a[1] + dy * t - (dx / length) * out
 		]
 	};
+}
+
+/** The first entrance path's cell, frontage and wall in space meters. */
+export function entranceSide(space: CellSpace, entrances: readonly (readonly string[])[]) {
+	const entry = readEntranceSide(space, entrances);
+	if (!entry) return undefined;
+	const { cell, index } = entry;
+	return { cell, index, wall: side(cell.quad, index) };
 }

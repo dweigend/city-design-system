@@ -1,5 +1,6 @@
 import { defaults as d } from '../../../config/house-court';
 import { createCatalog } from '../../core/catalog';
+import type { HouseOccupancyTendencies } from '../massing';
 
 /** How a built cell run is filled: the merged envelope of all cells, an inset block, a round
  * or chamfered primitive, a soft pod, or framed storeys holding capsules. */
@@ -16,15 +17,7 @@ export type OpeningKind = 'rect' | 'round' | 'triangle';
  * keeps a court. Any record of this shape is a valid style. */
 export type HouseStyle = Readonly<{
 	id: string;
-	occupancy: Readonly<{
-		rearDropRatio: number;
-		courtStepComplexityRatio: number;
-		courtStepStoreys: number;
-		jitterComplexityRatio: number;
-		jitterShareRatio: number;
-		jitterStoreys: number;
-		groundOpenRatio: number;
-	}>;
+	occupancy: HouseOccupancyTendencies;
 	fill: Readonly<{
 		kinds: readonly FillKind[];
 		insetM: number;

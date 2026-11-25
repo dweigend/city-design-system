@@ -3,7 +3,7 @@ import { cellCenter, type CellSpace, type FineCell } from '../cell-space';
 import { defaults } from '../../../config/house-court';
 import { inradius } from './solids';
 import type { Vec2 } from '../../core/geometry';
-import type { HouseCell, HouseOccupancy } from './occupancy';
+import type { HouseCell, HouseOccupancy } from '../massing';
 import type { HouseStyle } from './styles';
 import type { AdjoiningWall } from './wall-contact';
 

@@ -1,4 +1,4 @@
-import type { StoreyProgram } from '../lib/domain/house-court';
+import type { StoreyProgram } from '../lib/domain/massing';
 import { houseUseColors } from '../lib/scene/house-projection';
 
 export const houseUseLabels = {

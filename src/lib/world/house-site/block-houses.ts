@@ -5,9 +5,9 @@ import {
 	houseFaces,
 	type AdjoiningWall,
 	type HouseFace,
-	type HouseInputs,
 	type HouseStyle
 } from '../../domain/house-court';
+import type { HouseInputs } from '../../domain/massing';
 import type { ParcelBlock } from '../../domain/parcels';
 import { createParcelHouse, type PlacedParcelHouse } from './parcel';
 import type { createTownHouseStudy } from './parcel-town';
