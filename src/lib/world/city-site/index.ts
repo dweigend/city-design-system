@@ -146,8 +146,13 @@ export function createCitySite(terrain?: CityTerrainSampler, settings?: Settings
 	return Object.freeze({ valley, frame, origin, sampleGround, ...options });
 }
 
-type Carrier = ReturnType<typeof prepareCarrier> & {
+type PreparedCarrier = ReturnType<typeof prepareCarrier>;
+type CityParcels = ReturnType<PreparedCarrier['parcels']['read']> & {
+	readonly mainLanes: PreparedCarrier['mainLanes'];
+};
+type Carrier = PreparedCarrier & {
 	planSelection: ReturnType<typeof preparePlanSelection>;
+	parcelSelections: WeakMap<readonly string[], CityParcels | undefined>;
 };
 const carriers = createDeriveCache<CitySite, Carrier>(laneSettings.cityCarrierCacheLimit);
 
@@ -189,7 +194,11 @@ function carrier(city: CitySite, variant: CityPlanVariant, seed: number) {
 			targetArea(citySiteParams.citySize.max),
 			city.recipe ?? riverCityRecipe
 		);
-		return { ...prepared, planSelection: preparePlanSelection(prepared.plan) };
+		return {
+			...prepared,
+			planSelection: preparePlanSelection(prepared.plan),
+			parcelSelections: new WeakMap()
+		};
 	});
 }
 
@@ -296,11 +305,8 @@ export function readCityGrid(
 	seed?: number
 ) {
 	const params = siteParams(citySize, seed);
-	const { candidates, plan, planSelection, crossings, order, ranks, datumZ } = carrier(
-		city,
-		variant,
-		params.seed
-	);
+	const { candidates, plan, planSelection, crossings, order, ranks, datumZ, parcelSelections } =
+		carrier(city, variant, params.seed);
 	const selected = growthPrefix(order, targetArea(params.citySize));
 	const ids = selected.map(({ id }) => id);
 	const grid = TerrainGrid.select(candidates, ids);
@@ -344,6 +350,7 @@ export function readCityGrid(
 		rankedCellIds: Object.freeze(ids),
 		futureFringe: Object.freeze(futureFringe)
 	});
+	parcelSelections.set(growth.rankedCellIds, undefined);
 	const areas = selected
 		.map(({ builtArea }, i) => builtArea - (selected[i - 1]?.builtArea ?? 0))
 		.sort((a, b) => a - b);
@@ -377,12 +384,13 @@ export function readCityGrid(
 export type CityGrid = ReturnType<typeof readCityGrid>;
 
 /** Reads the addressed pedestrian network and planned holdings for a city growth selection.
- * Main lane paths describe the fixed full guides. The lane intervals and blocks are active. */
+ * Main lane paths describe the fixed full guides. The lane intervals and blocks are active.
+ * Reuses the frozen holdings snapshot for growth selections issued by the current site carrier. */
 export function readCityParcels(
 	city: CitySite,
 	layout: Pick<CityGrid, 'growth' | 'seed' | 'variant'> & Partial<Pick<CityGrid, 'plan' | 'grid'>>
 ) {
-	const { parcels, mainLanes, plan } = carrier(city, layout.variant, layout.seed);
+	const { parcels, mainLanes, plan, parcelSelections } = carrier(city, layout.variant, layout.seed);
 	if (layout.growth.planScope !== plan.identity.scope)
 		throw new RangeError('City growth belongs to a different plan');
 	for (const grid of [layout.plan, layout.grid]) {
@@ -392,7 +400,12 @@ export function readCityParcels(
 		)
 			throw new RangeError('City layout belongs to a different plan');
 	}
-	return Object.freeze({ ...parcels.read(layout.growth.rankedCellIds), mainLanes });
+	const { rankedCellIds } = layout.growth;
+	const cached = parcelSelections.get(rankedCellIds);
+	if (cached) return cached;
+	const snapshot = Object.freeze({ ...parcels.read(rankedCellIds), mainLanes });
+	if (parcelSelections.has(rankedCellIds)) parcelSelections.set(rankedCellIds, snapshot);
+	return snapshot;
 }
 
 /** Derives districts from the same fixed accessibility order as the footprint. */

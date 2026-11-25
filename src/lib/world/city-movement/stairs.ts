@@ -1,9 +1,8 @@
 import type { Vec2, Vec3 } from '../../core/geometry';
-import type { CityColumn } from '../../domain/city-volume';
 import { accessObjectParams, type MovementNode } from '../../domain/movement-network';
 import type { CitySite } from '../city-site';
 import { defaults } from '../../../config/city-movement';
-import { columnClearance, type walkwayClearance } from './clearance';
+import type { columnClearance } from './clearance';
 import { link } from './links';
 import type { parcelClearance } from './parcel-clearance';
 
@@ -68,7 +67,7 @@ function orient(base: Vec3, index: number): At {
 }
 
 function footprintClear(
-	clear: ReturnType<typeof walkwayClearance>,
+	clear: ReturnType<ReturnType<typeof columnClearance>>,
 	at: At,
 	from: number,
 	to: number,
@@ -82,13 +81,9 @@ function footprintClear(
 // Exact arithmetic: divide the rise evenly across two flights per switchback.
 export function stairSurvey(
 	site: CitySite,
-	columns: readonly CityColumn[],
-	datumZ: number,
-	levelHeightM: number,
-	publicGround: ReturnType<typeof parcelClearance>
+	publicGround: ReturnType<typeof parcelClearance>,
+	clear: ReturnType<typeof columnClearance>
 ) {
-	const clear = columnClearance(columns, datumZ, levelHeightM);
-
 	return (id: string, base: MovementNode, top: MovementNode) => {
 		const z = base.position[2];
 		const rise = top.position[2] - z;

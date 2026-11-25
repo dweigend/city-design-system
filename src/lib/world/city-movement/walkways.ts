@@ -1,7 +1,7 @@
 import type { Vec3 } from '../../core/geometry';
 import { columnRoof, type CityColumn } from '../../domain/city-volume';
 import { createMovementNetwork, type MovementNode } from '../../domain/movement-network';
-import { walkwayClearance } from './clearance';
+import type { columnClearance } from './clearance';
 import { defaults } from '../../../config/city-movement';
 import type { groundLanes } from './ground';
 import type { CitySite } from '../city-site';
@@ -31,23 +31,20 @@ export function walkways(
 	levelHeightM: number,
 	offset: number,
 	centers: readonly string[],
-	stair: ReturnType<typeof stairSurvey>
+	stair: ReturnType<typeof stairSurvey>,
+	clearColumns: ReturnType<typeof columnClearance>
 ) {
 	const heads = centers.filter((id) => ground.nodes.has(id));
-	const roofs = roofsByVertex(columns, datumZ, levelHeightM);
-	const roofAt = (id: string) => roofs.get(id) ?? ground.node(id).position[2];
+	const roofs = heads.length ? roofsByVertex(columns, datumZ, levelHeightM) : undefined;
+	const roofAt = (id: string) => roofs?.get(id) ?? ground.node(id).position[2];
 	const clearance = defaults.walkwayRoofClearanceM;
 	const highEave = Math.max(datumZ, ...heads.map(roofAt));
 	const level = Math.ceil((highEave + clearance - datumZ) / levelHeightM) + offset;
 	const z = datumZ + level * levelHeightM;
-	const segmentClear = walkwayClearance(
-		columns,
-		datumZ,
-		levelHeightM,
-		z,
-		clearance,
-		defaults.walkwaySideClearanceM
-	);
+	const nodes = new Map<string, MovementNode>();
+	const links: Link[] = [];
+	if (!heads.length) return { nodes, links, level, z };
+	const segmentClear = clearColumns(z, clearance, defaults.walkwaySideClearanceM);
 	const higher = (id: string) => raised(ground.node(id), level, z);
 	const near = (id: string) =>
 		heads.some(
@@ -62,8 +59,6 @@ export function walkways(
 			site.sampleGround(x, y).waterKind === null
 		);
 	};
-	const nodes = new Map<string, MovementNode>();
-	const links: Link[] = [];
 	function add(id: string, first: string, last: string, via?: readonly Vec3[]) {
 		if (!clear(first) || !clear(last)) return;
 		const a = higher(first);

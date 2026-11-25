@@ -5,6 +5,7 @@ import { required } from '../../core/invariant';
 import { createWorldReference, readWorldReference } from '../../core/ref';
 import { createCitySite } from '../city-site';
 import { connectLane } from './lane-links';
+import type { Link } from './links';
 
 test('a 10 nm frontage move updates lane geometry without renaming the tap or adjacent links', () => {
 	const site = createCitySite(() => ({ height: 0, waterClearance: 20, waterKind: null }));
@@ -38,7 +39,8 @@ test('a 10 nm frontage move updates lane geometry without renaming the tap or ad
 	};
 	function read(portal: ParcelPortal) {
 		const nodes = new Map<string, MovementNode>();
-		const links = connectLane(site, lane, from, to, [portal], nodes, new Map(), () => true);
+		const links: Link[] = [];
+		connectLane(site, lane, from, to, [portal], nodes, new Map(), () => true, links);
 		return { links, nodes: [...nodes.values()] };
 	}
 	const before = read(portal);

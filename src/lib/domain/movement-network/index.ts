@@ -1,6 +1,5 @@
 /** Module: Indexes a weighted movement graph for route queries. */
 import { isFiniteVector, type Vec3 } from '../../core/geometry';
-import { required } from '../../core/invariant';
 import { shortest } from './route';
 
 import type { MovementEdge, MovementLink, MovementNetwork, MovementNode } from './types';
@@ -18,9 +17,20 @@ export type {
 } from './types';
 
 function index<T extends { id: string }>(items: readonly T[]) {
-	const byId = new Map(items.map((item) => [item.id, item]));
+	const byId = new Map<string, T>();
+	for (const item of items) byId.set(item.id, item);
 	if (byId.has('') || byId.size !== items.length) throw new RangeError('Invalid movement IDs');
 	return byId;
+}
+
+function orderedLinks<K extends string>(links: readonly MovementLink<K>[]) {
+	const ordered = [...links].sort((a, b) => (a.id < b.id ? -1 : Number(a.id > b.id)));
+	let previous = '';
+	for (const { id } of ordered) {
+		if (id === previous) throw new RangeError('Invalid movement IDs');
+		previous = id;
+	}
+	return ordered;
 }
 
 // Exact arithmetic: movement positions are XYZ triples.
@@ -77,11 +87,12 @@ export function createMovementNetwork<K extends string>(
 	const byId = index(nodes);
 	const maximumCost = Number.MAX_VALUE / Math.max(1, nodes.length);
 	const adjacent = new Map<string, MovementEdge<K>[]>();
-	const linkIndex = index(links);
 	const edges = Object.freeze(
-		[...linkIndex.keys()].sort().map((id) => {
-			const link = required(linkIndex.get(id), 'movement link');
-			const [from, to] = link.nodeIds;
+		orderedLinks(links).map((link) => {
+			const {
+				id,
+				nodeIds: [from, to]
+			} = link;
 			const a = byId.get(from);
 			const b = byId.get(to);
 			if (!a || !b || from === to || !(link.cost > 0 && link.cost <= maximumCost))

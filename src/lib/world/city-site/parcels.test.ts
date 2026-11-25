@@ -8,6 +8,32 @@ import {
 	readCityParcels
 } from './index';
 
+test('reuses only carrier-issued parcel selections from the same site and revision', () => {
+	let revision = 'first';
+	const site = createCitySite(undefined, { terrainRevision: () => revision });
+	const peer = createCitySite();
+	const size = citySiteParams.citySize.min;
+	const layout = readCityGrid(site, size);
+	const first = readCityParcels(site, layout);
+	expect(readCityParcels(site, layout)).toBe(first);
+	expect(Object.isFrozen(first)).toBe(true);
+
+	const copied = { ...layout.growth, rankedCellIds: [...layout.growth.rankedCellIds] };
+	expect(readCityParcels(site, { ...layout, growth: copied })).toEqual(first);
+	copied.rankedCellIds.length = 0;
+	expect(readCityParcels(site, { ...layout, growth: copied }).parcels).toEqual([]);
+	const peerHoldings = readCityParcels(peer, layout);
+	expect(peerHoldings).toEqual(first);
+	expect(peerHoldings).not.toBe(first);
+
+	revision = 'second';
+	const updated = readCityGrid(site, size);
+	const second = readCityParcels(site, updated);
+	expect(second).toEqual(first);
+	expect(second).not.toBe(first);
+	expect(readCityParcels(site, updated)).toBe(second);
+}, 20_000);
+
 test('publishes whole holdings through both density thresholds on all seven plan grids', () => {
 	const seed = citySiteParams.seed.default;
 	for (const grid of cityPlanVariants) {

@@ -71,3 +71,24 @@ test('rejects XYZ positions with a missing component', () => {
 			RangeError
 		);
 });
+
+test('orders links by UTF-16 ID and rejects duplicate IDs before measuring links', () => {
+	const nodes: MovementNode[] = ['start', 'end'].map((id, i) => ({
+		id,
+		position: [i, 0, 0],
+		level: 'ground'
+	}));
+	const links: MovementLink[] = ['é', 'z', 'Z'].map((id) => ({
+		id,
+		kind: 'walk',
+		cost: 1,
+		nodeIds: ['start', 'end']
+	}));
+	expect(createMovementNetwork(nodes, links).edges.map(({ id }) => id)).toEqual(['Z', 'z', 'é']);
+	expect(links.map(({ id }) => id)).toEqual(['é', 'z', 'Z']);
+	const invalid = { ...links[1], cost: 0 };
+	expect(() => createMovementNetwork(nodes, [...links, invalid])).toThrow('Invalid movement IDs');
+	expect(() => createMovementNetwork(nodes, [{ ...invalid, id: '' }])).toThrow(
+		'Invalid movement IDs'
+	);
+});

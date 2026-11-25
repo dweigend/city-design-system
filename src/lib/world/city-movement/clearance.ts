@@ -1,19 +1,6 @@
-import { convexHull, type Vec3 } from '../../core/geometry';
+import { convexHull, type Vec2, type Vec3 } from '../../core/geometry';
+import { createPolygonIndex } from '../../core/polygon-index';
 import { columnRoof, type CityColumn } from '../../domain/city-volume';
-
-type Extent = readonly [number, number, number, number];
-
-function overlaps([ax, ay, bx, by]: Extent, [cx, cy, dx, dy]: Extent, clearance: number) {
-	return (
-		ax <= dx + clearance && bx >= cx - clearance && ay <= dy + clearance && by >= cy - clearance
-	);
-}
-
-function envelope(column: CityColumn) {
-	const xs = column.corners.map(({ position }) => position[0]);
-	const ys = column.corners.map(({ position }) => position[1]);
-	return [Math.min(...xs), Math.min(...ys), Math.max(...xs), Math.max(...ys)] as const;
-}
 
 export function walkwayClearance(
 	columns: readonly CityColumn[],
@@ -32,24 +19,31 @@ export function columnClearance(
 	datumZ: number,
 	levelHeightM: number
 ) {
-	const solids = columns.map((column) => ({
-		roofM: columnRoof(column, datumZ, levelHeightM),
-		bounds: envelope(column),
-		hull: convexHull(column.corners.map(({ position: [x, y] }) => [x, y]))
-	}));
+	function index() {
+		return createPolygonIndex(
+			columns.map((column, i) => {
+				const outline = column.corners.map(({ position: [x, y] }): Vec2 => [x, y]);
+				return {
+					id: String(i),
+					outline,
+					roofM: columnRoof(column, datumZ, levelHeightM),
+					hull: convexHull(outline)
+				};
+			})
+		);
+	}
+	let solids: ReturnType<typeof index> | undefined;
 	return (z: number, verticalM: number, sideM: number, allowTouch = false) =>
 		(a: Vec3, b: Vec3) => {
-			const bounds = [
-				Math.min(a[0], b[0]),
-				Math.min(a[1], b[1]),
-				Math.max(a[0], b[0]),
-				Math.max(a[1], b[1])
-			] as const;
-			return !solids.some(
+			solids ??= index();
+			return !solids.someCandidate(
+				[
+					[a[0], a[1]],
+					[b[0], b[1]]
+				],
 				(column) =>
-					column.roofM + verticalM > z &&
-					overlaps(bounds, column.bounds, sideM) &&
-					intersects(a, b, column.hull, sideM, allowTouch)
+					column.roofM + verticalM > z && intersects(a, b, column.hull, sideM, allowTouch),
+				sideM
 			);
 		};
 }

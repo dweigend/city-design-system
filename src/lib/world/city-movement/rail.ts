@@ -8,9 +8,10 @@ import {
 } from '../../domain/transit-line';
 import type { CityGrid, CitySite } from '../city-site';
 import { defaults } from '../../../config/city-movement';
+import { columnClearance } from './clearance';
 import { stairSurvey } from './stairs';
 import { raised } from './links';
-import type { groundLanes } from './ground';
+import type { groundSurvey } from './ground';
 
 /** Caller-selected rail survey origin, station catchment centres and terrain upper bounds. */
 export type CityRailOptions = Readonly<{
@@ -22,7 +23,7 @@ export type CityRailOptions = Readonly<{
 export function cityRail(
 	site: CitySite,
 	layout: CityGrid,
-	ground: ReturnType<typeof groundLanes>,
+	ground: ReturnType<typeof groundSurvey>,
 	columns: readonly CityColumn[],
 	options: CityRailOptions,
 	levelHeightM: number
@@ -85,7 +86,11 @@ export function cityRail(
 	const alongMax = Math.max(...occupiedAlong);
 	const acrossMin = Math.min(...occupiedAcross);
 	const acrossMax = Math.max(...occupiedAcross);
-	const stair = stairSurvey(site, columns, layout.datumZ, levelHeightM, ground.clear);
+	const stair = stairSurvey(
+		site,
+		ground.clear,
+		columnClearance(columns, layout.datumZ, levelHeightM)
+	);
 	const nodes = new Map([...ground.nodes.values()].map((node) => [node.id, node]));
 	const access = new Map<string, boolean>();
 	return createStraightLevelTransitLine({

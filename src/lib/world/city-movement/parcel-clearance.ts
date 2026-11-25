@@ -4,31 +4,34 @@ import type { Parcel } from '../../domain/parcels';
 
 type Ring = readonly Vec2[];
 
-function contains(sides: ReturnType<typeof edges>, [x, y]: Vec2) {
+function contains(ring: Ring, [x, y]: Vec2) {
 	let inside = false;
-	for (const [[ax, ay], [bx, by]] of sides)
+	for (let i = 0; i < ring.length; i++) {
+		const [ax, ay] = ring[i];
+		const [bx, by] = ring[(i + 1) % ring.length];
 		if (ay > y !== by > y && x < ax + ((bx - ax) * (y - ay)) / (by - ay)) inside = !inside;
+	}
 	return inside;
 }
 
-function edges(ring: Ring) {
-	return ring.map((point, i) => [point, ring[(i + 1) % ring.length]] as const);
+function side([x, y]: Vec2, [u, v]: Vec2, [p, q]: Vec2) {
+	return (u - x) * (q - y) - (v - y) * (p - x);
 }
 
-function crosses([a, b]: readonly [Vec2, Vec2], [c, d]: readonly [Vec2, Vec2]) {
-	function side([x, y]: Vec2, [u, v]: Vec2, [p, q]: Vec2) {
-		return (u - x) * (q - y) - (v - y) * (p - x);
+function crosses(a: Vec2, b: Vec2, ring: Ring) {
+	for (let i = 0; i < ring.length; i++) {
+		const c = ring[i];
+		const d = ring[(i + 1) % ring.length];
+		if (side(a, b, c) * side(a, b, d) < 0 && side(c, d, a) * side(c, d, b) < 0) return true;
 	}
-	return side(a, b, c) * side(a, b, d) < 0 && side(c, d, a) * side(c, d, b) < 0;
+	return false;
 }
 
 export function parcelClearance(parcels: readonly Parcel[]) {
-	const { readCandidates } = createPolygonIndex(
-		parcels.map(({ id, outline }) => ({ id, outline, sides: edges(outline) }))
-	);
+	const { someCandidate } = createPolygonIndex(parcels);
 	return {
 		point(point: Vec2) {
-			return !readCandidates([point]).some(({ sides }) => contains(sides, point));
+			return !someCandidate([point], ({ outline }) => contains(outline, point));
 		},
 		segment(a: Vec2, b: Vec2, originToleranceM?: number) {
 			const [x, y] = a;
@@ -39,17 +42,18 @@ export function parcelClearance(parcels: readonly Parcel[]) {
 			const t = originToleranceM === undefined ? 0 : Math.min(1, originToleranceM / length);
 			const start: Vec2 = [x + (u - x) * t, y + (v - y) * t];
 			const middle: Vec2 = [(start[0] + u) / 2, (start[1] + v) / 2];
-			return !readCandidates([a, b]).some(
-				({ sides }) => contains(sides, middle) || sides.some((side) => crosses([start, b], side))
+			return !someCandidate(
+				[a, b],
+				({ outline }) => contains(outline, middle) || crosses(start, b, outline)
 			);
 		},
 		footprint(ring: Ring) {
-			const boundary = edges(ring);
-			return !readCandidates(ring).some(
-				({ outline, sides }) =>
-					ring.some((point) => contains(sides, point)) ||
-					outline.some((point) => contains(boundary, point)) ||
-					boundary.some((edge) => sides.some((side) => crosses(edge, side)))
+			return !someCandidate(
+				ring,
+				({ outline }) =>
+					ring.some((point) => contains(outline, point)) ||
+					outline.some((point) => contains(ring, point)) ||
+					ring.some((point, i) => crosses(point, ring[(i + 1) % ring.length], outline))
 			);
 		}
 	};

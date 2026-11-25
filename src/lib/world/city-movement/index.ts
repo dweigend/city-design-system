@@ -4,7 +4,8 @@ import type { CityColumn } from '../../domain/city-volume';
 import { createMovementNetwork, type MovementNode } from '../../domain/movement-network';
 import { riverCityRecipe, type CityGrid, type CitySite } from '../city-site';
 import { defaults } from '../../../config/city-movement';
-import { groundLanes } from './ground';
+import { columnClearance } from './clearance';
+import { groundLanes, groundSurvey } from './ground';
 import { link, raised, support, type Link } from './links';
 import { cityRail, type CityRailOptions } from './rail';
 import { stairSurvey } from './stairs';
@@ -41,7 +42,7 @@ export function readCityRail(
 	return cityRail(
 		site,
 		layout,
-		groundLanes(site, layout),
+		groundSurvey(site, layout),
 		columns,
 		options,
 		(site.recipe ?? riverCityRecipe).levelHeightM
@@ -61,7 +62,8 @@ export function readCityMovement(
 ) {
 	const { levelHeightM } = site.recipe ?? riverCityRecipe;
 	const ground = groundLanes(site, layout);
-	const stair = stairSurvey(site, columns, layout.datumZ, levelHeightM, ground.clear);
+	const clearColumns = columnClearance(columns, layout.datumZ, levelHeightM);
+	const stair = stairSurvey(site, ground.clear, clearColumns);
 	const upper = walkways(
 		site,
 		ground,
@@ -70,7 +72,8 @@ export function readCityMovement(
 		levelHeightM,
 		offset,
 		walkwayCenters,
-		stair
+		stair,
+		clearColumns
 	);
 	const nodes = new Map(
 		[...ground.nodes.values(), ...ground.frontage.values(), ...upper.nodes.values()].map((node) => [

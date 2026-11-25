@@ -6,13 +6,17 @@ import type { CitySite } from '../city-site';
 import { link, type Link } from './links';
 
 export function drape(a: Vec3, b: Vec3, site: CitySite): Vec3[] {
-	const count = Math.ceil(Math.hypot(a[0] - b[0], a[1] - b[1]) / defaults.groundTraceStepM);
-	return Array.from({ length: Math.max(0, count - 1) }, (_, i) => {
-		const t = (i + 1) / count;
-		const x = a[0] + (b[0] - a[0]) * t;
-		const y = a[1] + (b[1] - a[1]) * t;
-		return [x, y, site.sampleGround(x, y).height];
-	});
+	const dx = b[0] - a[0];
+	const dy = b[1] - a[1];
+	const count = Math.ceil(Math.hypot(dx, dy) / defaults.groundTraceStepM);
+	const points: Vec3[] = [];
+	for (let i = 1; i < count; i++) {
+		const t = i / count;
+		const x = a[0] + dx * t;
+		const y = a[1] + dy * t;
+		points.push([x, y, site.sampleGround(x, y).height]);
+	}
+	return points;
 }
 
 function frontageMidpoint({ points: [[x, y], [u, v]] }: ParcelPortal): Vec2 {
@@ -33,8 +37,9 @@ export function connectLane(
 	portals: readonly ParcelPortal[],
 	nodes: Map<string, MovementNode>,
 	portalNodeIds: Map<string, string>,
-	frontageClear: (a: Vec2, b: Vec2) => boolean
-): Link[] {
+	frontageClear: (a: Vec2, b: Vec2) => boolean,
+	links: Link[]
+) {
 	const {
 		id,
 		widthM,
@@ -49,19 +54,23 @@ export function connectLane(
 			[1, to]
 		]
 	);
-	const links: Link[] = [];
 	const ground = (key: string, [px, py]: Vec2): MovementNode => ({
 		id: key,
 		level: 'ground',
 		position: [px, py, site.sampleGround(px, py).height]
 	});
-	const contacts = portals.flatMap((portal) => {
+	const contacts = new Map<number, { portal: ParcelPortal; midpoint: Vec2; xy: Vec2 }[]>();
+	for (const portal of portals) {
 		const midpoint = frontageMidpoint(portal);
 		const t = laneParameter(midpoint, lane);
 		const xy: Vec2 = [x + (u - x) * t, y + (v - y) * t];
-		return frontageClear(midpoint, xy) ? [{ portal, midpoint, t, xy }] : [];
-	});
-	for (const [t, group] of Map.groupBy(contacts, ({ t }) => t)) {
+		if (!frontageClear(midpoint, xy)) continue;
+		const group = contacts.get(t);
+		const contact = { portal, midpoint, xy };
+		if (group) group.push(contact);
+		else contacts.set(t, [contact]);
+	}
+	for (const [t, group] of contacts) {
 		const incident = group.map(({ portal }) => portal.id).sort();
 		const tap = stops.get(t) ?? ground('lane-tap/' + JSON.stringify([id, incident]), group[0].xy);
 		stops.set(t, tap);
@@ -93,5 +102,4 @@ export function connectLane(
 			})
 		);
 	}
-	return links;
 }

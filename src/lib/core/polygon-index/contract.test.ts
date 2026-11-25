@@ -72,3 +72,15 @@ test('reads broad-phase bounds in input order and includes boundary contact', ()
 	expect(padded.readPoint([2.5, 1])?.id).toBe('box');
 	expect(padded.readCandidates([[2.5, 1]])).toEqual([]);
 });
+
+test('tests candidate predicates at inclusive padded bounds', () => {
+	const index = example();
+	const neighbor = ({ id }: { id: string }) => id === 'neighbor';
+	expect(index.someCandidate([[0, 0]], neighbor)).toBe(false);
+	expect(index.someCandidate([[2, 2]], neighbor)).toBe(true);
+	expect(index.someCandidate([[4, 2]], neighbor)).toBe(false);
+	expect(index.someCandidate([[4, 2]], neighbor, 1)).toBe(true);
+	expect(index.someCandidate([[4.001, 2]], neighbor, 1)).toBe(false);
+	expect(index.someCandidate([], neighbor)).toBe(false);
+	expect(createPolygonIndex([]).someCandidate([[0, 0]], neighbor)).toBe(false);
+});
