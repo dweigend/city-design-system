@@ -26,16 +26,22 @@ export const terrainSettings = defineSettings({
 		rationale: 'Varies dot alignment between contour levels.'
 	},
 	stageContourDotSpacingPx: {
-		value: 3.3,
+		value: 2.85,
 		unit: 'CSS px',
-		meaning: 'Repeat spacing of contour pencil dots',
-		rationale: 'Keeps curves visible as a broken pencil trace.'
+		meaning: 'Repeat spacing of minor contour pencil dots',
+		rationale: 'Keeps secondary elevations readable as broken graphite traces.'
+	},
+	stageIndexContourDotSpacingPx: {
+		value: 2.3,
+		unit: 'CSS px',
+		meaning: 'Repeat spacing of index contour pencil dots',
+		rationale: 'Brings the main elevation marks close together so the eye follows a line.'
 	},
 	stageContourDotFeatherPx: {
-		value: 0.28,
+		value: 0.24,
 		unit: 'CSS px',
 		meaning: 'Feather on either side of a contour dot radius',
-		rationale: 'Smooths the outline of small screen-space dots.'
+		rationale: 'Antialiases each mark while keeping its center crisp.'
 	},
 	stageContourTangentBlend: {
 		value: [0.37, 0.63],
@@ -44,10 +50,10 @@ export const terrainSettings = defineSettings({
 		rationale: 'Keeps dots continuous when the tangent changes.'
 	},
 	stageContourSpacingFadePx: {
-		value: [1.25, 2.65],
+		value: [1.55, 3.25],
 		unit: 'CSS px',
 		meaning: 'Spacing band that fades crowded contours',
-		rationale: 'Reduces contour clutter where the lines converge.'
+		rationale: 'Fades crowded minor lines early on steep slopes and small screens.'
 	},
 	stageContourSlopeFade: {
 		value: [0.00035, 0.003],
@@ -62,81 +68,82 @@ export const terrainSettings = defineSettings({
 		rationale: 'Prevents unstable facing near level ground.'
 	},
 	stageTerrainShadeSlope: {
-		value: [0.018, 2.45],
+		value: [0.04, 1.88],
 		unit: 'm/m',
 		meaning: 'Slope range that introduces terrain shading',
-		rationale: 'Retains pale flats and gives steep slopes shape.'
+		rationale: 'Leaves level paper clean and brings out terrace faces before the steepest grades.'
 	},
 	stageTerrainFacingLight: {
-		value: 0.032,
+		value: 0.055,
 		unit: 'Oklab lightness',
 		meaning: 'Directional contribution to terrain shading',
-		rationale: 'Keeps subtle orientation cues.'
+		rationale: 'Separates sun-facing and shaded slopes at the same grade.'
 	},
 	stageTerrainDarken: {
-		value: 0.262,
+		value: 0.335,
 		unit: 'Oklab lightness',
-		meaning: 'Darkest terrain shading offset',
-		rationale: 'Keeps terrain relief legible without burying contours.'
+		meaning: 'Slope darkening at full steepness before facing and bank adjustments',
+		rationale: 'Sets the contrast between light paper flats and shaded relief.'
 	},
 	stageBankShadeFadeM: {
-		value: [6, 102],
+		value: [6, 76],
 		unit: 'm',
 		meaning: 'Distance band that fades bank shading',
-		rationale: 'Gives the water edge a soft contact shadow.'
+		rationale: 'Confines the contact shadow to a narrow band beside the water.'
 	},
 	stageBankShadeStrength: {
-		value: 0.085,
+		value: 0.105,
 		unit: 'Oklab lightness',
 		meaning: 'Maximum bank shading strength',
-		rationale: 'Anchors water without a hard border.'
+		rationale: 'Separates the accent water from adjoining terrain at the shore.'
 	},
 	stageDarkSteepnessLift: {
-		value: 0.41,
+		value: 0.51,
 		unit: 'Oklab lightness',
 		meaning: 'Dark-theme terrain lightness added with steepness',
-		rationale: 'Keeps steep surfaces distinguishable from the background.'
+		rationale:
+			'Reverses the relief contrast with enough headroom for pale structure and plan lines.'
 	},
 	stageDarkTerrainLift: {
-		value: 0.079,
+		value: 0.05,
 		unit: 'Oklab lightness',
 		meaning: 'Dark-theme terrain base lightness lift',
-		rationale: 'Keeps level ground readable in the dark palette.'
+		rationale: 'Separates level ground from the background while keeping it near black.'
 	},
 	stageMinorContourRadiusPx: {
-		value: 0.66,
+		value: 0.73,
 		unit: 'CSS px',
 		meaning: 'Pencil dot radius for minor contours',
-		rationale: 'Keeps intermediate contours fine.'
+		rationale: 'Makes secondary contours readable at phone scale.'
 	},
 	stageIndexContourRadiusPx: {
-		value: 0.79,
+		value: 0.99,
 		unit: 'CSS px',
 		meaning: 'Pencil dot radius for index contours',
-		rationale: 'Makes index contours slightly stronger.'
+		rationale: 'Gives the main elevations a stronger line weight than minor contours.'
 	},
 	stageMinorContourInk: {
-		value: 0.25,
+		value: 0.35,
 		unit: 'ratio',
 		meaning: 'Minor contour ink mix in the light palette',
 		rationale: 'Keeps minor contours subordinate to index contours.'
 	},
 	stageDarkMinorContourInkLift: {
-		value: 0.1,
+		value: -0.05,
 		unit: 'ratio',
-		meaning: 'Additional minor contour ink mix in the dark palette',
-		rationale: 'Keeps the minor dots visible on dark paper.'
+		meaning: 'Change in minor contour ink mix in the dark palette',
+		rationale: 'Balances the contrast of pale dots on near-black paper.'
 	},
 	stageIndexContourInk: {
-		value: 0.5,
+		value: 0.77,
 		unit: 'ratio',
 		meaning: 'Index contour ink mix in the light palette',
 		rationale: 'Makes the main contours easy to follow.'
 	},
 	stageDarkIndexContourInkShift: {
-		value: -0.15,
+		value: -0.19,
 		unit: 'ratio',
 		meaning: 'Change in index contour ink mix in the dark palette',
-		rationale: 'Softens the darkest contour mark on the dark theme.'
+		rationale: 'Keeps primary contours pale and distinct while foreground overlays retain focus.'
 	}
 });

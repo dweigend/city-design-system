@@ -18,7 +18,7 @@ import { graphite, grain, type drawingPalette } from './tone';
 const contourInterval = defaults.stageContourInterval;
 const northWest = vec2(-Math.SQRT1_2, Math.SQRT1_2);
 
-function pencil(height: Node<'float'>, interval: number, radius: number) {
+function pencil(height: Node<'float'>, interval: number, radius: number, dotSpacing: number) {
 	const dx = dFdx(height).abs();
 	const dy = dFdy(height).abs();
 	const slope = vec2(dx, dy).length().mul(screenDPR);
@@ -28,11 +28,11 @@ function pencil(height: Node<'float'>, interval: number, radius: number) {
 	const pixel = screenCoordinate.div(screenDPR);
 	const stagger = hash(level.add(defaults.stageContourStaggerKey));
 	const dots = pixel
-		.div(defaults.stageContourDotSpacingPx)
+		.div(dotSpacing)
 		.add(stagger)
 		.fract()
 		.sub(/* Exact arithmetic: center the normalized phase around zero. */ 0.5)
-		.mul(defaults.stageContourDotSpacingPx);
+		.mul(dotSpacing);
 	const fromX = vec2(across, dots.x)
 		.length()
 		.smoothstep(
@@ -79,21 +79,24 @@ export function terrainColor(
 		: float(/* Exact arithmetic: absent terrain field contributes no bank shade. */ 0);
 	const offset = shading
 		.sub(bank)
-		.max(-defaults.stageTerrainDarken)
 		.add(
 			palette.dark.mul(
 				steepness.mul(defaults.stageDarkSteepnessLift).add(defaults.stageDarkTerrainLift)
 			)
 		)
 		.mul(palette.hull.oneMinus());
-	const paper = graphite(materialColor, offset, float(grain.shadow));
-	const minor = pencil(height, contourInterval, defaults.stageMinorContourRadiusPx).mul(
-		palette.dark.mul(defaults.stageDarkMinorContourInkLift).add(defaults.stageMinorContourInk)
-	);
+	const paper = graphite(materialColor, offset, steepness.mul(grain.shadow));
+	const minor = pencil(
+		height,
+		contourInterval,
+		defaults.stageMinorContourRadiusPx,
+		defaults.stageContourDotSpacingPx
+	).mul(palette.dark.mul(defaults.stageDarkMinorContourInkLift).add(defaults.stageMinorContourInk));
 	const index = pencil(
 		height,
 		contourInterval * defaults.stageIndexContourStride,
-		defaults.stageIndexContourRadiusPx
+		defaults.stageIndexContourRadiusPx,
+		defaults.stageIndexContourDotSpacingPx
 	).mul(
 		palette.dark.mul(defaults.stageDarkIndexContourInkShift).add(defaults.stageIndexContourInk)
 	);
