@@ -12,6 +12,7 @@ import {
 	record,
 	replayEdit,
 	savedEdit,
+	hasSamePlacement,
 	hasSamePlacementStructure,
 	type FinishOverride,
 	type PlacementOverrides,
@@ -66,6 +67,9 @@ type ValidatePlacement = (placement: SandboxPlacement, checkCells: boolean) => v
 const format = 'sandbox/4';
 const compatibleFormat = 'sandbox/3';
 const noChanges: readonly PlacementChange[] = Object.freeze([]);
+
+/** Maximum UTF-8 byte size accepted when serializing or restoring a sandbox save. */
+export const maxRestoreBytes = defaults.maxRestoreBytes;
 
 export {
 	/** Scopes a local host to its world, encoding ground positions as integer lattice coordinates. */
@@ -166,6 +170,21 @@ function createDocument(
 		}
 	}
 
+	function unchanged(
+		id: string,
+		before: SandboxPlacement | undefined,
+		after: SandboxPlacement | undefined
+	) {
+		if (before === after) return true;
+		if (!before || !after) return false;
+		const stockRecord = baseline.get(id);
+		return (
+			(before === stockRecord) === (after === stockRecord) &&
+			orphans.has(before) === orphans.has(after) &&
+			hasSamePlacement(before, after)
+		);
+	}
+
 	function stage(input: readonly SandboxEdit[]) {
 		const edits: SandboxEdit[] = [];
 		const staged = new Map<string, SandboxPlacement | undefined>();
@@ -211,7 +230,7 @@ function createDocument(
 					before: placements.get(id),
 					after
 				})
-			).filter(({ before, after }) => before !== after)
+			).filter(({ id, before, after }) => !unchanged(id, before, after))
 		);
 		return { edits: Object.freeze(edits), changes };
 	}
@@ -237,7 +256,9 @@ function createDocument(
 			const first = merged.has(id) ? merged.get(id)?.before : before;
 			merged.set(id, Object.freeze({ id, before: first, after }));
 		}
-		const net = Object.freeze([...merged.values()].filter((c) => c.before !== c.after));
+		const net = Object.freeze(
+			[...merged.values()].filter(({ id, before, after }) => !unchanged(id, before, after))
+		);
 		const next = { edits: Object.freeze([...previous.edits, ...edits]), changes: net };
 		history.splice(position - 1, history.length - position + 1, ...(net.length ? [next] : []));
 		if (!net.length) position--;
@@ -325,7 +346,11 @@ function createDocument(
 		},
 		/** Serializes the full edit log including redo and the current position. */
 		serialize() {
-			return JSON.stringify({
+			const editCount =
+				stockEdits.length + history.reduce((sum, { edits }) => sum + edits.length, 0);
+			if (editCount > defaults.maxRestoreEdits)
+				throw new SandboxDataError('Sandbox save exceeds the restore edit limit');
+			const json = JSON.stringify({
 				format,
 				world,
 				...(stockEdits.length
@@ -334,6 +359,12 @@ function createDocument(
 				strokes: history.map(({ edits }) => edits.map((operation) => savedEdit(operation, world))),
 				position
 			});
+			if (
+				json.length > defaults.maxRestoreBytes ||
+				new TextEncoder().encode(json).length > defaults.maxRestoreBytes
+			)
+				throw new SandboxDataError('Sandbox save exceeds the restore byte limit');
+			return json;
 		}
 	});
 }

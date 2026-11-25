@@ -181,31 +181,38 @@ export function solidFaces(
 					})
 				: [s];
 			const walls = runs.flatMap((run) =>
-				s.outline.flatMap((a, i) => {
-					const wall = side(s.outline, i);
-					return hidden(ctx, run, [a, wall.b])
-						? []
-						: wallFaces(
-								ctx,
-								s.slot,
-								body(run.fromStorey),
-								wall,
-								level(ctx, run.fromStorey),
-								level(ctx, run.toStorey)
-							);
-				})
+				s.outline
+					.flatMap((a, i) => {
+						const wall = side(s.outline, i);
+						return hidden(ctx, run, [a, wall.b])
+							? []
+							: wallFaces(
+									ctx,
+									s.slot,
+									body(run.fromStorey),
+									wall,
+									level(ctx, run.fromStorey),
+									level(ctx, run.toStorey)
+								);
+					})
+					.map((face) => programFace(ctx, s.cell, run.fromStorey, face))
 			);
 			const top =
 				tops.get(s.cell.id) === s && !roofed.has(s.cell.id)
 					? [
-							roofFace(
-								s.slot,
-								s.key,
-								s.outline.map(([x, y]): Vec3 => [x, y, z1])
+							programFace(
+								ctx,
+								s.cell,
+								s.toStorey - 1,
+								roofFace(
+									s.slot,
+									body(s.toStorey - 1),
+									s.outline.map(([x, y]): Vec3 => [x, y, z1])
+								)
 							)
 						]
 					: [];
-			return [...walls, ...top].map((face) => programFace(ctx, s.cell, s.fromStorey, face));
+			return [...walls, ...top];
 		})
 		.filter((face): face is HouseFace => face !== undefined);
 }

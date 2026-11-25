@@ -141,10 +141,18 @@ export function readParams(input: unknown): Placement['params'] {
 	);
 }
 
+const reservedCellKeys = new Set(['__proto__', 'constructor', 'prototype']);
+
 function readCells(input: unknown) {
 	const cells = Object.entries(record(input)).sort(([a], [b]) => (a < b ? -1 : Number(a > b)));
 	for (const [id, count] of cells)
-		if (!id || typeof count !== 'number' || !Number.isSafeInteger(count) || count < 0)
+		if (
+			!id ||
+			reservedCellKeys.has(id) ||
+			typeof count !== 'number' ||
+			!Number.isSafeInteger(count) ||
+			count < 0
+		)
 			throw new SandboxDataError('Expected a nonnegative integer storey count for a fine cell');
 	return Object.freeze(Object.fromEntries(cells.map(([id, count]) => [id, number(count)])));
 }
@@ -331,6 +339,13 @@ export function hasSamePlacementStructure(a: SandboxPlacement, b: SandboxPlaceme
 		a.seed === b.seed &&
 		JSON.stringify(a.params) === JSON.stringify(b.params) &&
 		JSON.stringify(a.cellOverrides) === JSON.stringify(b.cellOverrides)
+	);
+}
+
+export function hasSamePlacement(a: SandboxPlacement, b: SandboxPlacement) {
+	return (
+		hasSamePlacementStructure(a, b) &&
+		JSON.stringify(a.finishOverrides) === JSON.stringify(b.finishOverrides)
 	);
 }
 

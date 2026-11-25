@@ -5,7 +5,9 @@
 	import { cellCenter, type CellSpace, type FineCell } from '../../lib/domain/cell-space';
 	import type { Parcel } from '../../lib/domain/parcels';
 	import {
+		maxRestoreBytes,
 		readPlacementId,
+		SandboxDataError,
 		type createSandboxDocument,
 		type PlacementChange,
 		type SandboxEdit,
@@ -693,6 +695,8 @@
 			pointer.release();
 			releaseVertical();
 			open = undefined;
+			if (file.size > maxRestoreBytes)
+				throw new SandboxDataError('Sandbox save exceeds the restore byte limit');
 			const next = town.world.restore(await file.text());
 			const nextCache = town.createCache(next);
 			for (const id of requests.keys()) queue.cancel(id);

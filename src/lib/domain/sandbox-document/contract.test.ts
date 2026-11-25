@@ -238,4 +238,30 @@ test('rejects oversized UTF-8 saves and excessive redo edits before starting rep
 	expect(() =>
 		restoreSandboxDocument(JSON.stringify({ ...saved, strokes: [edits] }), world, resolver)
 	).toThrow('restore edit limit');
+
+	// Reject reserved prototype keys in cellOverrides even without a domain validator.
+	for (const key of ['__proto__', 'constructor', 'prototype']) {
+		expect(() =>
+			document.apply([
+				{
+					...place(parcel('proto-guard')),
+					cellOverrides: JSON.parse(`{"${key}":1}`)
+				}
+			])
+		).toThrow('nonnegative integer storey count');
+	}
+
+	// Refuse to serialize locally authored history that restore() would reject.
+	const big = createSandboxDocument(world);
+	big.apply([place(parcel('north'))]);
+	const placed = big.readPlacement(parcel('north'));
+	if (!placed) throw new Error('Expected initial placement');
+	const batch = Array.from({ length: 201 }, (_, i) => ({
+		kind: 'replace' as const,
+		id: placed.id,
+		params: placed.params,
+		seed: i + 1
+	}));
+	for (let s = 0; s < 100; s++) big.apply(batch);
+	expect(() => big.serialize()).toThrow('restore edit limit');
 });

@@ -236,6 +236,22 @@ test('cancelled and no-op strokes preserve the redo branch through save and relo
 	draft.finish('release', commit);
 	expect(document.serialize()).toBe(before);
 
+	// A multi-edit stroke that paints and clears a finish on the same placement is a net no-op
+	// and must keep the redo branch intact.
+	const ref = {
+		v: 1 as const,
+		world: world.id,
+		kind: 'house-part' as const,
+		key: JSON.stringify(['house/north', 'body-0'])
+	};
+	expect(
+		document.apply([
+			{ kind: 'replace', id, params, finishOverrides: [{ ref, family: 'board', tone: 'blue' }] },
+			{ kind: 'replace', id, params, finishOverrides: null }
+		])
+	).toEqual([]);
+	expect(document.serialize()).toBe(before);
+
 	const restored = restoreSandboxDocument(document.serialize());
 	expect(restored.serialize()).toBe(before);
 	restored.redo();
@@ -244,4 +260,60 @@ test('cancelled and no-op strokes preserve the redo branch through save and relo
 	expect(restored.readPlacement(host)?.assetId).toBe(grove);
 	document.redo();
 	expect(document.readPlacement(host)).toBeUndefined();
+});
+
+test('painting a flat-topped uppermost solid at near detail repaints its roof with the same shape', () => {
+	const town = createTownHouseStudy();
+	const world = createSandboxWorld(town.site, town.layout, town.columns);
+	const parcels = town.parcelsByBlock.get(town.blocks.block.id) ?? [];
+	const projection = createSandboxProjection(town.site, town.layout, world.holdings);
+	const document = world.createDocument();
+	let target:
+		| {
+				record: SandboxPlacement;
+				placed: Extract<ParcelHouseResult, { status: 'placed' }>;
+				topRef: ReturnType<typeof readHousePartRefs>[number];
+		  }
+		| undefined;
+	for (const parcel of parcels) {
+		if (parcel.publicUse) continue;
+		const host = { kind: 'parcel', id: parcel.id } as const;
+		document.apply([world.place('house/court-memphis', host)]);
+		const record = required(document.readPlacement(host), 'memphis placement');
+		const placed = world.resolveHouse(record);
+		if (placed?.status === 'placed') {
+			const topBody = readHousePartRefs(placed.house, world.world.id)
+				.filter(({ body }) => body)
+				.sort((a, b) => b.storeySpan[1] - a.storeySpan[1])[0];
+			if (topBody) {
+				target = { record, placed, topRef: topBody };
+				break;
+			}
+		}
+		document.undo();
+	}
+	const { record, placed, topRef } = required(target, 'placed flat-topped memphis house');
+	const options = { budget: blockTriangleBudget, level: 'near' as const, tone: 'pink' as const };
+	const before = projection.projectParcelHouse(placed, [], record.id, options);
+	const after = projection.projectParcelHouse(placed, [], record.id, options, [
+		{ ref: topRef.ref, family: 'board', tone: 'blue' }
+	]);
+	const topKey = `${record.id}/${encodeURIComponent(JSON.stringify([topRef.partId, 'roof']))}/`;
+	const roofBefore = before.filter(
+		({ id, fillVisible, finish }) =>
+			id.startsWith(topKey) && fillVisible !== false && finish !== 'line'
+	);
+	const roofAfter = after.filter(
+		({ id, fillVisible, finish }) =>
+			id.startsWith(topKey) && fillVisible !== false && finish !== 'line'
+	);
+	expect(roofBefore.length).toBeGreaterThan(0);
+	expect(roofAfter.map(({ color }) => color)).toEqual(roofAfter.map(() => '--model-blue'));
+	expect(roofAfter.every((part, i) => part.shape === roofBefore[i].shape)).toBe(true);
+	expect(
+		hasSameGeometry(
+			before.map((drawable) => ({ drawable })),
+			after
+		)
+	).toBe(true);
 });

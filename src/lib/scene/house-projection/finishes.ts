@@ -3,6 +3,16 @@ import { readLevelDetail, type SurfaceLevel } from '../../domain/material';
 import type { FinishOverride } from '../../domain/sandbox-document';
 import { readModelSurface, type Drawable } from '../surface';
 
+function readAddressedPartId(drawableId: string, prefix: string): string | undefined {
+	if (!drawableId.startsWith(prefix)) return drawableId;
+	try {
+		const parsed: unknown = JSON.parse(decodeURIComponent(drawableId.slice(prefix.length).split('/')[0]));
+		return Array.isArray(parsed) && typeof parsed[0] === 'string' ? parsed[0] : undefined;
+	} catch {
+		return undefined;
+	}
+}
+
 /** Paints addressed bodies and their existing cladding without changing shapes or strokes. */
 export function paintHouseFinishes(
 	drawables: readonly Drawable[],
@@ -15,13 +25,11 @@ export function paintHouseFinishes(
 	const prefix = houseId + '/';
 	const { grain } = readLevelDetail(level);
 	return drawables.map((drawable) => {
-		const partId = drawable.id.startsWith(prefix)
-			? (
-					JSON.parse(decodeURIComponent(drawable.id.slice(prefix.length).split('/')[0])) as [string]
-				)[0]
-			: drawable.id;
+		if (drawable.finish === 'line' || drawable.fillVisible === false) return drawable;
+		const partId = readAddressedPartId(drawable.id, prefix);
+		if (!partId) return drawable;
 		const finish = byKey.get(encodeKey([houseId, partId]));
-		if (!finish || drawable.finish === 'line') return drawable;
+		if (!finish) return drawable;
 		const surface = readModelSurface(finish, 'normal', grain);
 		return {
 			...drawable,
