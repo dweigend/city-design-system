@@ -48,7 +48,7 @@ const configOwners = {
 	'routes/surfaces': 'surface-specimens',
 	'routes/blocks': 'blocks-board',
 	'routes/sandbox': 'sandbox-brush',
-	'routes/town': 'town-parks',
+	'routes/town': 'town-parks|town-review',
 	'lib/world/valley-protocol': 'valley-measurement'
 };
 const allowedConfigEntries = Object.values(configOwners).join('|');

@@ -60,12 +60,14 @@ async function create({
 	canvas,
 	landscape = false,
 	fit: initialFit,
-	onViewport
+	onViewport,
+	onRender
 }: {
 	canvas: HTMLCanvasElement;
 	landscape?: boolean;
 	fit?: ViewFit;
 	onViewport?: (viewport: Viewport) => void;
+	onRender?: (drawables: readonly Drawable[]) => void;
 }) {
 	const gpu = await openRenderer(canvas);
 	const { renderer, hardware, adapterName } = gpu;
@@ -94,6 +96,7 @@ async function create({
 	let closing: Promise<void> | undefined;
 	let work: (() => boolean) | undefined;
 	let stale = false;
+	let shown: readonly Drawable[] = [];
 
 	function draw() {
 		stale = true;
@@ -174,6 +177,7 @@ async function create({
 			} finally {
 				gpu.stop();
 			}
+			onRender?.(shown);
 		});
 	}
 
@@ -188,6 +192,7 @@ async function create({
 		/** Replaces the list, retaining geometry for unchanged IDs, shapes and stroke modes. */
 		show(drawables: readonly Drawable[], presentation?: Presentation) {
 			if (closing) return;
+			shown = drawables;
 			present = presentation;
 			const start = performance.now();
 			presentAt = undefined;

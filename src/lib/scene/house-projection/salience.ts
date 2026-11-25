@@ -37,12 +37,13 @@ function tallestByBlock(candidates: readonly SalienceCandidate[]) {
  * default; the subject in focus and a selected house are `near`; large houses, corner houses, the
  * tallest of a block and a seeded share of the rest are granted detail, at most
  * `salientBlockCap` per block and `salientViewCap` per view, ranked in that order with a seeded
- * draw breaking ties. The first granted house of a block is `near`, the others `mid`. Deterministic
- * for the same candidates and seed. */
+ * draw breaking ties. A caller may set a lower cap on these ranked grants. The first granted
+ * house of a block is `near`, the others `mid`. Deterministic for the same inputs. */
 // Exact arithmetic: ranks and the first house of a block.
 export function readHouseSalience(
 	candidates: readonly SalienceCandidate[],
-	seed = /* Exact arithmetic: neutral default draw seed. */ 0
+	seed = /* Exact arithmetic: neutral default draw seed. */ 0,
+	cap: number = salientViewCap
 ): ReadonlyMap<string, SurfaceLevel> {
 	const random = Random.create({ seed }).derive('salience');
 	const tallest = tallestByBlock(candidates);
@@ -59,10 +60,11 @@ export function readHouseSalience(
 		.filter(({ rank }) => rank > 0)
 		.sort((a, b) => b.rank - a.rank || a.draw - b.draw);
 	const perBlock = new Map<string, number>();
+	const limit = Math.min(salientViewCap, cap);
 	let granted = 0;
 	for (const { id, block } of ranked) {
 		const count = perBlock.get(block) ?? 0;
-		if (count >= salientBlockCap || granted >= salientViewCap) continue;
+		if (count >= salientBlockCap || granted >= limit) continue;
 		levels.set(id, count === 0 ? 'near' : 'mid');
 		perBlock.set(block, count + 1);
 		granted += /* Exact arithmetic: grant one candidate. */ 1;

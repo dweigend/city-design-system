@@ -24,6 +24,8 @@ export {
 export {
 	/** Places the private parcels of one town block using area-based scale. */
 	createTownBlockHouses,
+	/** Plans the houses and unbuildable parcels in one town block without deriving walls. */
+	placeTownBlockHouses,
 	/** Reads the occupied wall spans that lie on the parcel contour, in world meters. */
 	readParcelHouseWalls
 } from './block-houses';

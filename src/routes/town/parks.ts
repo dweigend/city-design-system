@@ -94,6 +94,11 @@ export function createTownParks(
 				)
 	);
 
+	const reservedPlantings: Planting[] = [
+		...parkParcels.map((garden) => ({ kind: 'parks' as const, garden })),
+		...shoreParcels.map((garden) => ({ kind: 'shore' as const, garden }))
+	];
+
 	return {
 		parcelsByBlock: new Map(
 			[...parcelsByBlock].map(([id, parcels]) => [
@@ -101,8 +106,12 @@ export function createTownParks(
 				parcels.filter((parcel) => !reserved.has(parcel.id))
 			])
 		),
-		/** Draws the same grove as the brush on every selected holding, then measures the result. */
-		draw(unbuildable: readonly Extract<ParcelHouseResult, { status: 'unbuildable' }>[]) {
+		greenBlocks: parkBlocks.length,
+		reservedPlantings,
+		/** Selects gardens from the open public ground and the unbuildable private parcels. */
+		readGardens(
+			unbuildable: readonly Extract<ParcelHouseResult, { status: 'unbuildable' }>[]
+		): Planting[] {
 			const gardens = [
 				...open,
 				...unbuildable
@@ -116,45 +125,29 @@ export function createTownParks(
 					recipe.openGardenLimit
 				)
 			];
-			const assign = (kind: ParkKind, gardens: readonly Garden[]): Planting[] =>
-				gardens.map((garden) => ({ kind, garden }));
-			const figures = {
-				parks: 0,
-				shore: 0,
-				gardens: 0,
-				greenBlocks: parkBlocks.length,
-				drawables: 0,
-				triangles: 0
-			};
-			const drawables = [
-				...assign('parks', parkParcels),
-				...assign('shore', shoreParcels),
-				...assign('gardens', green)
-			].flatMap(({ kind, garden }) => {
-				const { id, outline, holes } = garden;
-				const grove = buildAsset(
-					'park/grove',
-					{
-						kind: 'parcel',
-						parcel: { id, outline },
-						holes,
-						groundAt: town.groundAt
-					},
-					{},
-					random.derive(id).seed
-				);
-				figures[kind]++;
-				figures.drawables += grove.parts.length;
-				// Exact arithmetic: indexed triangles use three indices each.
-				for (const { shape } of grove.parts)
-					if (shape.kind === 'mesh')
-						figures.triangles += shape.indices.length / /* Exact arithmetic: triangle arity. */ 3;
-				return projectGrove(town.local(grove)).map((part) => ({
-					...part,
-					id: JSON.stringify(['grove', id, part.id])
-				}));
-			});
-			return { figures, drawables };
+			return green.map((garden) => ({ kind: 'gardens', garden }));
+		},
+		/** Draws the same grove as the brush on the selected holding. */
+		draw(this: void, { kind, garden: { id, outline, holes } }: Planting) {
+			const grove = buildAsset(
+				'park/grove',
+				{ kind: 'parcel', parcel: { id, outline }, holes, groundAt: town.groundAt },
+				{},
+				random.derive(id).seed
+			);
+			const triangles = grove.parts.reduce(
+				(total, { shape }) =>
+					total +
+					(shape.kind === 'mesh'
+						? shape.indices.length / /* Exact arithmetic: triangle arity. */ 3
+						: 0),
+				0
+			);
+			const drawables = projectGrove(town.local(grove)).map((part) => ({
+				...part,
+				id: JSON.stringify(['grove', id, part.id])
+			}));
+			return { kind, drawables, triangles };
 		}
 	};
 }

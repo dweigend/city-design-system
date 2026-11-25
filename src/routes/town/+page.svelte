@@ -2,7 +2,6 @@
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
-	import { onMount } from 'svelte';
 	import { SvelteURLSearchParams } from 'svelte/reactivity';
 	import { valleyParams } from '../../lib/domain/valley';
 	import {
@@ -11,14 +10,17 @@
 		cityFrameFillFlat
 	} from '../../lib/scene/city-volume-projection';
 	import { projectFocus, type View } from '../../lib/scene/stage';
+	import type { Drawable } from '../../lib/scene/surface';
 	import { StageView } from '../../lib/scene/stage-view';
 	import { Switch } from '../../lib/ui/switch';
 	import { Select } from '../../lib/ui/select';
 	import { ToggleGroup } from '../../lib/ui/toggle-group';
 	import { createTownReview, townFocus, townFrames, type TownFrame } from './town';
+	import { readQuery } from '../architecture/query';
 	import { houseUses } from '../house-uses';
 
 	type Review = ReturnType<typeof createTownReview>;
+	type DetailPass = ReturnType<Review['createDetailPass']>;
 
 	const relief = valleyParams.relief.default;
 	const format = new Intl.NumberFormat('en', { maximumFractionDigits: 1 });
@@ -39,7 +41,18 @@
 	const camera = { bearing: cityCameraBearingRad, elevation: cityElevation(relief) };
 
 	let review = $state.raw<Review>();
-	let status = $state('Building the whole town…');
+	let settled = $state.raw<ReturnType<DetailPass['advance']>>();
+	let painted = $state(false);
+	let unavailable = $state(false);
+	let failure = $state('');
+	const status = $derived(
+		failure ||
+			(!review
+				? 'Building the whole town…'
+				: painted || unavailable
+					? ''
+					: 'Adding house detail and gardens…')
+	);
 
 	const location = $derived(page.shallow?.url ?? page.url);
 	const query = (key: string) => location.searchParams.get(key);
@@ -47,7 +60,11 @@
 	const frame = $derived(townFrames.find((value) => value === query('frame')) ?? 'whole');
 	const view = $derived<View>(query('view') === 'plan' ? 'plan' : 'iso');
 	const transparent = $derived(query('display') === 'transparency');
-	const drawables = $derived(review?.draw(focus) ?? []);
+	const seed = $derived(readQuery(location.searchParams).setup.seed);
+	const selection = $derived({ review, focus, frame, view, transparent });
+	let armed = $state.raw<{ selection: typeof selection; pass: DetailPass; run: () => boolean }>();
+	const frameWork = $derived(armed?.selection === selection ? armed : undefined);
+	const drawables = $derived((settled ?? review)?.draw(focus) ?? []);
 	const fit = $derived(
 		review && {
 			...camera,
@@ -56,31 +73,83 @@
 			subject: projectFocus(view, camera, review.subjects[frame])
 		}
 	);
+	const figures = $derived((settled ?? review)?.figures);
 	const measurements = $derived(
-		review
+		figures
 			? [
-					{ label: 'Houses', value: String(review.figures.houses), unit: '' },
-					{ label: 'Unbuildable parcels', value: String(review.figures.unbuildable), unit: '' },
-					{ label: 'Cladding', value: format.format(review.figures.triangles), unit: 'triangles' },
-					{ label: 'Walkways', value: format.format(review.figures.walkwaysKm), unit: 'km' },
-					{ label: 'Rail', value: format.format(review.figures.railKm), unit: 'km' },
-					{ label: 'Stations', value: String(review.figures.stations), unit: '' }
+					{ label: 'Houses', value: String(figures.houses), unit: '' },
+					{ label: 'Unbuildable parcels', value: String(figures.unbuildable), unit: '' },
+					...(settled
+						? [{ label: 'Cladding', value: format.format(figures.triangles), unit: 'triangles' }]
+						: []),
+					{ label: 'Walkways', value: format.format(figures.walkwaysKm), unit: 'km' },
+					{ label: 'Rail', value: format.format(figures.railKm), unit: 'km' },
+					{ label: 'Stations', value: String(figures.stations), unit: '' }
 				]
 			: []
 	);
 
-	onMount(() => {
-		// Let the heading and controls paint before the town is built on the main thread.
+	$effect(() => {
+		const requestedSeed = seed;
+		review = undefined;
+		settled = undefined;
+		painted = false;
+		unavailable = false;
+		failure = '';
+		// Let the heading and controls paint before laying out the town.
 		const timer = setTimeout(() => {
 			try {
-				review = createTownReview();
-				status = '';
+				review = createTownReview(requestedSeed);
 			} catch (error) {
-				status = error instanceof Error ? error.message : 'Could not build the town.';
+				reportFailure(error);
 			}
 		});
 		return () => clearTimeout(timer);
 	});
+
+	$effect(() => {
+		const requested = selection;
+		return () => {
+			if (armed?.selection !== requested) return;
+			armed.pass.cancel();
+			armed = undefined;
+		};
+	});
+
+	function reportFailure(error: unknown) {
+		failure = error instanceof Error ? error.message : 'Could not build the town.';
+	}
+
+	function confirmRender(shown: readonly Drawable[]) {
+		if (!review || shown !== drawables || failure) return;
+		if (settled) {
+			painted = true;
+			armed = undefined;
+			return;
+		}
+		const requested = selection;
+		if (armed?.selection === requested) return;
+		const pass = review.createDetailPass(() => performance.now());
+		pass.confirmSilhouette();
+		armed = {
+			selection: requested,
+			pass,
+			run() {
+				if (selection !== requested) {
+					pass.cancel();
+					return false;
+				}
+				try {
+					settled = pass.advance();
+					return !settled;
+				} catch (error) {
+					pass.cancel();
+					reportFailure(error);
+					return false;
+				}
+			}
+		};
+	}
 
 	function select(field: string, value: string) {
 		const params = new SvelteURLSearchParams(location.search);
@@ -143,6 +212,9 @@
 				{drawables}
 				{view}
 				{fit}
+				{frameWork}
+				onRender={confirmRender}
+				onUnavailable={() => (unavailable = true)}
 				display={transparent ? 'transparency' : 'normal'}
 				landscape
 				interactive
@@ -159,7 +231,8 @@
 				</div>
 			{/each}
 		</dl>
-	{:else}
+	{/if}
+	{#if status}
 		<p class="small" role="status">{status}</p>
 	{/if}
 </section>

@@ -176,6 +176,9 @@ test('salience grants detail to few houses: capped per block, deterministic, foc
 	expect(granted.length).toBeGreaterThan(0);
 	expect(granted.length).toBeLessThanOrEqual(3);
 	expect(levels.get('focus')).toBe('near');
+	expect(
+		[...readHouseSalience(houses, 3, 1).values()].filter((level) => level !== 'plain')
+	).toEqual(['near']);
 	expect(readHouseSalience(houses, 3)).toEqual(readHouseSalience(houses, 3));
 });
 

@@ -32,12 +32,46 @@ for (const [route, count] of routes) {
 	journeys(`opens ${route} and renders its stages`, async ({ page }) => {
 		const townSwiftShader = route === '/town' && process.env.CI === 'true';
 		if (townSwiftShader) page.setDefaultTimeout(townSwiftShaderTimeoutMs);
+		if (route === '/town') {
+			await page.addInitScript(() => {
+				const firstTownFrame = new MutationObserver(() => {
+					const canvas = document.querySelector<HTMLCanvasElement>('canvas[data-stage-ready]');
+					if (!canvas || !Number(canvas.dataset.stageDrawables)) return;
+					canvas.dataset.townFirstFramePending = String(
+						!!document.querySelector('[role="status"]')
+					);
+					canvas.dataset.townFirstFrameDrawables = canvas.dataset.stageDrawables ?? '0';
+					canvas.dataset.townFirstFrameHasCladding = String(
+						(document.querySelector('.city-measurements')?.textContent ?? '').includes('Cladding')
+					);
+					firstTownFrame.disconnect();
+				});
+				firstTownFrame.observe(document, {
+					subtree: true,
+					attributes: true,
+					attributeFilter: ['data-stage-frames']
+				});
+			});
+		}
 		await open(page, route);
 		if (!count) return;
-		// The town review builds every house on the main thread before its stage appears.
-		if (route === '/town')
-			await expect(page.getByRole('status')).toHaveCount(0, { timeout: 60_000 });
 		const stages = await readyStages(page, count);
+		if (route === '/town') {
+			const townCanvas = stages.first();
+			await expect(townCanvas).toHaveAttribute('data-town-first-frame-pending', 'true');
+			await expect(townCanvas).toHaveAttribute('data-town-first-frame-has-cladding', 'false');
+			const firstDrawables = Number(
+				await townCanvas.getAttribute('data-town-first-frame-drawables')
+			);
+			expect(firstDrawables).toBeGreaterThan(0);
+			await expect(page.getByRole('status')).toHaveCount(0, {
+				timeout: townSwiftShader ? townSwiftShaderTimeoutMs : 60_000
+			});
+			expect(Number(await townCanvas.getAttribute('data-stage-drawables'))).toBeGreaterThan(
+				firstDrawables
+			);
+			await expect(page.locator('.city-measurements')).toContainText('Cladding');
+		}
 		for (const canvas of await stages.all()) {
 			expect(
 				await canvas.evaluate((element: HTMLCanvasElement) => element.width * element.height)
@@ -49,6 +83,8 @@ for (const [route, count] of routes) {
 				})
 				.toBe(true);
 		}
+		if (route === '/town')
+			await expect(page.getByRole('status')).toHaveCount(0, { timeout: 60_000 });
 	});
 }
 
@@ -382,6 +418,18 @@ journeys('preserves town review focus, frame and view across reloads', async ({ 
 	await expect(canvas).toHaveAttribute('data-stage-display', 'transparency');
 	await expect(canvas).toHaveAttribute('data-stage-drawable-builds', builds ?? '');
 	await expect(page).toHaveURL(/display=transparency/);
+
+	// Structure is built lazily on first selection and then cached across focus switches.
+	const beforeStructure = Number(await canvas.getAttribute('data-stage-frames'));
+	await choose(page, 'Focus', 'Structure');
+	await expect
+		.poll(async () => Number(await canvas.getAttribute('data-stage-frames')))
+		.toBeGreaterThan(beforeStructure);
+	const withStructureBuilds = await canvas.getAttribute('data-stage-drawable-builds');
+	expect(Number(withStructureBuilds)).toBeGreaterThan(Number(builds));
+	await choose(page, 'Focus', 'Paths and rail');
+	await expect(canvas).toHaveAttribute('data-stage-drawable-builds', withStructureBuilds ?? '');
+	await expect(page).toHaveURL(/focus=paths/);
 
 	await page.reload();
 	await expect(page.getByRole('status')).toHaveCount(0, { timeout: 60_000 });

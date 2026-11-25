@@ -55,10 +55,8 @@ export function readParcelHouseWalls({
 	);
 }
 
-/** Places the private parcels of one town block using area-based scale. Each placed house is
- * paired with the occupied boundary walls of the other houses for face and opening derivation.
- * Unbuildable parcels retain their IDs and reasons, and stay garden. */
-export function createTownBlockHouses(
+/** Plans occupancy for the private parcels in a town block. Unbuildable parcels stay garden. */
+export function placeTownBlockHouses(
 	town: Pick<ReturnType<typeof createTownHouseStudy>, 'parcelsByBlock' | 'readParcelSite'>,
 	block: ParcelBlock,
 	inputs: HouseInputs,
@@ -70,13 +68,23 @@ export function createTownBlockHouses(
 		.map((parcel) =>
 			createParcelHouse(required(readParcelSite(parcel.id), 'house parcel site'), inputs, style)
 		);
-	const built = results.filter((result) => result.status === 'placed');
-	const walls = built.map(readParcelHouseWalls);
 	return {
-		placed: built.map((house, i) => ({
+		placed: results.filter((result) => result.status === 'placed'),
+		unbuildable: results.filter((result) => result.status === 'unbuildable')
+	};
+}
+
+/** Places the private parcels of one town block using area-based scale. Each placed house is
+ * paired with the occupied boundary walls of the other houses for face and opening derivation.
+ * Unbuildable parcels retain their IDs and reasons, and stay garden. */
+export function createTownBlockHouses(...args: Parameters<typeof placeTownBlockHouses>) {
+	const { placed, unbuildable } = placeTownBlockHouses(...args);
+	const walls = placed.map(readParcelHouseWalls);
+	return {
+		placed: placed.map((house, i) => ({
 			...house,
 			adjoiningWalls: walls.flatMap((group, j) => (i === j ? [] : group))
 		})),
-		unbuildable: results.filter((result) => result.status === 'unbuildable')
+		unbuildable
 	};
 }

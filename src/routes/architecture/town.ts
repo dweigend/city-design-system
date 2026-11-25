@@ -8,6 +8,8 @@ import {
 	houseFigures,
 	houseStyles,
 	readHouseFeatures,
+	type AdjoiningWall,
+	type HouseDetail,
 	type HouseStyleName
 } from '../../lib/domain/house-court';
 import type { ParcelBlock } from '../../lib/domain/parcels';
@@ -24,9 +26,11 @@ import {
 } from '../../lib/scene/house-projection';
 import { cityWindow, riverCityRecipe } from '../../lib/world/city-site';
 import {
-	createTownBlockHouses,
 	createParcelHouseObject,
 	createTownHouseStudy,
+	placeTownBlockHouses,
+	readParcelHouseWalls,
+	type PlacedParcelHouse,
 	type ParcelHouseRecipe,
 	type TownHouseBlock
 } from '../../lib/world/house-site';
@@ -155,10 +159,124 @@ function styleOf(setup: HouseSetup, styles: TownStyles, index: number): HouseSty
 	return names[(names.indexOf(setup.style) + index + names.length) % names.length] ?? setup.style;
 }
 
-/** Places one house per parcel of the chosen blocks, one style per block, alongside the lanes and
- * pale stock. Every house is a plain volume; with `salient` detail the salience rule grants detail
- * to the houses that carry the picture (MAT-15). Each block shares the cladding budget by face
- * area. */
+/** Plans occupancy and framing once. House projections can then be built plain or in salience
+ * order without placing the parcels again. */
+export function prepareTownSheet(
+	town: ReturnType<typeof townStage>,
+	scope: TownScope,
+	setup: HouseSetup,
+	styles: TownStyles
+) {
+	const { groundAt, placement, toLocal } = town;
+	const { chosen, drawables } = town.context(scope);
+	const detail = readHouseDetail(setup.level);
+	const results = chosen.map((block, index) => {
+		const style = styleOf(setup, styles, index);
+		return { block, style, ...placeTownBlockHouses(town, block, setup, houseStyles[style]) };
+	});
+	const placed = results.flatMap(({ placed }) => placed);
+
+	function project(
+		house: PlacedParcelHouse,
+		style: HouseStyleName,
+		own: HouseDetail,
+		level: SurfaceLevel,
+		adjoiningWalls: readonly AdjoiningWall[],
+		faces: ReturnType<typeof houseFaces>,
+		budget: number
+	) {
+		const options = { budget, placement, seed: setup.seed, level };
+		if (house.house.cells.some(({ program }) => program?.length))
+			return projectProgrammedHouse(
+				house,
+				own,
+				adjoiningWalls,
+				faces,
+				houseMaterials[style],
+				setup.level,
+				options
+			);
+		return projectCladHouse(
+			createParcelHouseObject(house, own, adjoiningWalls),
+			faces,
+			houseMaterials[style],
+			setup.level,
+			options
+		);
+	}
+
+	const houses = results.flatMap(({ style, placed }) =>
+		placed.map((house) => ({
+			id: house.space.id,
+			build: () => project(house, style, 'block', 'plain', [], [], 0)
+		}))
+	);
+
+	function readDetails(cap?: number) {
+		const levels = readHouseSalience(
+			results.flatMap(({ block, placed }) =>
+				placed.map(({ space, house }) => ({
+					id: space.id,
+					block: block.id,
+					features: readHouseFeatures(space, house)
+				}))
+			),
+			setup.seed,
+			cap
+		);
+		return results.flatMap(({ style, placed }) => {
+			const salient = placed.filter(({ space }) => levels.get(space.id) !== 'plain');
+			function readFaces() {
+				const walls = detail === 'block' ? [] : placed.map(readParcelHouseWalls);
+				return salient.map((house) => {
+					const adjoining = walls.flatMap((group, i) => (placed[i] === house ? [] : group));
+					const faces =
+						detail === 'block'
+							? []
+							: houseFaces(house.space, house.house, detail, house.style, adjoining);
+					const area = faces.reduce((sum, face) => sum + faceAreaM2(face), 0);
+					return { adjoining, faces, area };
+				});
+			}
+			let blockFaces: ReturnType<typeof readFaces> | undefined;
+			let area = 0;
+			return salient.map((house, index) => ({
+				id: house.space.id,
+				build: () => {
+					if (!blockFaces) {
+						blockFaces = readFaces();
+						area = blockFaces.reduce((sum, house) => sum + house.area, 0);
+					}
+					const { adjoining, faces, area: ownArea } = blockFaces[index];
+					const budget = area > 0 ? (blockTriangleBudget * ownArea) / area : 0;
+					const level = levels.get(house.space.id) ?? 'plain';
+					return project(house, style, detail, level, adjoining, faces, budget);
+				}
+			}));
+		});
+	}
+
+	const ground = chosen.flatMap((block) => block.outline.map(groundAt));
+	const low = Math.min(...ground, ...placed.map(({ groundZ }) => groundZ));
+	const top = Math.max(
+		...ground,
+		...placed.map(({ space, house }) => readStoreyElevation(space, house.storeys))
+	);
+	const points = chosen.flatMap((block) =>
+		block.outline.flatMap(([x, y]) => [toLocal([x, y, low]), toLocal([x, y, top])])
+	);
+	return {
+		drawables,
+		placed,
+		houses,
+		points,
+		readDetails,
+		unbuildable: results.flatMap(({ unbuildable }) => unbuildable)
+	};
+}
+
+/** Draws the Architecture town sheet synchronously, sharing the same occupancy and salience
+ * rules as the progressive town review. */
 export function townSheet(
 	town: ReturnType<typeof townStage>,
 	scope: TownScope,
@@ -166,72 +284,16 @@ export function townSheet(
 	styles: TownStyles = 'one',
 	grant: TownDetail = 'salient'
 ) {
-	const { groundAt, placement, toLocal } = town;
-	const { chosen, drawables } = town.context(scope);
-	const detail = readHouseDetail(setup.level);
-	const results = chosen.map((block, index) => {
-		const style = styleOf(setup, styles, index);
-		return { style, ...createTownBlockHouses(town, block, setup, houseStyles[style]) };
-	});
-	const unbuildable = results.flatMap(({ unbuildable }) => unbuildable);
-	const levels =
-		grant === 'plain'
-			? new Map<string, SurfaceLevel>()
-			: readHouseSalience(
-					results.flatMap(({ placed }, index) =>
-						placed.map(({ space, house }) => ({
-							id: space.id,
-							block: chosen[index].id,
-							features: readHouseFeatures(space, house)
-						}))
-					),
-					setup.seed
-				);
-	// A plain house needs only its masses: build the block detail and no faces (MAT-15).
-	const detailOf = (id: string) =>
-		levels.has(id) && levels.get(id) !== 'plain' ? detail : 'block';
-	const placed = results.flatMap(({ style, placed }) => {
-		const houses = placed.map((house) => {
-			const own = detailOf(house.space.id);
-			const faces =
-				own === 'block'
-					? []
-					: houseFaces(house.space, house.house, own, house.style, house.adjoiningWalls);
-			return { ...house, own, faces, area: faces.reduce((sum, face) => sum + faceAreaM2(face), 0) };
-		});
-		const area = houses.reduce((sum, house) => sum + house.area, 0);
-		return houses.map((house) => ({
-			...house,
-			materials: houseMaterials[style],
-			budget: area > 0 ? (blockTriangleBudget * house.area) / area : 0
-		}));
-	});
-	const projected = placed.map((house) => {
-		const options = {
-			budget: house.budget,
-			placement,
-			seed: setup.seed,
-			level: levels.get(house.space.id) ?? ('plain' as const)
-		};
-		if (house.house.cells.some(({ program }) => program?.length))
-			return projectProgrammedHouse(
-				house,
-				house.own,
-				house.adjoiningWalls,
-				house.faces,
-				house.materials,
-				setup.level,
-				options
-			);
-		return projectCladHouse(
-			createParcelHouseObject(house, house.own, house.adjoiningWalls),
-			house.faces,
-			house.materials,
-			setup.level,
-			options
-		);
-	});
-	const houses = projected.flatMap(({ drawables }) => drawables);
+	const { drawables, placed, houses, points, readDetails, unbuildable } = prepareTownSheet(
+		town,
+		scope,
+		setup,
+		styles
+	);
+	const details = new Map(
+		(grant === 'plain' ? [] : readDetails()).map(({ id, build }) => [id, build])
+	);
+	const projected = houses.map(({ id, build }) => (details.get(id) ?? build)());
 	const triangles = projected.reduce((sum, { triangles }) => sum + triangles, 0);
 	const figures = placed
 		.map(({ space, house }) => houseFigures(space, house))
@@ -246,17 +308,8 @@ export function townSheet(
 			}),
 			{ builtCells: 0, voidCells: 0, floorAreaM2: 0, courtAreaM2: 0, storeys: 0, cells: 0 }
 		);
-	const ground = chosen.flatMap((block) => block.outline.map(groundAt));
-	const low = Math.min(...ground, ...placed.map(({ groundZ }) => groundZ));
-	const top = Math.max(
-		...ground,
-		...placed.map(({ space, house }) => readStoreyElevation(space, house.storeys))
-	);
-	const points = chosen.flatMap((block) =>
-		block.outline.flatMap(([x, y]) => [toLocal([x, y, low]), toLocal([x, y, top])])
-	);
 	return {
-		drawables: [...drawables, ...houses],
+		drawables: [...drawables, ...projected.flatMap(({ drawables }) => drawables)],
 		figures,
 		points,
 		count: placed.length,

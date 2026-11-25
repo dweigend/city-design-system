@@ -22,6 +22,9 @@
 		interactive?: boolean;
 		presentation?: Presentation;
 		onViewport?: (viewport: Viewport) => void;
+		/** Observes the drawable list after the stage successfully renders it. */
+		onRender?: (drawables: readonly Drawable[]) => void;
+		onUnavailable?: () => void;
 		onGroundPointer?: (pointer: GroundPointer) => void;
 		panOnDrag?: boolean;
 		/** Budgeted work run at the start of each frame while `run` returns true. Pass a new object
@@ -39,6 +42,8 @@
 		interactive = false,
 		presentation,
 		onViewport,
+		onRender,
+		onUnavailable,
 		onGroundPointer,
 		panOnDrag = true,
 		frameWork
@@ -74,30 +79,36 @@
 		if (!canvas) return;
 		const target = canvas;
 		let mounted = true;
+		let openedStage: typeof stage;
 		let resize: ResizeObserver | undefined;
 		void Stage.create({
 			canvas: target,
 			landscape,
 			fit,
-			onViewport: (value) => onViewport?.(value)
+			onViewport: (value) => onViewport?.(value),
+			onRender: (shown) => onRender?.(shown)
 		}).then(
 			(opened) => {
 				if (!mounted) return opened.delete();
-				stage = opened;
+				openedStage = opened;
 				resize = new ResizeObserver(([entry]) => {
 					const { width, height } = entry.contentRect;
 					opened.resize(width, height);
+					// Size the drawing buffer before publishing its first render.
+					stage = opened;
 				});
 				resize.observe(target);
 			},
 			() => {
-				if (mounted) unavailable = true;
+				if (!mounted) return;
+				unavailable = true;
+				onUnavailable?.();
 			}
 		);
 		return () => {
 			mounted = false;
 			resize?.disconnect();
-			void stage?.delete();
+			void openedStage?.delete();
 		};
 	});
 

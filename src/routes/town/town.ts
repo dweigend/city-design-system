@@ -1,4 +1,6 @@
+import { defaults } from '../../config/town-review';
 import type { Vec2, Vec3 } from '../../lib/core/geometry';
+import { required } from '../../lib/core/invariant';
 import { columnRoof, createCityLattice } from '../../lib/domain/city-volume';
 import type { ParcelBlock } from '../../lib/domain/parcels';
 import { createFocusResolver, type DisplayLevel } from '../../lib/scene/focus';
@@ -8,6 +10,7 @@ import {
 	projectTransitLine,
 	type MovementDrawing
 } from '../../lib/scene/paths-projection';
+import { createBuildQueue, type BuildJob } from '../../lib/scene/sandbox-interaction';
 import { projectStructure } from '../../lib/scene/structure-projection';
 import type { Drawable } from '../../lib/scene/surface';
 import {
@@ -21,7 +24,7 @@ import { riverCityRecipe } from '../../lib/world/city-site';
 import { createCityStructure } from '../../lib/world/city-structure';
 import { townHouseRecipe } from '../../lib/world/house-site';
 import { readQuery } from '../architecture/query';
-import { townSheet, townStage } from '../architecture/town';
+import { prepareTownSheet, townStage } from '../architecture/town';
 import { createTownParks } from './parks';
 
 const choices = {
@@ -80,20 +83,36 @@ const movementDrawing: Record<CityMovementKind, MovementDrawing> = {
 	walkway: 'deck'
 };
 
-/** Builds the default town once: the Architecture whole-town sheet with its salience rule, the
- * walking network and rail, and the primary structure of the district lattice. */
-export function createTownReview() {
+type TownParts = readonly (readonly [Subsystem, readonly Drawable[]])[];
+type Drawing = Readonly<{ drawables: readonly Drawable[]; triangles: number }>;
+
+const defaultSetup = readQuery(new URLSearchParams()).setup;
+
+function styleParts(parts: TownParts, focus: TownFocus) {
+	return parts.flatMap(([part, drawables]) => {
+		const level = townFocus.readFocusLevel(focus, part);
+		const uses = part === 'houses' && focus === 'houses';
+		return drawables.map((drawable) => {
+			const styled = style(drawable, level);
+			return uses ? paintHouseUse(styled) : styled;
+		});
+	});
+}
+
+/** Builds the silhouette from occupancy, reserved parks and the walking and rail networks.
+ * Garden geometry and the salient houses' faces and models are deferred until after rendering. */
+export function createTownReview(seed = defaultSetup.seed) {
 	const town = townStage(undefined, townHouseRecipe);
-	const { setup } = readQuery(new URLSearchParams());
 	const parkPlan = createTownParks(town);
-	const sheet = townSheet(
+	const sheet = prepareTownSheet(
 		{ ...town, parcelsByBlock: parkPlan.parcelsByBlock },
 		'all',
-		setup,
+		{ ...defaultSetup, seed },
 		'mixed'
 	);
-	const parks = parkPlan.draw(sheet.unbuildable);
-	const ground = new Set(town.context('all').drawables);
+	const reserved = parkPlan.reservedPlantings.map(parkPlan.draw);
+	const gardens = parkPlan.readGardens(sheet.unbuildable);
+	const blocks = sheet.houses.map(({ id, build }) => ({ id, drawing: build() }));
 	const columns = [...town.columns.values()];
 	const { site, layout, terrain } = town;
 	const recipe = site.recipe ?? riverCityRecipe;
@@ -102,14 +121,6 @@ export function createTownReview() {
 	const movement = readCityMovement(site, layout, columns, 0, rail, heads);
 	const paths = projectMovement(movement.network, movementDrawing, terrain).drawables;
 	const transit = projectTransitLine(rail, terrain).drawables;
-	let structure: readonly Drawable[] | undefined;
-	const parts: [Subsystem, readonly Drawable[]][] = [
-		['ground', sheet.drawables.filter((part) => ground.has(part))],
-		['houses', sheet.drawables.filter((part) => !ground.has(part))],
-		['parks', parks.drawables],
-		['walkways', paths],
-		['transit', transit]
-	];
 	const heights = sheet.points.map(([, , z]) => z);
 	const wholeLow = Math.min(...heights);
 	const wholeTop = Math.max(...heights);
@@ -138,43 +149,113 @@ export function createTownReview() {
 			.filter((edge) => edge.kind === kind)
 			.reduce((sum, { lengthM }) => sum + lengthM, 0) / 1000;
 
-	/** The lattice and its primary members are drawn only once the Structure focus asks for them. */
 	function readStructure() {
-		if (structure) return structure;
 		const lattice = createCityLattice(columns, layout.datumZ, 'braced', recipe);
 		const { graph } = createCityStructure(lattice, layout.datumZ, recipe.levelHeightM);
-		structure = projectStructure(graph, {
-			view: 'primary',
-			supports: false,
-			toLocal: town.toLocal
-		});
-		return structure;
+		return {
+			triangles: 0,
+			drawables: projectStructure(graph, {
+				view: 'primary',
+				supports: false,
+				toLocal: town.toLocal
+			})
+		};
+	}
+
+	function parts(details: ReadonlyMap<string, Drawing>, green: readonly Drawing[]): TownParts {
+		return [
+			['ground', sheet.drawables],
+			['houses', blocks.flatMap(({ id, drawing }) => (details.get(id) ?? drawing).drawables)],
+			['parks', green.flatMap(({ drawables }) => drawables)],
+			['walkways', paths],
+			['transit', transit]
+		];
+	}
+	const silhouette = parts(new Map(), reserved);
+	const figures = {
+		houses: sheet.houses.length,
+		unbuildable: sheet.unbuildable.length,
+		walkwaysKm: kilometres('walkway'),
+		railKm: (rail?.lengthM ?? 0) / 1000,
+		stations: rail?.stations.length ?? 0
+	};
+	const completed = new Map<string, Drawing>();
+	const gardenJobs = gardens.map((garden) => ({
+		id: JSON.stringify(['garden', garden.garden.id]),
+		run: () => parkPlan.draw(garden)
+	}));
+	let structureDrawables: readonly Drawable[] | undefined;
+	const readStructureDrawables = () => (structureDrawables ??= readStructure().drawables);
+	type Job = Pick<BuildJob<Drawing>, 'id' | 'run'>;
+	let detailJobs: readonly Job[] | undefined;
+	let cancelPass: (() => void) | undefined;
+
+	function settle(houses: readonly Job[]) {
+		const read = ({ id }: { id: string }) => required(completed.get(id), 'completed town drawing');
+		const details = new Map(houses.map((job) => [job.id, read(job)]));
+		const green = [...reserved, ...gardenJobs.map(read)];
+		const settled = parts(details, green);
+		return {
+			figures: {
+				...figures,
+				triangles: [...details.values()].reduce((sum, { triangles }) => sum + triangles, 0),
+				parks: {
+					parks: reserved.filter(({ kind }) => kind === 'parks').length,
+					shore: reserved.filter(({ kind }) => kind === 'shore').length,
+					gardens: gardens.length,
+					greenBlocks: parkPlan.greenBlocks,
+					drawables: green.reduce((sum, { drawables }) => sum + drawables.length, 0),
+					triangles: green.reduce((sum, { triangles }) => sum + triangles, 0)
+				}
+			},
+			draw(focus: TownFocus): readonly Drawable[] {
+				const all: TownParts =
+					focus === 'structure' ? [...settled, ['structure', readStructureDrawables()]] : settled;
+				return styleParts(all, focus);
+			}
+		};
 	}
 
 	return {
 		subjects,
-		figures: {
-			houses: sheet.count,
-			parks: parks.figures,
-			unbuildable: sheet.unbuildable.length,
-			triangles: sheet.triangles,
-			walkwaysKm: kilometres('walkway'),
-			railKm: (rail?.lengthM ?? 0) / 1000,
-			stations: rail?.stations.length ?? 0
-		},
-		/** Every drawable of the town, styled by the focus. Shapes stay the same objects, so a focus
-		 * change restyles the stage without building geometry. */
-		draw(focus: TownFocus): readonly Drawable[] {
-			const shown: [Subsystem, readonly Drawable[]][] =
-				focus === 'structure' || structure ? [...parts, ['structure', readStructure()]] : parts;
-			return shown.flatMap(([part, drawables]) => {
-				const level = townFocus.readFocusLevel(focus, part);
-				const uses = part === 'houses' && focus === 'houses';
-				return drawables.map((drawable) => {
-					const styled = style(drawable, level);
-					return uses ? paintHouseUse(styled) : styled;
-				});
-			});
+		figures: { ...figures, triangles: 0 },
+		draw: (focus: TownFocus): readonly Drawable[] => styleParts(silhouette, focus),
+		/** Creates work for one rendered request. Interrupted requests can reuse finished products
+		 * for this review seed. Publish all finished geometry together so stage batches stay stable
+		 * during the upgrade and subsequent non-structure focus changes are geometry-free. */
+		createDetailPass(now: () => number) {
+			cancelPass?.();
+			const queue = createBuildQueue<Drawing>(now);
+			let rendered = false;
+			let open = true;
+			let jobs: readonly Job[] | undefined;
+			function cancel() {
+				open = false;
+				for (const { id } of jobs ?? []) queue.cancel(id);
+			}
+			cancelPass = cancel;
+			return {
+				confirmSilhouette() {
+					rendered = true;
+				},
+				advance() {
+					if (!rendered || !open) return;
+					detailJobs ??= sheet
+						.readDetails(defaults.detailedHouseCap)
+						.map(({ id, build }) => ({ id, run: build }));
+					if (!jobs) {
+						jobs = [...detailJobs, ...gardenJobs];
+						for (const job of jobs)
+							if (!completed.has(job.id)) queue.submit({ ...job, key: job.id });
+					}
+					for (const id of queue.advance())
+						completed.set(id, required(queue.read(id), 'built town drawing'));
+					if (queue.readWaiting()) return;
+					cancel();
+					return settle(detailJobs);
+				},
+				cancel
+			};
 		}
 	};
 }
