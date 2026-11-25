@@ -4,7 +4,9 @@ import type { Parcel } from '../../lib/domain/parcels';
 import type { createSandboxDocument, SandboxPlacement } from '../../lib/domain/sandbox-document';
 import {
 	readHouseFeatures,
+	type HouseCell,
 	type HouseFeatures,
+	type HouseStorey,
 	type HouseStyleName
 } from '../../lib/domain/house-court';
 import { blockTriangleBudget } from '../../lib/scene/house-projection';
@@ -13,7 +15,7 @@ import { projectSketch } from '../../lib/scene/sketch';
 import { createSandboxProjection } from '../../lib/scene/sandbox-projection';
 import type { Drawable, ModelTone } from '../../lib/scene/surface';
 import { groveLawnLiftM } from '../../lib/world/asset-registry';
-import { createTownHouseStudy } from '../../lib/world/house-site';
+import { createTownHouseStudy, townHouseRecipe } from '../../lib/world/house-site';
 import { createPlacementCache, createSandboxWorld } from '../../lib/world/sandbox-world';
 
 const styleTones = {
@@ -39,13 +41,14 @@ export type PlacementRequest = Readonly<{
 	parcel?: Parcel;
 	salience?: Readonly<{ block: string; features: HouseFeatures }>;
 	reason?: string;
+	program?: readonly Pick<HouseStorey, 'datumIndex' | 'phase' | 'use'>[];
 	build?: (detail: Detail) => readonly Drawable[];
 }>;
 
 /** Uses the Architecture Town fixture as the opening subject of the editable city. */
 export function createTownSandbox() {
 	const { site, layout, columns, blocks } = createTownHouseStudy();
-	const world = createSandboxWorld(site, layout, columns);
+	const world = createSandboxWorld(site, layout, columns, undefined, undefined, townHouseRecipe);
 	const projection = createSandboxProjection(site, layout, world.holdings);
 	const points = blocks.block.outline.map(([x, y]): Vec3 => [
 		...projection.toLocal(x, y),
@@ -137,6 +140,7 @@ export function createTownSandbox() {
 								block: house.parcel.blockId,
 								features: readHouseFeatures(house.space, house.house)
 							},
+							program: readStoreyProgram(house.house.cells),
 							build: (detail) =>
 								projection.projectParcelHouse(house, adjoining, placement.id, { ...detail, tone })
 						};
@@ -151,4 +155,12 @@ export function createTownSandbox() {
 				world.resolveHouse
 			)
 	};
+}
+
+function readStoreyProgram(cells: readonly HouseCell[]) {
+	const rows = new Map<string, NonNullable<PlacementRequest['program']>[number]>();
+	for (const cell of cells)
+		for (const { datumIndex, phase, use } of cell.program ?? [])
+			rows.set(JSON.stringify([datumIndex, phase, use]), { datumIndex, phase, use });
+	return [...rows.values()].sort((a, b) => a.datumIndex - b.datumIndex);
 }

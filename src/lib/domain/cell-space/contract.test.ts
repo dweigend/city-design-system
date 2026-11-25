@@ -1,5 +1,5 @@
 import { createCatalog } from '../../core/catalog';
-import { equalRefs, readWorldReference } from '../../core/ref';
+import { encodeKey, equalRefs, readWorldReference } from '../../core/ref';
 import { describe, expect, test } from 'bun:test';
 import type { Vec2 } from '../../core/geometry';
 import {
@@ -11,12 +11,12 @@ import {
 	readCellStoreys,
 	readStoreyElevation,
 	readStoreyHeight,
+	readStoreyKey,
 	readStoreyRef,
 	type CellSubgridGenerator,
 	createStripSpace,
 	DegenerateParcelError,
 	parcelEdgeId,
-	storeyAddress,
 	type Parcel
 } from './index';
 import { example, mixedStoreyParcel } from './example';
@@ -143,8 +143,8 @@ describe('createCellSpace', () => {
 
 	test('is deterministic and addresses storeys by a fixed grammar', () => {
 		expect(createCellSpace(fixtures.ell)).toEqual(createCellSpace(fixtures.ell));
-		expect(storeyAddress('p/child/["a"]', 3)).toBe('p/child/["a"]/storey/3');
-		expect(() => storeyAddress('p', -1)).toThrow(RangeError);
+		expect(readStoreyKey('p', 'p/child/["a"]', -1)).toBe(encodeKey(['p', 'p/child/["a"]', -1]));
+		expect(() => readStoreyKey('p', 'cell', 1.5)).toThrow(RangeError);
 	});
 
 	test('rejects clockwise, short or mislabelled parcels', () => {

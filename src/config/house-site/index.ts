@@ -2,6 +2,13 @@ import { defineSettings, settingValues } from '../setting';
 
 /** Settings of placing a house on a city parcel. */
 export const settings = defineSettings({
+	publicStoreyHeightM: {
+		value: 4.2,
+		unit: 'm',
+		meaning: 'Clearer vertical proportion for the taller hall in a mixed-use pair of storeys',
+		bounds: { exclusiveMin: 0 },
+		principle: 'FORM-1'
+	},
 	contactToleranceM: {
 		value: 0.001,
 		unit: 'm',

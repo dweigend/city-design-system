@@ -331,7 +331,7 @@
 	}
 	.sandbox-hud > * { pointer-events: auto; }
 	.sandbox-hud-tools { grid-area: tools; justify-self: start; align-self: start; }
-	.sandbox-hud-view { grid-area: view; justify-self: end; }
+	.sandbox-hud-view { grid-area: view; justify-self: end; display: grid; gap: var(--space-1); }
 	.sandbox-hud-panel {
 		grid-area: panel;
 		align-self: start;
@@ -695,6 +695,21 @@
 	[data-flow='energy'] { --flow: var(--cat-mobility); }
 	[data-flow='food'] { --flow: var(--cat-nature); }
 	[data-flow='material'] { --flow: var(--cat-living); }
+	.house-uses { margin: 0; padding: 0; list-style: none; }
+	[data-house-use='public'] { --use: var(--path); }
+	[data-house-use='workshop'] { --use: var(--cat-living); }
+	[data-house-use='office'] { --use: var(--cat-mobility); }
+	[data-house-use='housing'] { --use: var(--body-living); }
+	[data-house-use='city-farm'] { --use: var(--cat-nature); }
+	[data-house-use='greenhouse'] { --use: var(--cat-foliage); }
+	[data-house-use]::before {
+		content: '';
+		display: inline-block;
+		inline-size: 0.75em;
+		block-size: 0.75em;
+		margin-inline-end: var(--space-1);
+		background: var(--use);
+	}
 	[data-flow] td:nth-of-type(1) { background: oklch(from var(--flow) var(--step-1)); }
 	[data-flow] td:nth-of-type(2) { background: oklch(from var(--flow) var(--step-2)); }
 	[data-flow] td:nth-of-type(3) { background: oklch(from var(--flow) var(--step-3)); }

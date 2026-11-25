@@ -5,12 +5,13 @@ frontage side. Edges below the cell-space minimum collapse and the public court
 boundary supplies court tags. The parcel ID derives the house seed from the input seed.
 
 The common bay levels of the block members bound the house. When given a terrain sampler,
-the strip space samples inside the parcel for its floor and plinth and at the selected entrance
+the cell space samples inside the parcel for its floor and plinth and at the selected entrance
 for its lane elevation. A parcel without room for a house and access returns a reason.
 
 The Town study selects two adjacent perimeter blocks and a merged hall from the default plan.
 Each block's placement opts into area-based scale and supplies coincident boundary walls
 to face and opening derivation after the occupied spans of its houses are known.
 
-The house recipe selects the subgrid and sizes the coarse level and its storeys. Terrain-aware
-placement starts at a recipe boundary and keeps the subdivision and common roof.
+The house recipe selects the subgrid, sizes the coarse level and its storeys, and can assign
+uses and construction phases. Terrain-aware placement clips the common datum stack at the first
+boundary at or above the sampled terrain, leaving at least one storey below the common roof.

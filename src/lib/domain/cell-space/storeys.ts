@@ -11,12 +11,21 @@ function requireIndex(index: number, count = Infinity) {
 export function createStoreyStack({
 	baseZ,
 	storeyCount,
+	datumIndex = /* Exact arithmetic: a standalone stack begins at its own datum. */ 0,
 	storeyHeightM,
-	storeyHeightsM
+	storeyHeightsM,
+	storeyElevationsM
 }: StoreySizing): StoreyStack {
 	if (!Number.isFinite(baseZ)) throw new RangeError('baseZ must be finite');
 	if (!Number.isSafeInteger(storeyCount) || storeyCount < 1)
 		throw new RangeError('A cell space needs at least one storey');
+	if (!Number.isSafeInteger(datumIndex) || !Number.isSafeInteger(datumIndex + storeyCount))
+		throw new RangeError('Expected a safe range of datum indices');
+	if (
+		storeyElevationsM &&
+		(storeyElevationsM[0] !== baseZ || storeyElevationsM.length !== storeyCount + 1)
+	)
+		throw new RangeError('Expected the boundaries of the active storey window');
 	if (storeyHeightsM !== undefined && storeyHeightsM.length !== storeyCount)
 		throw new RangeError('Expected one height per storey');
 	if (storeyHeightM !== undefined && !(Number.isFinite(storeyHeightM) && storeyHeightM > 0))
@@ -34,7 +43,7 @@ export function createStoreyStack({
 	const elevations = [baseZ];
 	for (const [index, height] of heights.entries()) {
 		offset = uniform === undefined ? offset + height : (index + 1) * uniform;
-		const top = baseZ + offset;
+		const top = storeyElevationsM ? storeyElevationsM[index + 1] : baseZ + offset;
 		if (!Number.isFinite(top) || top <= elevations[index])
 			throw new RangeError('Storey boundaries must increase at the given datum');
 		elevations.push(top);
@@ -42,6 +51,7 @@ export function createStoreyStack({
 	return Object.freeze({
 		baseZ,
 		storeyCount,
+		datumIndex,
 		storeyHeightM: uniform,
 		storeyHeightsM: Object.freeze(heights),
 		storeyElevationsM: Object.freeze(elevations)
@@ -51,8 +61,10 @@ export function createStoreyStack({
 /** Absolute elevation of a storey boundary, including the roof above the last storey. */
 export function readStoreyElevation(space: StoreyStack, index: number): number {
 	requireIndex(index, space.storeyCount + 1);
+	const shift = space.baseZ - space.storeyElevationsM[0];
+	if (shift === 0) return space.storeyElevationsM[index];
 	return space.storeyHeightM === undefined
-		? space.storeyElevationsM[index] + (space.baseZ - space.storeyElevationsM[0])
+		? space.storeyElevationsM[index] + shift
 		: space.baseZ + index * space.storeyHeightM;
 }
 
@@ -63,14 +75,14 @@ export function readStoreyHeight(space: StoreyStack, index: number): number {
 }
 
 /** Stable address of a storey in one fine cell. */
-export function readStoreyRef(spaceId: string, cellId: string, storey: number, world: string) {
-	return createWorldReference(world, 'storey', readStoreyKey(spaceId, cellId, storey));
+export function readStoreyRef(spaceId: string, cellId: string, datumIndex: number, world: string) {
+	return createWorldReference(world, 'storey', readStoreyKey(spaceId, cellId, datumIndex));
 }
 
 /** World-independent tuple key for a storey. */
-export function readStoreyKey(spaceId: string, cellId: string, storey: number) {
-	requireIndex(storey);
-	return encodeKey([spaceId, cellId, storey]);
+export function readStoreyKey(spaceId: string, cellId: string, datumIndex: number) {
+	if (!Number.isSafeInteger(datumIndex)) throw new RangeError('Expected a datum index');
+	return encodeKey([spaceId, cellId, datumIndex]);
 }
 
 /** Storeys in cell order, then from bottom to top, with references in the supplied world. */
@@ -90,9 +102,10 @@ function cellStoreys(space: CellSpace) {
 		space.cells.flatMap(({ id: cellId }) =>
 			Array.from({ length: space.storeyCount }, (_, storey) =>
 				Object.freeze({
-					key: readStoreyKey(space.id, cellId, storey),
+					key: readStoreyKey(space.id, cellId, space.datumIndex + storey),
 					cellId,
 					storey,
+					datumIndex: space.datumIndex + storey,
 					bottomZ: readStoreyElevation(space, storey),
 					topZ: readStoreyElevation(space, storey + 1),
 					heightM: readStoreyHeight(space, storey)
@@ -104,14 +117,15 @@ function cellStoreys(space: CellSpace) {
 
 /** Keeps the existing plan subdivision and replaces its vertical sizing. */
 export function createCellSpaceStoreys(
-	space: Pick<CellSpace, 'id' | 'kind' | 'cells'>,
+	space: Pick<CellSpace, 'id' | 'kind' | 'houseRules' | 'cells'>,
 	sizing: StoreySizing
 ): CellSpace {
-	const { id, kind, cells } = space;
+	const { id, kind, houseRules, cells } = space;
 	let storeys: CellSpace['storeys'] | undefined;
 	const result: CellSpace = Object.freeze({
 		id,
 		...(kind ? { kind } : {}),
+		...(houseRules ? { houseRules: Object.freeze({ ...houseRules }) } : {}),
 		...createStoreyStack(sizing),
 		cells,
 		get storeys() {

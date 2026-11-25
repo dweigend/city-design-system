@@ -2,6 +2,13 @@ import { defineSettings, joinSettings, settingValues } from '../setting';
 import { archigram, memphis, organic, shapes } from './styles';
 
 const occupancy = defineSettings({
+	additionSetbackM: {
+		value: 0.55,
+		unit: 'm',
+		meaning: 'Extra inset of an upper addition from the exposed edges of the retained body',
+		bounds: { min: 0 },
+		principle: 'GROW-2'
+	},
 	rearDropRatio: {
 		value: 0.75,
 		unit: 'ratio',

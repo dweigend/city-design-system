@@ -1,8 +1,8 @@
 import type { Vec2 } from '../../core/geometry';
-import { groundStoreyRuns, shapeParts, type HousePart, type StoreyRun } from './part-refs';
+import { boxParts, faceParts, groundStoreyRuns, type HousePart, type StoreyRun } from './part-refs';
 import { defaults } from '../../../config/house-court';
 import { readStoreyElevation, readStoreyHeight, type FineCell } from '../cell-space';
-import { boxMesh, faceMesh, side, type Box } from './boxes';
+import { side, type Box } from './boxes';
 import { extrusion, type Faces } from './solids';
 import { builtAt, type Context } from './context';
 import type { HouseCell } from './occupancy';
@@ -85,12 +85,20 @@ export function plates(context: Context): HousePart[] {
  * that touch only along an edge go to separate shells, so every shell is two-manifold. The first
  * shell keeps the ID `<space>/envelope`, later ones append `/<index>`. */
 export function envelope(context: Context, slot: string): HousePart[] {
-	return shells(context).flatMap((members, k) => {
+	const layered = context.house.cells.some(({ program }) => program?.length);
+	return shells(context, layered).flatMap((members, k) => {
 		const faces = shellFaces(context, members).map(({ joints }) =>
 			joints.map(({ position }) => position)
 		);
-		const id = k ? `${context.space.id}/envelope/${k}` : `${context.space.id}/envelope`;
-		return shapeParts(id, slot, faceMesh(faces), shellStoreyRuns(context, members));
+		const runs = shellStoreyRuns(context, members);
+		const [cell, from] = runs[0];
+		const prefix = `${context.space.id}/envelope`;
+		const id = layered
+			? `${prefix}/${context.space.datumIndex + from}/${cell}`
+			: k
+				? `${prefix}/${k}`
+				: prefix;
+		return faceParts(id, slot, faces, runs);
 	});
 }
 
@@ -142,7 +150,7 @@ export function envelopeRims(context: Context, slot: string): HousePart[] {
 			}
 		});
 	});
-	return shapeParts(`${context.space.id}/rims`, slot, faceMesh(rims), runs);
+	return faceParts(`${context.space.id}/rims`, slot, rims, runs);
 }
 
 /** The parapet rim of every flat-topped body without a roof solid, in the body's slot. */
@@ -155,10 +163,10 @@ export function solidRims(context: Context, solids: readonly CellSolid[]): House
 	return [...tops.values()].flatMap((s) => {
 		if (!s.flat || roofed.has(s.cell.id)) return [];
 		const z = level(context, s.toStorey);
-		return shapeParts(
+		return faceParts(
 			`${s.key}/rims`,
 			s.slot,
-			faceMesh(s.outline.flatMap((_, i) => rim(s.outline, i, z))),
+			s.outline.flatMap((_, i) => rim(s.outline, i, z)),
 			[[s.cell.id, s.toStorey - 1, s.toStorey]]
 		);
 	});
@@ -179,16 +187,16 @@ export function canopy(context: Context): HousePart[] {
 	const gap = solids.length ? Math.min(...solids.map(({ gapM }) => gapM)) : 0;
 	const [x, y] = entry.wall.at(1 / 2, projection / 2 - gap);
 	const z = context.space.baseZ + entranceCanopyHeightM + thickness / 2;
-	return shapeParts(
+	return boxParts(
 		`${context.space.id}/canopy`,
 		'accent',
-		boxMesh([
+		[
 			{
 				center: [x, y, z],
 				size: [Math.min(width, entry.wall.length), projection, thickness],
 				rotation: entry.wall.rotation
 			}
-		]),
+		],
 		groundStoreyRuns(entry.cell.id)
 	);
 }
@@ -266,5 +274,5 @@ export function openings(context: Context): HousePart[] {
 				runs.push([cell.id, storey, storey + 1]);
 			});
 	});
-	return shapeParts(`${context.space.id}/openings`, 'opening', boxMesh(boxes), runs);
+	return boxParts(`${context.space.id}/openings`, 'opening', boxes, runs);
 }

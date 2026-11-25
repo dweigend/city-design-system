@@ -20,6 +20,7 @@ import {
 	type AdjoiningWall,
 	type HouseDetail,
 	type HouseInputs,
+	type HouseSite,
 	type HouseStyle,
 	type HouseScale
 } from '../../domain/house-court';
@@ -41,6 +42,11 @@ export type ParcelHouseRecipe = Readonly<{
 	subgridId?: string;
 	subgridOptions?: CellSubgridOptions;
 	subgridCatalog?: Catalog<CellSubgridGenerator>;
+	/** Selects occupied uses and phases using the parcel's common bay as a program anchor. */
+	storeyProgram?: (
+		parcelId: string,
+		baseDatumIndex: number
+	) => NonNullable<HouseSite['storeyProgram']>;
 }>;
 
 /** A parcel and its permanent frontage, with the active columns and common city datum.
@@ -188,7 +194,8 @@ export function createParcelHouse(
 			groundAtEntrance: groundAt,
 			corner: isCorner(ring, edge, block),
 			groundZ: terrain.low,
-			scale: scale === 'by-area' ? houseScale(space) : scale
+			scale: scale === 'by-area' ? houseScale(space) : scale,
+			storeyProgram: recipe?.storeyProgram?.(parcel.id, sizing.datumIndex ?? 0)
 		}
 	);
 	if (house.unbuildable)

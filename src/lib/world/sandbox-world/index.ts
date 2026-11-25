@@ -4,6 +4,8 @@ import { resolveParams } from '../../core/params';
 import { readWorldReference, type ReferenceResolution } from '../../core/ref';
 import { createPolygonIndex } from '../../core/polygon-index';
 import type { CityColumn } from '../../domain/city-volume';
+import type { CellStorey } from '../../domain/cell-space';
+import { readHousePartRefs, type HousePartRef, type HouseStorey } from '../../domain/house-court';
 import { planEdges, type PlanEdge } from '../../domain/terrain-grid';
 import {
 	createSandboxDocument,
@@ -23,7 +25,7 @@ import {
 } from '../asset-registry';
 import { readCityMovement } from '../city-movement';
 import { readCityParcels, type CityGrid, type CitySite } from '../city-site';
-import { createTownParcelSites } from '../house-site';
+import { createTownParcelSites, readParcelHouseWalls, type ParcelHouseRecipe } from '../house-site';
 import { readSandboxIdentity } from './identity';
 
 export { createPlacementCache } from './cache';
@@ -36,7 +38,18 @@ type CityReferenceValue =
 	| CityGrid['selectedCrossings'][number]
 	| PlanEdge
 	| CityGrid['plan']['cells' | 'vertices'][number]
-	| ReturnType<typeof readCityMovement>['network']['nodes' | 'edges'][number];
+	| ReturnType<typeof readCityMovement>['network']['nodes' | 'edges'][number]
+	| (CellStorey & { program?: HouseStorey })
+	| HousePartRef;
+
+function referenceOwner(key: string): string | undefined {
+	try {
+		const tuple: unknown = JSON.parse(key);
+		return Array.isArray(tuple) && typeof tuple[0] === 'string' ? tuple[0] : undefined;
+	} catch {
+		return undefined;
+	}
+}
 
 function byId<T extends { id: string }>(items: readonly T[]) {
 	return new Map(items.map((item) => [item.id, item]));
@@ -68,7 +81,8 @@ export function createSandboxWorld(
 	layout: CityGrid,
 	columns: ReadonlyMap<string, CityColumn>,
 	customTerrainRevision?: string,
-	customTerrainId?: string
+	customTerrainId?: string,
+	houseRecipe?: ParcelHouseRecipe
 ) {
 	const columnSnapshot = snapshotColumns(columns);
 	const holdings = readCityParcels(site, layout);
@@ -78,7 +92,7 @@ export function createSandboxWorld(
 		columnSnapshot,
 		layout.datumZ,
 		([x, y]) => site.sampleGround(x, y).height,
-		{ vertical: site.recipe }
+		{ vertical: site.recipe, ...houseRecipe }
 	);
 	// Exact arithmetic: ground-only movement uses no vertical offset and no upper-level centers.
 	const groundOffset = /* Exact arithmetic: zero offset places the asset on the ground. */ 0;
@@ -142,8 +156,57 @@ export function createSandboxWorld(
 			throw new UnavailableHostError('Placement has an incompatible reference or registry');
 	}
 
+	function resolveHouse(placement: SandboxPlacement) {
+		validatePlacement(placement);
+		const { assetId, host, params, seed } = placement;
+		if (host.kind !== 'parcel' || readAsset(assetId).kind !== 'house') return undefined;
+		const site = readParcelSite(host.id);
+		if (!site) throw new UnavailableHostError('Unavailable house parcel: ' + host.id);
+		return placeParcelHouseAsset(assetId, site, { ...prepare(assetId, host, params), seed });
+	}
+
+	function readHouseReference(
+		kind: 'storey' | 'house-part',
+		key: string,
+		document: ReturnType<typeof createDocument>
+	): CityReferenceValue | undefined {
+		const owner = referenceOwner(key);
+		const prefix = 'house/';
+		const id =
+			kind === 'storey'
+				? owner
+				: owner?.startsWith(prefix)
+					? owner.slice(prefix.length)
+					: undefined;
+		if (!id) return undefined;
+		const placement = document.readPlacement({ kind: 'parcel', id });
+		if (!placement) return undefined;
+		const placed = resolveHouse(placement);
+		if (placed?.status !== 'placed') return undefined;
+		if (kind === 'storey') {
+			const storey = placed.space.storeys.find((row) => row.key === key);
+			if (!storey) return undefined;
+			const program = placed.house.cells
+				.find(({ id }) => id === storey.cellId)
+				?.program?.find((row) => row.key === key);
+			return program ? { ...storey, program } : storey;
+		}
+		const walls = document.readPlacements().flatMap((peer) => {
+			if (
+				peer.id === placement.id ||
+				peer.host.kind !== 'parcel' ||
+				holdingsById.get(peer.host.id)?.blockId !== placed.parcel.blockId
+			)
+				return [];
+			const other = resolveHouse(peer);
+			return other?.status === 'placed' ? readParcelHouseWalls(other) : [];
+		});
+		return readHousePartRefs(placed.house, identity.id, walls).find(({ ref }) => ref.key === key);
+	}
+
+	const holdingsById = byId(holdings.parcels);
 	const addresses = new Map<string, ReadonlyMap<string, CityReferenceValue>>([
-		['parcel', byId(holdings.parcels)],
+		['parcel', holdingsById],
 		['portal', byId(holdings.portals)],
 		['lane', byId(holdings.lanes)],
 		['crossing', byId(layout.selectedCrossings)],
@@ -176,11 +239,19 @@ export function createSandboxWorld(
 			kind !== 'ground' && hosts.has(kind)
 				? listAssets().filter(({ hostKinds }) => hostKinds.includes(kind))
 				: [],
-		/** Resolves a portable city address against the current snapshot. */
-		resolveReference(input: unknown): ReferenceResolution<CityReferenceValue> {
+		/** Resolves terrain addresses against the world and building addresses against a document. */
+		resolveReference(
+			input: unknown,
+			document?: ReturnType<typeof createDocument>
+		): ReferenceResolution<CityReferenceValue> {
 			const reference = readWorldReference(input);
 			if (!reference) return { status: 'invalid-reference' };
 			if (reference.world !== identity.id) return { status: 'different-world' };
+			if (reference.kind === 'storey' || reference.kind === 'house-part') {
+				if (document && document.world.id !== identity.id) return { status: 'different-world' };
+				const value = document && readHouseReference(reference.kind, reference.key, document);
+				return value ? { status: 'resolved', value } : { status: 'missing' };
+			}
 			const index = addresses.get(reference.kind);
 			if (!index) return { status: 'unsupported-kind' };
 			const value = index.get(reference.key);
@@ -197,14 +268,7 @@ export function createSandboxWorld(
 		},
 		/** Resolves a city house's occupancy before contextual object building. Graph-edge assets
 		 * have no house occupancy. A valid city address may return a named garden result. */
-		resolveHouse(placement: SandboxPlacement) {
-			validatePlacement(placement);
-			const { assetId, host, params, seed } = placement;
-			if (host.kind !== 'parcel' || readAsset(assetId).kind !== 'house') return undefined;
-			const site = readParcelSite(host.id);
-			if (!site) throw new UnavailableHostError('Unavailable house parcel: ' + host.id);
-			return placeParcelHouseAsset(assetId, site, { ...prepare(assetId, host, params), seed });
-		},
+		resolveHouse,
 		/** Builds a placed object against the fixed city via the registry. */
 		build(placement: SandboxPlacement) {
 			validatePlacement(placement);

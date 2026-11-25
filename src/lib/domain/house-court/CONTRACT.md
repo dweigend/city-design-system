@@ -9,5 +9,10 @@ unclad. Both work in world meters. See the fixed plots in `example.ts`.
 
 Part addresses carry local house, part, and storey keys. `readHousePartRefs` requires a world ID
 to mint refs in full-detail object order. Pass the object builder's adjoining walls to get the
-same openings and contributors. Storey spans are half-open. Shared meshes list contributors
-from all their cells, and ground parts attach to the first storey.
+same openings and contributors. Reading addresses leaves the mesh descriptors untriangulated.
+Storey spans use half-open datum indices. Shared parts list contributors from all their cells,
+and ground parts attach to the first active storey.
+
+A site can assign phase and use to each occupied storey by datum index and cell ID. The house
+keeps those assignments with the occupancy. A part with one common assignment carries it in its
+address. Programmed bodies are drawn in separate layers so each use can be highlighted.

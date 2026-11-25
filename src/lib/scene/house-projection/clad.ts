@@ -296,12 +296,13 @@ function projectPlain(
 		group.push({ ...drawable, ...(body ? { creaseAngleRad: plainCreaseRad } : {}) });
 		groups.set(key, group);
 	}
-	const drawables = Array.from(groups.values(), mergePlain);
+	const drawables = Array.from(groups.values(), mergeHouseDrawables);
 	cached.set(key, drawables);
 	return [...drawables];
 }
 
-function mergePlain(group: Drawable[]): Drawable {
+/** Keeps each body's triangle range for crease extraction in a merged drawing. */
+export function mergeHouseDrawables(group: Drawable[]): Drawable {
 	const [first] = group;
 	if (group.length === 1) return first;
 	const positions: number[] = [];

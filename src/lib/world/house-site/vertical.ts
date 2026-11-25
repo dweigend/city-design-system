@@ -1,8 +1,40 @@
-import type { StoreySizing } from '../../domain/cell-space';
+import { createStoreyStack, type StoreySizing } from '../../domain/cell-space';
 import { readLevelIndex } from '../../domain/city-volume';
 import type { CityVerticalRecipe } from '../city-site';
 
-/** Vertical addresses for one parcel share the city datum and end at the common roof plane. */
+function repeating(heights: readonly number[], count: number): number[] {
+	return Array.from({ length: count }, (_, index) => heights[index % heights.length]);
+}
+
+function mixedBoundaries(
+	datumZ: number,
+	heights: readonly number[],
+	first: number,
+	end: number
+): readonly number[] {
+	const forward = Math.max(0, end);
+	const backward = -Math.min(0, first);
+	const positive = forward
+		? createStoreyStack({
+				baseZ: datumZ,
+				storeyCount: forward,
+				storeyHeightsM: repeating(heights, forward)
+			}).storeyElevationsM
+		: [datumZ];
+	const negative = backward
+		? createStoreyStack({
+				baseZ: -datumZ,
+				storeyCount: backward,
+				storeyHeightsM: repeating([...heights].reverse(), backward)
+			}).storeyElevationsM
+		: [];
+	return Array.from({ length: end - first + 1 }, (_, offset) => {
+		const index = first + offset;
+		return index < 0 ? -negative[-index] : positive[index];
+	});
+}
+
+/** Clips the active window against the elevations of the uncut datum stack. */
 export function createParcelStoreySizing(
 	{ levelHeightM, storeyHeightM, storeyHeightsM, storeysPerLevel }: CityVerticalRecipe,
 	datumZ: number,
@@ -10,47 +42,40 @@ export function createParcelStoreySizing(
 	roofLevel: number,
 	groundZ?: number
 ): StoreySizing {
-	const roofZ = datumZ + roofLevel * levelHeightM;
+	const end = roofLevel * storeysPerLevel;
 	if (!storeyHeightsM) {
-		const baseZ =
+		const datumIndex =
 			groundZ === undefined
-				? datumZ + baseLevel * levelHeightM
-				: Math.min(
-						datumZ + Math.ceil(readLevelIndex(datumZ, groundZ, storeyHeightM)) * storeyHeightM,
-						roofZ - storeyHeightM
-					);
-		return { baseZ, storeyCount: Math.round((roofZ - baseZ) / storeyHeightM), storeyHeightM };
+				? baseLevel * storeysPerLevel
+				: Math.min(Math.ceil(readLevelIndex(datumZ, groundZ, storeyHeightM)), end - 1);
+		const baseZ = datumZ + datumIndex * storeyHeightM;
+		const storeyCount = end - datumIndex;
+		const storeyElevationsM = Array.from(
+			{ length: storeyCount + 1 },
+			(_, index) => datumZ + (datumIndex + index) * storeyHeightM
+		);
+		return { baseZ, datumIndex, storeyCount, storeyHeightM, storeyElevationsM };
 	}
-	let level =
+	const level =
 		groundZ === undefined
 			? baseLevel
 			: Math.min(Math.floor(readLevelIndex(datumZ, groundZ, levelHeightM)), roofLevel - 1);
-	if (!Number.isSafeInteger(level)) throw new RangeError('Expected a valid coarse level index');
-	const firstStorey = /* Exact arithmetic: index at the start of each coarse band. */ 0;
-	let storey = firstStorey;
-	let bandZ = datumZ + level * levelHeightM;
-	let offsetM = 0;
-	while (
-		groundZ !== undefined &&
-		bandZ + offsetM < groundZ &&
-		(level < roofLevel - 1 || storey < storeysPerLevel - 1)
-	) {
-		offsetM += storeyHeightsM[storey];
-		storey++;
-		if (storey === storeysPerLevel) {
-			storey = firstStorey;
-			level++;
-			bandZ = datumZ + level * levelHeightM;
-			offsetM = /* Exact arithmetic: reset to the coarse plane. */ 0;
-		}
-	}
-	const storeyCount = (roofLevel - level) * storeysPerLevel - storey;
+	const first = (groundZ === undefined ? level : level - 1) * storeysPerLevel;
+	if (!Number.isSafeInteger(first) || !Number.isSafeInteger(end))
+		throw new RangeError('Expected a valid coarse level range');
+	const boundaries = mixedBoundaries(datumZ, storeyHeightsM, first, end);
+	const match = groundZ === undefined ? 0 : boundaries.findIndex((height) => height >= groundZ);
+	const lastStorey = boundaries.length - 2;
+	const start = match < 0 ? lastStorey : Math.min(match, lastStorey);
+	const datumIndex = first + start;
 	return {
-		baseZ: bandZ + offsetM,
-		storeyCount,
-		storeyHeightsM: Array.from(
-			{ length: storeyCount },
-			(_, index) => storeyHeightsM[(storey + index) % storeysPerLevel]
-		)
+		baseZ: boundaries[start],
+		datumIndex,
+		storeyCount: end - datumIndex,
+		storeyElevationsM: boundaries.slice(start),
+		storeyHeightsM: Array.from({ length: end - datumIndex }, (_, index) => {
+			const band = (datumIndex + index) % storeysPerLevel;
+			return storeyHeightsM[band < 0 ? band + storeysPerLevel : band];
+		})
 	};
 }

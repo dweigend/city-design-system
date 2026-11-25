@@ -5,6 +5,8 @@ import {
 	cellAreaM2,
 	cellSubgridCatalog,
 	createCellSpace,
+	createStoreyStack,
+	readCellStoreys,
 	type CellSubgridGenerator
 } from '../../domain/cell-space';
 import { columnRoof, levelHeight } from '../../domain/city-volume';
@@ -127,7 +129,7 @@ test('uses a custom parcel subgrid and repeats recipe heights from the coarse da
 	expect(createParcelHouseObject(placed, 'full').parts.length).toBeGreaterThan(0);
 });
 
-test('starts terrain-aware houses on the exact plane and keeps their mixed height phase', () => {
+function parcelAtDatumZero(levels: number) {
 	const town = createTownHouseStudy();
 	const { id } = required(town.parcelsByBlock.get(town.blocks.block.id)?.[0], 'town parcel');
 	const site = required(town.readParcelSite(id), 'parcel site');
@@ -139,7 +141,7 @@ test('starts terrain-aware houses on the exact plane and keeps their mixed heigh
 				{
 					...column,
 					groundAtHub: 0,
-					levels: 2,
+					levels,
 					corners: column.corners.map(({ id, position: [x, y] }) => ({
 						id,
 						position: [x, y, 0] as const
@@ -148,12 +150,15 @@ test('starts terrain-aware houses on the exact plane and keeps their mixed heigh
 			] as const;
 		})
 	);
+	return { ...site, columns, datumZ: 0 };
+}
+
+test('starts terrain-aware houses on the exact plane and keeps their mixed height phase', () => {
+	const site = parcelAtDatumZero(2);
 	const groundZ = 3 * 3.2;
 	const uniform = createParcelHouse(
 		{
 			...site,
-			columns,
-			datumZ: 0,
 			groundAt: () => groundZ,
 			recipe: { vertical: { storeyHeightM: 3.2, storeysPerLevel: 4 } }
 		},
@@ -167,8 +172,6 @@ test('starts terrain-aware houses on the exact plane and keeps their mixed heigh
 	const mixed = createParcelHouse(
 		{
 			...site,
-			columns,
-			datumZ: 0,
 			groundAt: () => mixedGroundZ,
 			recipe: { vertical: { levelHeightM: 15.7, storeyHeightsM: [4.8, 3.2, 3.2, 4.5] } }
 		},
@@ -178,4 +181,53 @@ test('starts terrain-aware houses on the exact plane and keeps their mixed heigh
 	expect(mixed.space.baseZ).toBe(mixedGroundZ);
 	expect(mixed.space.storeyHeightsM).toEqual([3.2, 4.5]);
 	expect(mixed.space.storeyElevationsM.at(-1)).toBeCloseTo(31.4);
+});
+
+test('clips on the emitted mixed boundary at storey eleven and keeps the same storey ref', () => {
+	const site = parcelAtDatumZero(4);
+	const band = [4.8, 3.2, 3.2, 4.5];
+	const storeyCount = 16;
+	const stack = createStoreyStack({
+		baseZ: 0,
+		storeyCount,
+		storeyHeightsM: Array.from({ length: storeyCount }, (_, index) => band[index % band.length])
+	});
+	const ground = stack.storeyElevationsM[11];
+	expect(ground).toBe(42.6);
+	const recipe = { vertical: { storeyHeightsM: band } };
+	const tallerColumns = new Map(
+		[...site.columns].map(([id, column]) => [id, { ...column, levels: column.levels + 1 }])
+	);
+	const clip = (columns = site.columns) =>
+		createParcelHouse({ ...site, columns, recipe, groundAt: () => ground }, { seed: 3 });
+	const initial = createParcelHouse({ ...site, recipe, groundAt: undefined }, { seed: 3 });
+	const clipped = clip();
+	const extended = clip(tallerColumns);
+	if (initial.status !== 'placed' || clipped.status !== 'placed' || extended.status !== 'placed')
+		throw new Error('Expected three placed houses');
+	expect(clipped.space.baseZ).toBe(ground);
+	expect(clipped.space.datumIndex).toBe(11);
+	const [surviving] = readCellStoreys(clipped.space, 'test-town');
+	expect(surviving.storey).toBe(0);
+	const readSurvivor = (space: typeof initial.space) =>
+		readCellStoreys(space, 'test-town').find(({ key }) => key === surviving.key);
+	expect(readSurvivor(initial.space)?.ref).toEqual(surviving.ref);
+	expect(readSurvivor(extended.space)?.ref).toEqual(surviving.ref);
+	expect(readSurvivor(initial.space)?.bottomZ).toBe(surviving.bottomZ);
+});
+
+test('keeps a boundary supplied as the sum of fractional storey heights', () => {
+	const ground = 0.1 + 0.2 + 0.3;
+	const placed = createParcelHouse(
+		{
+			...parcelAtDatumZero(2),
+			recipe: { vertical: { storeyHeightsM: [0.1, 0.2, 0.3] } },
+			groundAt: () => ground
+		},
+		{ seed: 3 }
+	);
+	if (placed.status !== 'placed') throw new Error(placed.reason);
+	expect(placed.space.baseZ).toBe(ground);
+	expect(placed.space.datumIndex).toBe(3);
+	expect(placed.space.storeyHeightsM).toEqual([0.1, 0.2, 0.3]);
 });

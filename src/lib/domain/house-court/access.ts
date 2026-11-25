@@ -1,8 +1,8 @@
 import { distance, type Vec2 } from '../../core/geometry';
-import { groundStorey, groundStoreyRuns, shapeParts, type HousePart } from './part-refs';
+import { boxParts, faceParts, groundStorey, groundStoreyRuns, type HousePart } from './part-refs';
 import { defaults } from '../../../config/house-court';
 import { readStoreyElevation, readStoreyHeight, type FineCell } from '../cell-space';
-import { boxMesh, faceMesh, side, type Box } from './boxes';
+import { side, type Box } from './boxes';
 import { extrusion } from './solids';
 import type { HouseCell } from './occupancy';
 import type { Context } from './context';
@@ -119,9 +119,9 @@ export function galleries(
 	landing?: CourtSide
 ): HousePart[] {
 	return sides.flatMap((courtSide) => {
-		const shape = boxMesh(galleryBoxes(context, courtSide, courtSide === landing));
+		const boxes = galleryBoxes(context, courtSide, courtSide === landing);
 		const { cell, house, index } = courtSide;
-		return shapeParts(`${cell.id}/gallery/${index}`, 'gallery', shape, [
+		return boxParts(`${cell.id}/gallery/${index}`, 'gallery', boxes, [
 			[cell.id, Math.max(1, house.fromStorey), house.toStorey]
 		]);
 	});
@@ -149,8 +149,7 @@ export function stair(context: Context, chosen: CourtSide | undefined): HousePar
 			rotation: wall.rotation
 		};
 	});
-	const shape = boxMesh(boxes);
-	return shapeParts(`${chosen.cell.id}/stair`, 'stair', shape, [
+	return boxParts(`${chosen.cell.id}/stair`, 'stair', boxes, [
 		[chosen.cell.id, groundStorey, landingStorey]
 	]);
 }
@@ -236,6 +235,5 @@ export function entranceSteps(context: Context, slot: string): HousePart[] {
 	const faces = ground.treads.flatMap((outline, k) =>
 		outline.length >= 3 ? extrusion(outline, base, lane + ((k + 1) * rise) / steps) : []
 	);
-	const shape = faceMesh(faces);
-	return shapeParts(`${ground.cell.id}/steps`, slot, shape, groundStoreyRuns(ground.cell.id));
+	return faceParts(`${ground.cell.id}/steps`, slot, faces, groundStoreyRuns(ground.cell.id));
 }

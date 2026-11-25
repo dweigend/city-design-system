@@ -2,7 +2,7 @@ import type { Vec2, Vec3 } from '../../lib/core/geometry';
 import { columnRoof, createCityLattice } from '../../lib/domain/city-volume';
 import type { ParcelBlock } from '../../lib/domain/parcels';
 import { createFocusResolver, type DisplayLevel } from '../../lib/scene/focus';
-import { houseLevels } from '../../lib/scene/house-projection';
+import { houseLevels, paintHouseUse } from '../../lib/scene/house-projection';
 import {
 	projectMovement,
 	projectTransitLine,
@@ -17,6 +17,7 @@ import {
 } from '../../lib/world/city-movement';
 import { riverCityRecipe } from '../../lib/world/city-site';
 import { createCityStructure } from '../../lib/world/city-structure';
+import { townHouseRecipe } from '../../lib/world/house-site';
 import { readQuery } from '../architecture/query';
 import { townSheet, townStage } from '../architecture/town';
 import { crossingHeads, railDemo } from '../paths/demo';
@@ -25,7 +26,7 @@ import { createTownParks } from './parks';
 const choices = {
 	town: { label: 'Everything', subject: [] },
 	plan: { label: 'Ground plan', subject: ['ground', 'parks'] },
-	houses: { label: 'Houses', subject: ['houses'] },
+	houses: { label: 'House functions', subject: ['houses'] },
 	paths: { label: 'Paths and rail', subject: ['walkways', 'transit'] },
 	structure: { label: 'Structure', subject: ['structure'] }
 } as const;
@@ -81,10 +82,15 @@ const movementDrawing: Record<CityMovementKind, MovementDrawing> = {
 /** Builds the default town once: the Architecture whole-town sheet with its salience rule, the
  * Paths walking network and rail, and the primary structure of the district lattice. */
 export function createTownReview() {
-	const town = townStage();
+	const town = townStage(undefined, townHouseRecipe);
 	const { setup } = readQuery(new URLSearchParams());
 	const parkPlan = createTownParks(town);
-	const sheet = townSheet({ ...town, parcelsByBlock: parkPlan.parcelsByBlock }, 'all', setup);
+	const sheet = townSheet(
+		{ ...town, parcelsByBlock: parkPlan.parcelsByBlock },
+		'all',
+		setup,
+		'mixed'
+	);
 	const parks = parkPlan.draw(sheet.unbuildable);
 	const ground = new Set(town.context('all').drawables);
 	const columns = [...town.columns.values()];
@@ -157,12 +163,17 @@ export function createTownReview() {
 		},
 		/** Every drawable of the town, styled by the focus. Shapes stay the same objects, so a focus
 		 * change restyles the stage without building geometry. */
-		draw(focus: TownFocus): readonly Drawable[] {
+		draw(focus: TownFocus, transparent = false): readonly Drawable[] {
 			const shown: [Subsystem, readonly Drawable[]][] =
 				focus === 'structure' || structure ? [...parts, ['structure', readStructure()]] : parts;
-			return shown.flatMap(([part, drawables]) =>
-				drawables.map((drawable) => style(drawable, townFocus.readFocusLevel(focus, part)))
-			);
+			return shown.flatMap(([part, drawables]) => {
+				const level = townFocus.readFocusLevel(focus, part);
+				const uses = part === 'houses' && (focus === 'houses' || transparent) && level !== 'hidden';
+				return drawables.map((drawable) => {
+					const styled = style(drawable, level);
+					return uses ? paintHouseUse(styled) : styled;
+				});
+			});
 		}
 	};
 }

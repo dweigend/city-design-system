@@ -37,22 +37,33 @@ export type CellSpace = StoreyStack &
 	Readonly<{
 		id: string;
 		kind?: 'strip';
+		houseRules?: CellSpaceHouseRules;
 		cells: readonly FineCell[];
 		storeys: readonly CellStorey[];
 	}>;
+
+/** Eligibility and access requirements supplied by the subdivision. */
+export type CellSpaceHouseRules = Readonly<{
+	minimumWidthM?: number;
+	requireConnectedEntrance?: boolean;
+}>;
 
 /** Recipe input for the vertical extent of a parcel or an existing subdivision. */
 export type StoreySizing = Readonly<{
 	baseZ: number;
 	storeyCount: number;
+	datumIndex?: number;
 	storeyHeightM?: number;
 	storeyHeightsM?: readonly number[];
+	/** Boundary elevations when the active window is cut from a larger stack. */
+	storeyElevationsM?: readonly number[];
 }>;
 
 /** Individual storey heights and boundary elevations, with shorthand for uniform stacks. */
 export type StoreyStack = Readonly<{
 	baseZ: number;
 	storeyCount: number;
+	datumIndex: number;
 	storeyHeightM: number | undefined;
 	storeyHeightsM: readonly number[];
 	storeyElevationsM: readonly number[];
@@ -63,6 +74,7 @@ export type CellStorey = Readonly<{
 	key: string;
 	cellId: string;
 	storey: number;
+	datumIndex: number;
 	bottomZ: number;
 	topZ: number;
 	heightM: number;

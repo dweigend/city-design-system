@@ -8,7 +8,7 @@ import { resolveSides } from './sides';
 import { convexParts, cornerQuads, doubleArea, mergedParts, type KeyedRing } from './split';
 import { cellWidth, stripRings } from './strips';
 import { createCellSpaceStoreys } from './storeys';
-import type { CellSpace, FineCell, Parcel } from './types';
+import type { CellSpace, CellSpaceHouseRules, FineCell, Parcel } from './types';
 import { parcelEdgeId, validate } from './validate';
 
 /** What lies across one side of a fine cell. */
@@ -43,6 +43,7 @@ export { parcelEdgeId } from './validate';
 /** Parcel, fine cell and cell space shapes. */
 export type {
 	CellSpace,
+	CellSpaceHouseRules,
 	CellStorey,
 	FineCell,
 	Parcel,
@@ -50,12 +51,6 @@ export type {
 	StoreySizing,
 	StoreyStack
 } from './types';
-
-/** Address of one storey of a fine cell: `<cell id>/storey/<integer from 0>`. */
-export function storeyAddress(cellId: string, storey: number): string {
-	if (!Number.isInteger(storey) || storey < 0) throw new RangeError('Expected a storey index');
-	return `${cellId}/storey/${storey}`;
-}
 
 function refine(quad: KeyedRing, rounds: number): readonly KeyedRing[] {
 	let cells: readonly KeyedRing[] = [quad];
@@ -108,13 +103,15 @@ function freeze(
 	rings: readonly KeyedRing[],
 	parents: readonly string[],
 	corners: readonly string[],
-	kind?: CellSpace['kind']
+	kind?: CellSpace['kind'],
+	houseRules?: CellSpaceHouseRules
 ): CellSpace {
 	const sides = resolveSides(rings, new Set(parcel.frontage), new Set(parcel.courtEdges ?? []));
 	return createCellSpaceStoreys(
 		{
 			id: parcel.id,
 			...(kind ? { kind } : {}),
+			...(houseRules ? { houseRules } : {}),
 			cells: Object.freeze(
 				rings.map((cell, i) =>
 					Object.freeze({
@@ -158,7 +155,8 @@ export function createStripSpace(parcel: Parcel): CellSpace {
 		rings,
 		rings.map(({ corner }) => corner),
 		rings.map(() => ''),
-		'strip'
+		'strip',
+		Object.freeze({ minimumWidthM: minimumStripWidthM, requireConnectedEntrance: true })
 	);
 }
 

@@ -1,9 +1,9 @@
 import type { Vec3 } from '../../core/geometry';
-import { groundStorey, shapeParts, type HousePart, type StoreyRun } from './part-refs';
+import { groundStorey, faceParts, type HousePart, type StoreyRun } from './part-refs';
 import { encodePair, type Key } from '../../core/ref';
 import { defaults } from '../../../config/house-court';
 import { readStoreyElevation, readStoreyHeight, cellCenter, type FineCell } from '../cell-space';
-import { faceMesh, side } from './boxes';
+import { side } from './boxes';
 import { builtAt, type Context } from './context';
 import { bar, extrusion, inset, rounded, type Faces } from './solids';
 
@@ -127,7 +127,7 @@ export function structure(ctx: Context): HousePart[] {
 	if (!ctx.style.parts.frame) return [];
 	const part = (id: string, slot: string, build: (ctx: Context, runs: StoreyRun[]) => Faces) => {
 		const runs: StoreyRun[] = [];
-		return shapeParts(`${ctx.space.id}/${id}`, slot, faceMesh(build(ctx, runs)), runs);
+		return faceParts(`${ctx.space.id}/${id}`, slot, build(ctx, runs), runs);
 	};
 	return [
 		...part('frame', 'frame', frame),
@@ -135,4 +135,42 @@ export function structure(ctx: Context): HousePart[] {
 		...part('tubes', 'tube', tubes),
 		...part('mast', 'mast', mast)
 	];
+}
+
+/** Edge posts and head beams on the exposed frontage and court sides of added storeys. */
+export function additionFrames(ctx: Context): HousePart[] {
+	const layers = Map.groupBy(
+		ctx.space.cells.flatMap((cell) =>
+			(ctx.occupancy.get(cell.id)?.program ?? []).flatMap(({ phase, storey }) =>
+				phase === 'addition' ? [{ cell, storey }] : []
+			)
+		),
+		({ storey }) => storey
+	);
+	return [...layers].flatMap(([storey, cells]) => {
+		const members = new Map<string, Faces>();
+		const runs: StoreyRun[] = [];
+		const bottom = level(ctx, storey);
+		const top = level(ctx, storey + 1);
+		for (const { cell } of cells) {
+			let exposed = false;
+			cell.sides.forEach(({ frontage, court }, i) => {
+				if (!frontage && !court) return;
+				exposed = true;
+				const wall = side(cell.quad, i);
+				const a = cell.cornerIds[i];
+				const b = cell.cornerIds[(i + 1) % cell.quad.length];
+				const beam = encodePair(a, b);
+				if (!members.has(beam))
+					members.set(beam, bar([...wall.a, top], [...wall.b, top], archigramBarM));
+				if (!members.has(a))
+					members.set(a, bar([...wall.a, bottom], [...wall.a, top], archigramBarM));
+				if (!members.has(b))
+					members.set(b, bar([...wall.b, bottom], [...wall.b, top], archigramBarM));
+			});
+			if (exposed) runs.push([cell.id, storey, storey + 1]);
+		}
+		const id = `${ctx.space.id}/addition-frame/${ctx.space.datumIndex + storey}`;
+		return faceParts(id, 'frame', [...members.values()].flat(), runs);
+	});
 }

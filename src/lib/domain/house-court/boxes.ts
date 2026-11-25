@@ -32,9 +32,8 @@ function corners({ center: [cx, cy, cz], size: [sx, sy, sz], rotation }: Box): n
 	return positions;
 }
 
-/** Joins boxes into one triangle mesh in box order, or undefined for none. */
-export function boxMesh(boxes: readonly Box[]): Shape | undefined {
-	if (!boxes.length) return undefined;
+/** Joins a nonempty list of boxes into one triangle mesh in box order. */
+export function boxMesh(boxes: readonly Box[]): Shape {
 	const positions = boxes.flatMap(corners);
 	const indices = boxes.flatMap((_, box) =>
 		boxQuads.flatMap(([a, b, c, d]) =>
@@ -44,10 +43,8 @@ export function boxMesh(boxes: readonly Box[]): Shape | undefined {
 	return { kind: 'mesh', positions, indices };
 }
 
-/** Joins convex planar polygons, each wound outward, into one fan-triangulated mesh, or undefined
- * for none. */
-export function faceMesh(faces: readonly (readonly Vec3[])[]): Shape | undefined {
-	if (!faces.length) return undefined;
+/** Joins a nonempty list of convex planar polygons, each wound outward, into one mesh. */
+export function faceMesh(faces: readonly (readonly Vec3[])[]): Shape {
 	const positions: number[] = [];
 	const indices: number[] = [];
 	for (const face of faces) {

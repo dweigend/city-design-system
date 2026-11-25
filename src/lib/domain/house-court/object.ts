@@ -1,16 +1,14 @@
 import type { Vec2, Vec3 } from '../../core/geometry';
 import { PlaceableObject, type Anchor } from '../../core/object';
 import { cellAreaM2, cellCenter, type CellSpace } from '../cell-space';
-import { required } from '../../core/invariant';
 import { createWorldReference } from '../../core/ref';
 import { Random } from '../../core/random';
 import { courtSides, entranceStepCell, entranceSteps, galleries, stair, stairSide } from './access';
-import { faceMesh } from './boxes';
 import { entranceSide } from './graph';
 import type { Context } from './context';
 import { caps, figureOpenings, trees } from './dress';
 import { cellSolids, type CellSolid } from './fills';
-import { structure } from './structure';
+import { additionFrames, structure } from './structure';
 import { envelopeFaces, solidFaces, type HouseFace } from './faces';
 import { houseStyleFor } from './scale';
 import { houseStyles, type HouseStyle } from './styles';
@@ -23,7 +21,7 @@ import {
 } from './occupancy';
 import {
 	partAddresses,
-	shapeParts,
+	faceParts,
 	type HousePart,
 	type HousePartAddress,
 	type HousePartRef
@@ -44,9 +42,10 @@ const unique = (slots: readonly (string | false)[]) => [
 export function houseSlots(
 	style: HouseStyle,
 	detail: HouseDetail,
-	entranceSteps = false
+	entranceSteps = false,
+	additions = false
 ): readonly string[] {
-	if (detail === 'block') return ['plot', 'court', 'mass'];
+	if (detail === 'block') return unique(['plot', 'court', 'mass', additions && 'frame']);
 	const { fill, opening, parts, slots } = style;
 	const envelopeFill = fill.kinds.includes('envelope');
 	return unique([
@@ -60,7 +59,7 @@ export function houseSlots(
 		opening.collar && 'collar',
 		'opening',
 		parts.accent && 'accent',
-		parts.frame && 'frame',
+		(parts.frame || additions) && 'frame',
 		parts.frame && 'deck',
 		parts.frame && 'tube',
 		parts.frame && 'mast',
@@ -169,7 +168,7 @@ function footprint(space: CellSpace) {
 
 function solidParts(solids: readonly CellSolid[], block: boolean): HousePart[] {
 	return solids.flatMap(({ key, slot, faces, cell, fromStorey, toStorey }) =>
-		shapeParts(key, block ? 'mass' : slot, faceMesh(faces), [[cell.id, fromStorey, toStorey]])
+		faceParts(key, block ? 'mass' : slot, faces, [[cell.id, fromStorey, toStorey]])
 	);
 }
 
@@ -193,12 +192,14 @@ function accessParts(ctx: Context, house: HouseOccupancy): HousePart[] {
 
 function allParts(ctx: Context, house: HouseOccupancy, detail: HouseDetail): HousePart[] {
 	const solids = cellSolids(ctx);
+	const appliedFrame = ctx.style.parts.frame && detail === 'full' ? [] : additionFrames(ctx);
 	if (detail === 'block')
 		return [
 			...plates(ctx),
 			...entranceSteps(ctx, 'plot'),
 			...envelopeParts(ctx, detail),
-			...solidParts(solids, true)
+			...solidParts(solids, true),
+			...appliedFrame
 		];
 	return [
 		...plates(ctx),
@@ -209,22 +210,21 @@ function allParts(ctx: Context, house: HouseOccupancy, detail: HouseDetail): Hou
 		...(ctx.style.parts.accent ? canopy(ctx) : []),
 		...caps(ctx, solids),
 		...structure(ctx),
+		...appliedFrame,
 		...trees(ctx),
 		...accessParts(ctx, house)
 	];
 }
+
+const assemblyInputs = Symbol('house assembly inputs');
 
 /** Immutable occupancy with an ID and the local part addresses of its full-detail object. */
 export type HouseCourt = HouseOccupancy &
 	Readonly<{
 		id: string;
 		partAddresses: readonly HousePartAddress[];
+		[assemblyInputs]: Readonly<{ space: CellSpace; style: HouseStyle }>;
 	}>;
-
-const contextualParts = new WeakMap<
-	HouseCourt,
-	(walls: readonly AdjoiningWall[]) => readonly HousePartAddress[]
->();
 
 /** Plans a house around a court. Local part addresses are derived on first read. */
 export function createHouseCourt(
@@ -236,20 +236,16 @@ export function createHouseCourt(
 	const house = createHouseOccupancy(space, inputs, style, site);
 	const id = houseId(space);
 	let addresses: readonly HousePartAddress[] | undefined;
-	const readAddresses = (walls: readonly AdjoiningWall[]) => {
-		const used = houseStyleFor(space, style, house.inputs.seed, house.scale);
-		const ctx = context(space, house, used, walls);
-		return partAddresses(id, space.id, allParts(ctx, house, 'full'));
-	};
-	const result: HouseCourt = Object.freeze({
+	const ctx = () =>
+		context(space, house, houseStyleFor(space, style, house.inputs.seed, house.scale), []);
+	return Object.freeze({
 		...house,
 		id,
+		[assemblyInputs]: Object.freeze({ space, style }),
 		get partAddresses() {
-			return (addresses ??= readAddresses([]));
+			return (addresses ??= partAddresses(id, space, house, allParts(ctx(), house, 'full')));
 		}
 	});
-	contextualParts.set(result, readAddresses);
-	return result;
 }
 
 /** Mints world-scoped refs in full-detail part order. Pass the same adjoining walls as the object builder. */
@@ -258,8 +254,23 @@ export function readHousePartRefs(
 	world: string,
 	adjoiningWalls: readonly AdjoiningWall[] = []
 ): readonly HousePartRef[] {
+	const { space, style } = house[assemblyInputs];
 	const addresses = adjoiningWalls.length
-		? required(contextualParts.get(house), 'house assembly')(adjoiningWalls)
+		? partAddresses(
+				house.id,
+				space,
+				house,
+				allParts(
+					context(
+						space,
+						house,
+						houseStyleFor(space, style, house.inputs.seed, house.scale),
+						adjoiningWalls
+					),
+					house,
+					'full'
+				)
+			)
 		: house.partAddresses;
 	return Object.freeze(
 		addresses.map(({ key, storeyKeys, ...part }) =>
@@ -296,10 +307,41 @@ export function createHouseObject(
 ): PlaceableObject {
 	const used = houseStyleFor(space, style, house.inputs.seed, house.scale);
 	const ctx = context(space, house, used, adjoiningWalls);
+	return createObject(ctx, detail, allParts(ctx, house, detail));
+}
+
+/** Assembles geometry and matching addresses in one pass for a storey-aware projection. */
+export function createHouseAssembly(
+	space: CellSpace,
+	house: HouseCourt,
+	detail: HouseDetail,
+	style: HouseStyle,
+	adjoiningWalls: readonly AdjoiningWall[] = []
+) {
+	const ctx = context(
+		space,
+		house,
+		houseStyleFor(space, style, house.inputs.seed, house.scale),
+		adjoiningWalls
+	);
+	const parts = allParts(ctx, house, detail);
+	return {
+		object: createObject(ctx, detail, parts),
+		addresses: partAddresses(house.id, space, house, parts)
+	};
+}
+
+function createObject(ctx: Context, detail: HouseDetail, parts: readonly HousePart[]) {
+	const { space, style, house } = ctx;
 	return PlaceableObject.create({
 		id: houseId(space),
-		slots: houseSlots(used, detail, entranceStepCell(ctx) !== undefined),
-		parts: allParts(ctx, house, detail),
+		slots: houseSlots(
+			style,
+			detail,
+			entranceStepCell(ctx) !== undefined,
+			house.cells.some(({ program }) => program?.some(({ phase }) => phase === 'addition'))
+		),
+		parts,
 		footprint: footprint(space),
 		anchors: anchors(ctx, house)
 	});

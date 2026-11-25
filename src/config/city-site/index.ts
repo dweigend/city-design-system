@@ -169,6 +169,8 @@ function setting(value: number, unit: string, meaning: string) {
 }
 
 const dimensions = defineSettings({
+	cityLevelHeightM: setting(7, 'm', 'Spacing between river-city structural levels'),
+	cityStoreysPerLevel: setting(2, 'count', 'Fine storeys in one river-city structural level'),
 	citySizeDefaultM: setting(1800, 'm', 'Initial city extent'),
 	citySizeMinimumM: setting(600, 'm', 'Smallest selectable city extent'),
 	citySizeMaximumM: setting(7000, 'm', 'Largest selectable city extent and length of the carrier'),

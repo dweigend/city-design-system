@@ -9,7 +9,7 @@
 		type SandboxEdit,
 		type SandboxPlacement
 	} from '../../lib/domain/sandbox-document';
-	import { blockTriangleBudget } from '../../lib/scene/house-projection';
+	import { blockTriangleBudget, paintHouseUse } from '../../lib/scene/house-projection';
 	import {
 		createBuildQueue,
 		createStrokeDraft,
@@ -27,9 +27,11 @@
 	import { IconButton } from '../../lib/ui/icon-button';
 	import { Slider } from '../../lib/ui/slider';
 	import { SpecimenPicker } from '../../lib/ui/specimen-picker';
+	import { Switch } from '../../lib/ui/switch';
 	import { ToggleGroup } from '../../lib/ui/toggle-group';
 	import { ToolBar } from '../../lib/ui/tool-bar';
 	import { UnavailableHostError } from '../../lib/world/sandbox-world';
+	import { housePhaseLabels, houseUseLabels } from '../house-uses';
 	import { createStrokePointer } from './stroke';
 	import { createTownSandbox, type Detail, type PlacementRequest } from './town';
 
@@ -70,6 +72,7 @@
 	const address = (id: string) => ({ kind: 'parcel', id }) as const;
 	const plural = (count: number, one: string, many = one + 's') =>
 		`${count} ${count === 1 ? one : many}`;
+	const numberFormat = new Intl.NumberFormat();
 
 	let town = $state.raw<Town>();
 	let layout = $state.raw<Town['projection']['background']>([]);
@@ -92,6 +95,8 @@
 	let selected = $state.raw<SandboxPlacement>();
 	let waiting = $state(0);
 	let view = $state<View>('iso');
+	let functionsVisible = $state(false);
+	let transparent = $state(false);
 	let tool = $state<Tool>('paint');
 	let style = $state('house/court-neutral');
 	let status = $state('');
@@ -113,10 +118,16 @@
 		town && { fill: town.viewContextFill, subject: projectFocus(view, {}, town.points) }
 	);
 	const hoverMark = $derived(town && hovered && town.projection.projectHover(hovered));
-	const drawables = $derived([...layout, ...placed, ...marks, ...(hoverMark ? [hoverMark] : [])]);
+	const drawables = $derived([
+		...layout,
+		...(functionsVisible || transparent ? placed.map(paintHouseUse) : placed),
+		...marks,
+		...(hoverMark ? [hoverMark] : [])
+	]);
 	const hoveredRequest = $derived(hovered && readRequest(hovered.id));
 	const hint = $derived(describeHover(hovered, hoveredRequest) ?? hints[tool]);
 	const asset = $derived(selected && town?.assets.find(({ id }) => id === selected?.assetId));
+	const selectedProgram = $derived(selected ? requests.get(selected.id)?.program : undefined);
 
 	onMount(() => {
 		try {
@@ -591,7 +602,7 @@
 				{drawables}
 				{view}
 				{fit}
-				display="normal"
+				display={transparent ? 'transparency' : 'normal'}
 				label="Editable town parcels"
 				landscape
 				interactive
@@ -631,6 +642,8 @@
 						items={views}
 						bind:value={() => view, (value) => (view = value === 'plan' ? 'plan' : 'iso')}
 					/>
+					<Switch label="House functions" bind:checked={functionsVisible} />
+					<Switch label="Transparency" bind:checked={transparent} />
 				</div>
 				{#if tool === 'paint' || (tool === 'select' && selected)}
 					<div
@@ -638,6 +651,17 @@
 						data-inspector={tool === 'select' && selected ? '' : undefined}
 					>
 						{#if tool === 'select' && selected && asset}
+							{#if selectedProgram?.length}
+								<ul class="house-uses small" role="list" aria-label="Storey phases and uses">
+									{#each selectedProgram as { datumIndex, phase, use } (`${datumIndex}/${phase}/${use}`)}
+										<li data-house-use={use}>
+											Storey {numberFormat.format(datumIndex)} · {housePhaseLabels[phase]} · {houseUseLabels[
+												use
+											]}
+										</li>
+									{/each}
+								</ul>
+							{/if}
 							<p class="label">{styleNames[selected.assetId]}</p>
 						{:else}
 							<p class="label">Brush</p>

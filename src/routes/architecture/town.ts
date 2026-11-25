@@ -19,6 +19,7 @@ import {
 	houseLevels,
 	houseMaterials,
 	projectCladHouse,
+	projectProgrammedHouse,
 	readHouseSalience
 } from '../../lib/scene/house-projection';
 import { cityWindow, riverCityRecipe } from '../../lib/world/city-site';
@@ -26,6 +27,7 @@ import {
 	createTownBlockHouses,
 	createParcelHouseObject,
 	createTownHouseStudy,
+	type ParcelHouseRecipe,
 	type TownHouseBlock
 } from '../../lib/world/house-site';
 import type { SurfaceLevel } from '../../lib/domain/material';
@@ -69,7 +71,7 @@ function paleStock(
 }
 
 /** Prepares the fixed town stage on a valley of the given relief, before drawing styled houses. */
-export function townStage(relief?: number) {
+export function townStage(relief?: number, houseRecipe?: ParcelHouseRecipe) {
 	const plan = createTownHouseStudy(relief === undefined ? {} : { relief });
 	const { site, layout, holdings, columns, parcelsByBlock, blocks } = plan;
 	const terrain = projectCityTerrain(site, layout.grid, layout.plan);
@@ -127,6 +129,10 @@ export function townStage(relief?: number) {
 	const contexts = new Map<TownScope, ReturnType<typeof context>>();
 	return {
 		...plan,
+		readParcelSite: (id: string) => {
+			const site = plan.readParcelSite(id);
+			return site && houseRecipe ? { ...site, recipe: { ...site.recipe, ...houseRecipe } } : site;
+		},
 		terrain,
 		local,
 		placement,
@@ -186,7 +192,7 @@ export function townSheet(
 		const houses = placed.map((house) => {
 			const own = detailOf(house.space.id);
 			const faces =
-				own === 'block'
+				own === 'block' || house.house.cells.some(({ program }) => program?.length)
 					? []
 					: houseFaces(house.space, house.house, own, house.style, house.adjoiningWalls);
 			return { ...house, own, faces, area: faces.reduce((sum, face) => sum + faceAreaM2(face), 0) };
@@ -198,8 +204,13 @@ export function townSheet(
 			budget: area > 0 ? (blockTriangleBudget * house.area) / area : 0
 		}));
 	});
-	const projected = placed.map((house) =>
-		projectCladHouse(
+	const projected = placed.map((house) => {
+		if (house.house.cells.some(({ program }) => program?.length))
+			return {
+				drawables: projectProgrammedHouse(house, house.own, house.adjoiningWalls, placement),
+				triangles: 0
+			};
+		return projectCladHouse(
 			createParcelHouseObject(house, house.own, house.adjoiningWalls),
 			house.faces,
 			house.materials,
@@ -210,8 +221,8 @@ export function townSheet(
 				seed: setup.seed,
 				level: levels.get(house.space.id) ?? 'plain'
 			}
-		)
-	);
+		);
+	});
 	const houses = projected.flatMap(({ drawables }) => drawables);
 	const triangles = projected.reduce((sum, { triangles }) => sum + triangles, 0);
 	const figures = placed

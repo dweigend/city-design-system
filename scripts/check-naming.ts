@@ -86,7 +86,6 @@ const resultNames: Record<Layer, readonly string[]> = {
 		'seamEdgeId',
 		'sinuosity',
 		'solidEdgeFaults',
-		'storeyAddress',
 		'stripCounts',
 		'trackDirectionLength'
 	],

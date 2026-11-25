@@ -59,6 +59,7 @@ export const fullSurfaces = Object.freeze({
 /** Block drawing: one white mass per built cell with strong lines. */
 export const blockSurfaces = Object.freeze({
 	...ground,
+	frame: fullSurfaces.frame,
 	mass: surface('--paper', '--ink', true)
 } satisfies SurfaceAssignment);
 
@@ -66,6 +67,7 @@ export const blockSurfaces = Object.freeze({
 export const pencilSurfaces = Object.freeze({
 	plot: surface('--paper-2', '--stock-line', false),
 	court: surface('--paper-2', '--stock-line', false),
+	frame: surface('--stock-pencil', '--stock-line', false),
 	mass: surface('--stock-pencil', '--stock-line', true)
 } satisfies SurfaceAssignment);
 

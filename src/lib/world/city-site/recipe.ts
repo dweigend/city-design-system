@@ -1,16 +1,13 @@
 import { distance, type Vec2 } from '../../core/geometry';
 import { required } from '../../core/invariant';
-import { defaultStoreyHeightM } from '../../domain/cell-space';
 import { Random } from '../../core/random';
 import {
 	cityGrowthDefaults,
-	levelHeight,
-	storeysPerLevel,
 	type CityApproachPolicy,
 	type CityGrowthPolicy
 } from '../../domain/city-volume';
 import type { TerrainGrid } from '../../domain/terrain-grid';
-import { citySiteConfig as config } from '../../../config/city-site';
+import { citySiteConfig as config, citySiteDimensions } from '../../../config/city-site';
 import { channelCrossings, type CrossableWater } from './crossings';
 import type { CityTerrainSampler } from './sampling';
 
@@ -52,9 +49,8 @@ export type CityRecipe = CityVerticalRecipe & CityPlanningRecipe;
 export type CityRecipeInput = CityVerticalRecipeInput & Partial<CityPlanningRecipe>;
 
 const defaultVertical = {
-	levelHeightM: levelHeight,
-	storeyHeightM: defaultStoreyHeightM,
-	storeysPerLevel
+	levelHeightM: citySiteDimensions.cityLevelHeightM,
+	storeysPerLevel: citySiteDimensions.cityStoreysPerLevel
 };
 
 function readStoreysPerLevel(recipe: CityVerticalRecipeInput): number {

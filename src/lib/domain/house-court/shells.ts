@@ -1,5 +1,5 @@
 import type { Vec3 } from '../../core/geometry';
-import { encodePair, type Key } from '../../core/ref';
+import { encodeKey, encodePair, type Key } from '../../core/ref';
 import { readStoreyElevation, type FineCell } from '../cell-space';
 import type { StoreyRun } from './part-refs';
 import type { Context } from './context';
@@ -92,8 +92,17 @@ function edgeContacts(faces: readonly Face[], byId: ReadonlyMap<string, Node>): 
 /** Partitions the built cell storeys into shells whose surfaces stay two-manifold: storeys join
  * the first shell they have no edge-only contact with. Without such contacts all storeys form one
  * shell, the merged envelope. Deterministic in cell and storey order. */
-export function shells(ctx: Context): ReadonlySet<string>[] {
+export function shells(ctx: Context, layers = false): ReadonlySet<string>[] {
 	const all = nodes(ctx);
+	if (!layers) return partition(ctx, all);
+	const groups = Map.groupBy(all, ({ cell, storey }) => {
+		const program = ctx.occupancy.get(cell.id)?.program?.find((row) => row.storey === storey);
+		return encodeKey([storey, program?.phase ?? null, program?.use ?? null]);
+	});
+	return [...groups.values()].flatMap((layer) => partition(ctx, layer));
+}
+
+function partition(ctx: Context, all: readonly Node[]): ReadonlySet<string>[] {
 	if (!all.length) return [];
 	const byId = new Map(all.map((node) => [node.id, node]));
 	const conflicts = new Map<string, Set<string>>();

@@ -132,13 +132,18 @@ export function prepareCityParcels(
 	grade: (edge: PlanEdge) => number,
 	core: Parameters<typeof createCityDistricts>[1],
 	nominalSideM: number,
-	seed: number
+	seed: number,
+	levelHeightM: number
 ) {
 	const rankedCellIds = order.map(({ id }) => id);
-	const districts = createCityDistricts(grid, core, seed, undefined, {
-		rankedCellIds,
-		futureFringe: []
-	});
+	const districts = createCityDistricts(
+		grid,
+		core,
+		seed,
+		undefined,
+		{ rankedCellIds, futureFringe: [] },
+		levelHeightM
+	);
 	const plannedKinds = Object.fromEntries(rankedCellIds.map((id) => [id, districts.cell(id).kind]));
 	const eligible = readEligible(grid, lanes, plannedKinds, grade);
 	const merges = mergeProposals(lanes, eligible, order, nominalSideM, seed);

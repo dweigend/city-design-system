@@ -1,8 +1,8 @@
 import type { Vec3 } from '../../core/geometry';
-import { groundStoreyRuns, shapeParts, type HousePart, type StoreyRun } from './part-refs';
+import { groundStoreyRuns, faceParts, type HousePart, type StoreyRun } from './part-refs';
 import { defaults } from '../../../config/house-court';
 import { readStoreyElevation, readStoreyHeight, cellCenter } from '../cell-space';
-import { faceMesh, side } from './boxes';
+import { side } from './boxes';
 import { pick, type CellSolid } from './fills';
 import { builtAt, type Context } from './context';
 import { bar, dome, inradius, rounded, wallFigure, type Faces } from './solids';
@@ -101,8 +101,8 @@ export function figureOpenings(ctx: Context, solids: readonly CellSolid[]): Hous
 				if (result.collars.length) collarRuns.push([s.cell.id, storey, storey + 1]);
 			});
 		return [
-			...shapeParts(`${s.key}/collars`, 'collar', faceMesh(collars), collarRuns),
-			...shapeParts(`${s.key}/openings`, 'opening', faceMesh(panes), paneRuns)
+			...faceParts(`${s.key}/collars`, 'collar', collars, collarRuns),
+			...faceParts(`${s.key}/openings`, 'opening', panes, paneRuns)
 		];
 	});
 }
@@ -115,15 +115,13 @@ export function caps(ctx: Context, solids: readonly CellSolid[]): HousePart[] {
 		const rise = ctx.style.roof.riseRatio * readStoreyHeight(ctx.space, s.fromStorey);
 		const r = inradius(s.outline) * capShareRatio;
 		const base = readStoreyElevation(ctx.space, s.fromStorey) + rise * (1 - capShareRatio);
-		return shapeParts(
+		return faceParts(
 			`${s.key}/cap`,
 			'planter',
-			faceMesh(
-				dome(
-					rounded(s.outline, inradius(s.outline) - r, r * capShareRatio),
-					base,
-					rise * capShareRatio + organicPlanterM
-				)
+			dome(
+				rounded(s.outline, inradius(s.outline) - r, r * capShareRatio),
+				base,
+				rise * capShareRatio + organicPlanterM
 			),
 			[[s.cell.id, s.fromStorey, s.toStorey]]
 		);
@@ -144,16 +142,16 @@ export function trees(ctx: Context): HousePart[] {
 		const crown = Math.min(treeCrownM, inradius(cell.quad) * capShareRatio);
 		const crownPlan = rounded(cell.quad, inradius(cell.quad) - crown, crown * capShareRatio);
 		return [
-			...shapeParts(
+			...faceParts(
 				`${cell.id}/trunk`,
 				'trunk',
-				faceMesh(bar([x, y, z], [x, y, z + treeHeightM - crown / 2], treeTrunkM)),
+				bar([x, y, z], [x, y, z + treeHeightM - crown / 2], treeTrunkM),
 				groundStoreyRuns(cell.id)
 			),
-			...shapeParts(
+			...faceParts(
 				`${cell.id}/crown`,
 				'foliage',
-				faceMesh(dome(crownPlan, z + treeHeightM - crown, crown)),
+				dome(crownPlan, z + treeHeightM - crown, crown),
 				groundStoreyRuns(cell.id)
 			)
 		];

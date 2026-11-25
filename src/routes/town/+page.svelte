@@ -16,6 +16,7 @@
 	import { Select } from '../../lib/ui/select';
 	import { ToggleGroup } from '../../lib/ui/toggle-group';
 	import { createTownReview, townFocus, townFrames, type TownFrame } from './town';
+	import { houseUseLabels } from '../house-uses';
 
 	type Review = ReturnType<typeof createTownReview>;
 
@@ -46,7 +47,7 @@
 	const frame = $derived(townFrames.find((value) => value === query('frame')) ?? 'whole');
 	const view = $derived<View>(query('view') === 'plan' ? 'plan' : 'iso');
 	const transparent = $derived(query('display') === 'transparency');
-	const drawables = $derived(review?.draw(focus) ?? []);
+	const drawables = $derived(review?.draw(focus, transparent) ?? []);
 	const fit = $derived(
 		review && {
 			...camera,
@@ -100,9 +101,8 @@
 <header class="stack">
 	<h1>Town review</h1>
 	<p class="small">
-		The default town in one picture: terrain and water, lanes and parcels, every house as a plain
-		volume with detail where the salience rule grants it, parks, walkways, bridges, the elevated
-		rail with its stations, and the primary structure.
+		New storeys and elevated walkways rise above the retained street fronts. The house functions
+		view reveals the uses stacked within each building.
 	</p>
 </header>
 
@@ -130,6 +130,13 @@
 			}
 		/>
 	</div>
+	{#if focus === 'houses' || (transparent && focus !== 'plan')}
+		<ul class="cluster house-uses small" role="list" aria-label="House functions">
+			{#each Object.entries(houseUseLabels) as [use, label] (use)}
+				<li data-house-use={use}>{label}</li>
+			{/each}
+		</ul>
+	{/if}
 	{#if review && fit}
 		<div class="city-stage">
 			<StageView

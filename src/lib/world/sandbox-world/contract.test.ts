@@ -1,4 +1,6 @@
 import { expect, test } from 'bun:test';
+import { createWorldReference } from '../../core/ref';
+import { readCellStoreys } from '../../domain/cell-space';
 import {
 	createSandboxDocument,
 	readPlacementId,
@@ -32,6 +34,55 @@ const testWorld = {
 	terrainRevision: 'terrain-test',
 	topologyRevision: 'topology-test'
 };
+
+test('forwards a parcel subgrid and resolves current storey and part addresses', () => {
+	const { town, parcels } = example();
+	const { site, layout, columns } = town;
+	const world = createSandboxWorld(site, layout, columns, undefined, undefined, {
+		subgridId: 'corner-quad',
+		subgridOptions: { refinementRounds: 0 },
+		storeyProgram: (_, base) => (datumIndex) =>
+			datumIndex <= base
+				? { phase: 'retained', use: 'public' }
+				: { phase: 'addition', use: 'workshop' }
+	});
+	const document = world.createDocument();
+	for (const { id } of parcels)
+		document.apply([
+			world.place('house/court-neutral', { kind: 'parcel', id }, { height: 21, complexity: 0 })
+		]);
+	const placed = document
+		.readPlacements()
+		.map(world.resolveHouse)
+		.find(
+			(house) =>
+				house?.status === 'placed' &&
+				house.house.cells.some(({ program }) => program?.some(({ phase }) => phase === 'addition'))
+		);
+	if (placed?.status !== 'placed') throw new Error('Expected a placed house with additions');
+	expect(placed.space.kind).toBeUndefined();
+	expect(placed.space.cells.every(({ id, parent }) => id === parent)).toBe(true);
+	const part = readHousePartRefs(placed.house, world.world.id).find(
+		({ program, slot }) => program?.use === 'workshop' && slot === 'wall'
+	);
+	if (!part) throw new Error('Expected a workshop part');
+	const storey = readCellStoreys(placed.space, world.world.id).find(
+		({ key }) => key === part.storeyRefs[0].key
+	);
+	if (!storey) throw new Error('Expected its addressed storey');
+	expect(world.resolveReference(storey.ref, document)).toMatchObject({
+		status: 'resolved',
+		value: { datumIndex: storey.datumIndex, program: { phase: 'addition', use: 'workshop' } }
+	});
+	expect(world.resolveReference(part.ref, document)).toEqual({ status: 'resolved', value: part });
+	expect(world.resolveReference(part.ref, world.createDocument())).toEqual({ status: 'missing' });
+	expect(
+		world.resolveReference(createWorldReference(world.world.id, 'storey', 'invalid'), document)
+	).toEqual({ status: 'missing' });
+	expect(world.resolveReference({ ...storey.ref, world: 'other-city' }, document)).toEqual({
+		status: 'different-world'
+	});
+});
 
 test('builds only arriving records and removes only departing records', () => {
 	const document = createSandboxDocument(testWorld);

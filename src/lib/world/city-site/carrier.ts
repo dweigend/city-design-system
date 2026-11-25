@@ -136,7 +136,8 @@ export function prepareCarrier(
 			aspect: 1
 		},
 		coarseCellSize,
-		seed
+		seed,
+		recipe.levelHeightM
 	);
 	const ranks = new Map(order.map(({ id }, index) => [id, index]));
 	const lowest = candidates.vertices.reduce(

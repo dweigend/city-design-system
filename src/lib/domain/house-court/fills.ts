@@ -112,7 +112,7 @@ function capsules(ctx: Context, cell: FineCell, house: HouseCell): CellSolid[] {
 	const { fill, slots } = ctx.style;
 	const result: CellSolid[] = [];
 	for (let storey = house.fromStorey; storey < house.toStorey; storey += 1) {
-		const key = `${cell.id}/capsule/${storey}`;
+		const key = `${cell.id}/capsule/${ctx.space.datumIndex + storey}`;
 		if (ctx.random.derive(key).number() >= fill.capsuleShareRatio) continue;
 		const points = outline('capsule', cell.quad, fill.insetM, ctx.style);
 		const bottom = level(ctx, storey);
@@ -172,6 +172,29 @@ function stacked(ctx: Context, cell: FineCell, house: HouseCell, kind: FillKind)
 	return [lower, upper];
 }
 
+function programmedSolids(ctx: Context, cell: FineCell, house: HouseCell, kind: FillKind) {
+	const { fill, slots } = ctx.style;
+	const programs = new Map(house.program?.map((row) => [row.storey, row]));
+	return Array.from({ length: house.toStorey - house.fromStorey }, (_, offset) => {
+		const from = house.fromStorey + offset;
+		const key = `${cell.id}/body/storey/${ctx.space.datumIndex + from}`;
+		const addition = programs.get(from)?.phase === 'addition';
+		const setback = addition ? defaults.additionSetbackM : 0;
+		const form = kind === 'capsule' && !addition ? 'block' : kind;
+		const bodySlots = kind === 'capsule' ? slots.capsule : slots.body;
+		return solid(
+			ctx,
+			cell,
+			form,
+			fill.insetM + setback,
+			pick(ctx.random, `${cell.id}/body/0`, bodySlots),
+			from,
+			from + 1,
+			key
+		);
+	});
+}
+
 /** The top of an envelope cell run, which a roof solid can stand on. */
 // Exact arithmetic: the envelope keeps no gap.
 function envelopeTop(ctx: Context, cell: FineCell, house: HouseCell): CellSolid {
@@ -225,8 +248,10 @@ export function cellSolids(ctx: Context): CellSolid[] {
 		if (!house || house.toStorey <= house.fromStorey) return [];
 		const kind = pick(ctx.random, `${cell.id}/fill`, ctx.style.fill.kinds);
 		if (kind === 'envelope') return roof(ctx, envelopeTop(ctx, cell, house));
-		if (kind === 'capsule') return capsules(ctx, cell, house);
-		const bodies = stacked(ctx, cell, house, kind);
+		if (kind === 'capsule' && !house.program?.length) return capsules(ctx, cell, house);
+		const bodies = house.program?.length
+			? programmedSolids(ctx, cell, house, kind)
+			: stacked(ctx, cell, house, kind);
 		return [...bodies, ...roof(ctx, bodies[bodies.length - 1])];
 	});
 }

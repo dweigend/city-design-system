@@ -54,6 +54,8 @@ export type Drawable = Surface &
 	Readonly<{
 		id: string;
 		shape: Shape;
+		/** Optional authored palette token for a view that reveals the part's use. */
+		useColor?: `--${string}`;
 		heightScale?: number;
 		terrainField?: TerrainField;
 		boundaryStroke?: boolean;

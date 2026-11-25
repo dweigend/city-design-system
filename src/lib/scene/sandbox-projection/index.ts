@@ -9,7 +9,12 @@ import type { createSandboxWorld } from '../../world/sandbox-world';
 import { cityWindow, type CityGrid, type CitySite } from '../../world/city-site';
 import { createParcelHouseObject, type PlacedParcelHouse } from '../../world/house-site';
 import { projectCityTerrain } from '../city-volume-projection';
-import { houseMaterials, projectCladHouse, projectHouse } from '../house-projection';
+import {
+	houseMaterials,
+	projectCladHouse,
+	projectHouse,
+	projectProgrammedHouse
+} from '../house-projection';
 import { projectPathAsset } from '../paths-projection';
 import {
 	projectGrove,
@@ -102,6 +107,12 @@ export function createSandboxProjection(site: CitySite, layout: CityGrid, holdin
 			if (!Object.hasOwn(houseMaterials, style.id))
 				throw new RangeError('No sandbox materials for ' + style.id);
 			const plain = detail.level === 'plain';
+			const placement = { translation: offset, radians: -bearing };
+			if (house.cells.some(({ program }) => program?.length))
+				return address(
+					projectProgrammedHouse(placed, plain ? 'block' : 'full', adjoiningWalls, placement),
+					placementId
+				);
 			const { drawables } = projectCladHouse(
 				createParcelHouseObject(placed, plain ? 'block' : 'full', adjoiningWalls),
 				plain ? [] : houseFaces(space, house, 'full', style, adjoiningWalls),
@@ -109,7 +120,7 @@ export function createSandboxProjection(site: CitySite, layout: CityGrid, holdin
 				'full',
 				{
 					budget: detail.budget,
-					placement: { translation: offset, radians: -bearing },
+					placement,
 					level: detail.level,
 					seed: house.inputs.seed,
 					plainTone: detail.tone

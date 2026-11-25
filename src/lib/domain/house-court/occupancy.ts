@@ -4,8 +4,8 @@ import { Random } from '../../core/random';
 import {
 	cellCenter,
 	fineCellWidth,
-	minimumStripWidthM,
 	readStoreyElevation,
+	readStoreyKey,
 	type CellSpace,
 	type FineCell
 } from '../cell-space';
@@ -46,7 +46,18 @@ export type HouseSite = Readonly<{
 	corner?: boolean;
 	groundZ?: number;
 	scale?: HouseScale;
+	storeyProgram?: (datumIndex: number, cellId: string) => StoreyProgram | undefined;
 }>;
+
+/** Construction phases and uses assigned to an occupied piece of the datum stack. */
+export type StoreyProgram = Readonly<{
+	phase: 'retained' | 'addition';
+	use: 'public' | 'workshop' | 'office' | 'housing' | 'city-farm' | 'greenhouse';
+}>;
+
+/** One occupied storey with an explicit use and construction phase. */
+export type HouseStorey = StoreyProgram &
+	Readonly<{ key: string; cellId: string; storey: number; datumIndex: number }>;
 
 /** Occupancy of one fine cell: built storeys are `fromStorey` up to, not including, `toStorey`. */
 export type HouseCell = Readonly<{
@@ -54,6 +65,7 @@ export type HouseCell = Readonly<{
 	role: CellRole;
 	fromStorey: number;
 	toStorey: number;
+	program?: readonly HouseStorey[];
 }>;
 
 /** The occupancy of a cell space, in cell order, with the resolved inputs it came from. */
@@ -126,7 +138,7 @@ function frontDoor(space: CellSpace, plan: Plan): readonly string[] {
 	const candidates = space.cells.filter(fronting);
 	const built = candidates.filter(({ id }) => (plan.get(id)?.storeys ?? 0) > 0);
 	const reachable =
-		space.kind === 'strip' && !built.length
+		space.houseRules?.requireConnectedEntrance && !built.length
 			? hops(
 					space,
 					[...plan].filter(([, cell]) => cell.storeys > 0).map(([id]) => id)
@@ -216,7 +228,7 @@ function carve(plan: Plan, path: readonly string[]) {
 
 function buildFailure(space: CellSpace, entry: string | undefined, built: string[], rise: number) {
 	if (!built.length) return 'no-built-cells';
-	if (!entry || (space.kind === 'strip' && !hops(space, built).has(entry)))
+	if (!entry || (space.houseRules?.requireConnectedEntrance && !hops(space, built).has(entry)))
 		return 'no-frontage-route';
 	if (rise < -entranceStepRiseM) return 'entrance-below-lane';
 }
@@ -233,11 +245,36 @@ function storeysAtHeight(space: CellSpace, height: number): number {
 	return space.storeyCount;
 }
 
+function readCellProgram(
+	space: CellSpace,
+	cellId: string,
+	fromStorey: number,
+	toStorey: number,
+	program: NonNullable<HouseSite['storeyProgram']>
+): readonly HouseStorey[] {
+	const result: HouseStorey[] = [];
+	for (let storey = fromStorey; storey < toStorey; storey++) {
+		const datumIndex = space.datumIndex + storey;
+		const use = program(datumIndex, cellId);
+		if (use)
+			result.push(
+				Object.freeze({
+					...use,
+					key: readStoreyKey(space.id, cellId, datumIndex),
+					cellId,
+					storey,
+					datumIndex
+				})
+			);
+	}
+	return Object.freeze(result);
+}
+
 /** Fills a cell space with one house around a court (FORM-1). The deepest hop layer from the parcel
  * boundary is the court, void to the sky, unless the space opens onto a shared court (a cell side
  * with `court`), the house is large and its style row keeps no court, or no inner cell exists.
  * Other cells are built when they touch the frontage or their centre lies within `width` meters of
- * it (a large house builds them all). Strip cells must meet the strip minimum width; the rest stay
+ * it (a large house builds them all). Cells must meet any subdivision minimum width; the rest stay
  * garden. Requested height rounds to the nearest storey boundary, clamped to the space; a large house stands evenly at the large storey count, leaving a
  * storey for its roof figure when its row's large roof is not flat. Complexity
  * lowers cells toward the rear, steps court-facing cells down and lets seeded cells rise or fall,
@@ -280,6 +317,7 @@ export function createHouseOccupancy(
 	const top = Math.max(1, Math.min(space.storeyCount, cap, storeysAtHeight(space, height)));
 	const front = scale === 'calm' ? eaves(top, cap, random, site.corner ?? false) : top;
 	const plan: Plan = new Map();
+	const minimumWidthM = space.houseRules?.minimumWidthM ?? 0;
 	for (const cell of space.cells) {
 		const span = distances.get(cell.id) ?? 0;
 		if (courtIds.has(cell.id))
@@ -289,7 +327,7 @@ export function createHouseOccupancy(
 			);
 		else if (
 			(!fronting(cell) && span > reach) ||
-			(space.kind === 'strip' && fineCellWidth(cell) < minimumStripWidthM)
+			(minimumWidthM > 0 && fineCellWidth(cell) < minimumWidthM)
 		)
 			plan.set(
 				cell.id,
@@ -354,7 +392,11 @@ export function createHouseOccupancy(
 					storeys: 0
 				};
 				const { built, fromStorey } = cellRoles[role];
-				return Object.freeze({ id, role, fromStorey, toStorey: built ? storeys : 0 });
+				const toStorey = built ? storeys : 0;
+				const program =
+					site.storeyProgram &&
+					readCellProgram(space, id, fromStorey, toStorey, site.storeyProgram);
+				return Object.freeze({ id, role, fromStorey, toStorey, ...(program ? { program } : {}) });
 			})
 		)
 	});

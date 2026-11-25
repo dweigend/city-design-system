@@ -126,6 +126,7 @@ test('omits the opening part and its storey refs when adjoining walls cover all 
 	expect(opening?.storeyRefs.length).toBeGreaterThan(0);
 	const object = createHouseObject(space, house, 'full', houseStyles.neutral, walls);
 	const covered = readHousePartRefs(house, 'town-fixture', walls);
+	expect(readHousePartRefs({ ...house }, 'town-fixture', walls)).toEqual(covered);
 	expect(covered.map(({ partId, slot }) => [partId, slot])).toEqual(
 		object.parts.map(({ id, slot }) => [id, slot])
 	);
