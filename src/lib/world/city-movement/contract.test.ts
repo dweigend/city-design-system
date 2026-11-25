@@ -174,7 +174,15 @@ test('the valley guideway keeps its bearings on dry ground at relief 0.5', () =>
 		expect(site.valley.readGround(base[0], base[1]).cover).toBe('dry');
 });
 
-test('the shared valley survey docks the two named stations to the default town grid', () => {
+async function sha256Hex(value: unknown) {
+	const digest = await crypto.subtle.digest(
+		'SHA-256',
+		new TextEncoder().encode(JSON.stringify(value))
+	);
+	return Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, '0')).join('');
+}
+
+test('the shared valley survey docks the two named stations to the default town grid', async () => {
 	const { site, layout, columns } = cityMovementExample();
 	const heads = readCityCrossingHeads(layout);
 	expect(heads).toEqual(['base/-1,2', 'edge/base/-1,2|base/0,1']);
@@ -182,18 +190,48 @@ test('the shared valley survey docks the two named stations to the default town 
 	const rail = required(readCityRail(site, layout, columns, survey), 'valley rail');
 	expect(rail.stations.map(({ id }) => id)).toEqual(['upstream', 'downstream']);
 
-	const { network } = readCityMovement(site, layout, columns, 0, rail, heads);
-	const station = rail.stations[0];
-	const platformId = 'station/upstream';
-	expect(network.readNode(platformId)?.position).toEqual(station.position);
-	const route = network.readRoute(station.approachId, platformId);
-	expect(route?.edges.map(({ id }) => id)).toEqual(['station-stair/upstream', 'dock/upstream']);
+	const movement = readCityMovement(site, layout, columns, 0, rail, heads);
+	const { network, portalNodeIds } = movement;
+	const portals = [...portalNodeIds.entries()];
+	const edges = network.edges.map(({ id, kind, lengthM, cost }) => ({ id, kind, lengthM, cost }));
+	expect(portals).toHaveLength(2208);
+	expect(edges).toHaveLength(5291);
+	expect(await sha256Hex(portals)).toBe(
+		'1a77db6cf5ba5b0409e43580835dd7b727cebfee523e107409c9bff065433a09'
+	);
+	expect(await sha256Hex(edges)).toBe(
+		'61d19c293fce48dfda0063442d801fac10a7fe0ec670a2549205193ba20b8e40'
+	);
 
+	for (const [index, expectedApproach] of [
+		'ground/edge/base/-2,-1|base/-3,0',
+		'ground/edge/base/3,1|base/4,0'
+	].entries()) {
+		const station = rail.stations[index];
+		const platformId = 'station/' + station.id;
+		expect(station.approachId).toBe(expectedApproach);
+		expect(network.readNode(platformId)?.position).toEqual(station.position);
+		const dockRoute = network.readRoute(station.approachId, platformId);
+		expect(dockRoute?.edges.map(({ id }) => id)).toEqual([
+			`station-stair/${station.id}`,
+			`dock/${station.id}`
+		]);
+	}
+
+	const sampleRoute = network.readRoute(portals[0][1], 'station/upstream');
+	expect(
+		await sha256Hex({
+			edges: sampleRoute?.edges.map(({ id }) => id),
+			lengthM: sampleRoute?.lengthM
+		})
+	).toBe('3a480dd11dcb67868cd7dc8e751f0444386cf359752301a72069ca7dc6784b62');
+
+	const station = rail.stations[0];
 	const disconnected = createMovementNetwork(
 		network.nodes,
 		network.edges.filter(({ id }) => id !== 'dock/upstream')
 	);
-	expect(disconnected.readRoute(station.approachId, platformId)).toBeUndefined();
+	expect(disconnected.readRoute(station.approachId, 'station/upstream')).toBeUndefined();
 });
 
 test('organic seed 1201 stairs clear the column at the primary crossing', () => {

@@ -445,6 +445,45 @@ journeys('renders on demand, stays idle and tears down cleanly after unmount', a
 	expect(postUnmountRafs).toBe(0);
 });
 
+// Direct acceptance URLs on /paths/valley must activate after hydration instead of keeping the
+// prerendered default town framing. Protects the preserved #63/#64 acceptance views.
+journeys('applies /paths/valley acceptance query views after hydration', async ({ page }) => {
+	await open(page, '/paths/valley');
+	const defaultWidth = Number(
+		await (await readyStages(page, 1)).first().getAttribute('data-stage-width')
+	);
+
+	await open(page, '/paths/valley?extent=valley');
+	const valleyStage = (await readyStages(page, 1)).first();
+	await expect(
+		page.getByRole('radiogroup', { name: 'Extent' }).getByRole('radio', { name: 'Valley' })
+	).toBeChecked();
+	expect(Number(await valleyStage.getAttribute('data-stage-width'))).toBeGreaterThan(defaultWidth);
+
+	await open(page, '/paths/valley?route=on&frame=route');
+	const routeStage = (await readyStages(page, 1)).first();
+	await expect(
+		page
+			.getByRole('radiogroup', { name: 'Portal to station route' })
+			.getByRole('radio', { name: 'Show' })
+	).toBeChecked();
+	const routeStats = await page.locator('.city-measurements').innerText();
+	expect(routeStats).toContain('Route');
+	expect(routeStats).toContain('Climb');
+	const routeWidth = Number(await routeStage.getAttribute('data-stage-width'));
+
+	await open(page, '/paths/valley?frame=dock');
+	const dockStage = (await readyStages(page, 1)).first();
+	const dockWidth = Number(await dockStage.getAttribute('data-stage-width'));
+	expect(dockWidth).toBeLessThan(defaultWidth);
+
+	await open(page, '/paths/valley?frame=crossing');
+	const crossingStage = (await readyStages(page, 1)).first();
+	const crossingWidth = Number(await crossingStage.getAttribute('data-stage-width'));
+	expect(crossingWidth).toBeLessThan(defaultWidth);
+	expect(new Set([defaultWidth, routeWidth, dockWidth, crossingWidth]).size).toBeGreaterThan(2);
+});
+
 async function saveSandbox(page: Page, filename: string) {
 	const downloadEvent = page.waitForEvent('download');
 	await page.getByRole('button', { name: 'Save', exact: true }).click();
