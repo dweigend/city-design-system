@@ -3,7 +3,7 @@ import { defaults } from '../../../config/grove';
 import {
 	bounds,
 	distance,
-	isSimpleRing,
+	isSimplePolygon,
 	measurePointSegmentDistance,
 	measurePolygon,
 	size,
@@ -63,11 +63,13 @@ function readSite(host: CityAssetHost): GroveSite {
 }
 
 function validateSite({ outline, holes = [] }: GroveSite) {
-	if (!isSimpleRing(outline) || holes.some((ring) => !isSimpleRing(ring)))
-		throw new RangeError('Grove boundaries must form simple rings');
+	if (!isSimplePolygon(outline, holes))
+		throw new RangeError('Grove boundaries must form simple rings with disjoint interior holes');
 }
 
-function lawn(site: GroveSite): MeshShape {
+type LawnTriangle = readonly [Vec3, Vec3, Vec3];
+
+function lawn(site: GroveSite): Readonly<{ shape: MeshShape; triangles: readonly LawnTriangle[] }> {
 	const contours = [site.outline, ...(site.holes ?? [])];
 	const { solution, result } = triangulateD(
 		contours.map((ring) => ring.map(([x, y]) => ({ x, y }))),
@@ -76,16 +78,42 @@ function lawn(site: GroveSite): MeshShape {
 	if (result !== TriangulateResult.success) throw new RangeError('Cannot triangulate grove lawn');
 	const positions: number[] = [];
 	const indices: number[] = [];
+	const triangles: LawnTriangle[] = [];
 	// Exact arithmetic: XYZ triples and independent triangulated faces.
 	for (const triangle of solution) {
 		const ring = triangle.map(({ x, y }): Vec2 => [x, y]);
 		if (measurePolygon(ring).area < 0) ring.reverse();
-		for (const [x, y] of ring) {
+		const vertices = ring.map(([x, y]): Vec3 => [x, y, site.groundAt([x, y]) + groveLawnLiftM]);
+		triangles.push([vertices[0], vertices[1], vertices[2]]);
+		for (const [x, y, z] of vertices) {
 			indices.push(positions.length / 3);
-			positions.push(x, y, site.groundAt([x, y]) + groveLawnLiftM);
+			positions.push(x, y, z);
 		}
 	}
-	return { kind: 'mesh', positions, indices };
+	return { shape: { kind: 'mesh', positions, indices }, triangles };
+}
+
+function readLawnElevation(
+	triangles: readonly LawnTriangle[],
+	[x, y]: Vec2,
+	fallback: number
+): number {
+	let bestMargin = -Infinity;
+	let bestElevation = fallback;
+	for (const [[ax, ay, az], [bx, by, bz], [cx, cy, cz]] of triangles) {
+		const twiceArea = (bx - ax) * (cy - ay) - (by - ay) * (cx - ax);
+		if (twiceArea <= 0) continue;
+		const u = ((bx - x) * (cy - y) - (by - y) * (cx - x)) / twiceArea;
+		const v = ((cx - x) * (ay - y) - (cy - y) * (ax - x)) / twiceArea;
+		const w = 1 - u - v;
+		const margin = Math.min(u, v, w);
+		if (margin > bestMargin) {
+			bestMargin = margin;
+			bestElevation = u * az + v * bz + w * cz;
+			if (margin >= 0) return bestElevation;
+		}
+	}
+	return bestElevation;
 }
 
 type Tree = Readonly<{ at: Vec2; radius: number; height: number; pointed: boolean }>;
@@ -104,6 +132,7 @@ function plant(site: GroveSite, density: number, height: number, seed: number): 
 	const area =
 		Math.abs(measurePolygon(outline).area) -
 		holes.reduce((total, ring) => total + Math.abs(measurePolygon(ring).area), 0);
+	if (area <= 0) return [];
 	const areaRatio = area / defaults.groveReferenceAreaM2;
 	const [minimum, maximum] = defaults.groveTreeCount;
 	const densityArea = Math.max(area, defaults.groveMinimumDensityAreaM2);
@@ -199,9 +228,14 @@ export const groveAsset: AssetEntry<CityAssetHost> = {
 	build(host, { density, height }, seed) {
 		const site = readSite(host);
 		const layers = { lawn: mesh(), trunk: mesh(), canopy: mesh() };
-		layers.lawn.append(lawn(site));
+		const surface = lawn(site);
+		layers.lawn.append(surface.shape);
 		for (const tree of plant(site, density, height, seed)) {
-			const base = site.groundAt(tree.at) + groveLawnLiftM;
+			const base = readLawnElevation(
+				surface.triangles,
+				tree.at,
+				site.groundAt(tree.at) + groveLawnLiftM
+			);
 			const trunk = base + tree.height * defaults.groveCanopyBaseRatio;
 			const [x, y] = tree.at;
 			layers.trunk.pier(

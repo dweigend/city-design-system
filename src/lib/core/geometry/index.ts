@@ -203,8 +203,53 @@ export function convexHull(points: readonly Vec2[]): readonly Vec2[] {
 	return [...half(sorted), ...half(sorted.reverse())];
 }
 
-function turn([ax, ay]: Vec2, [bx, by]: Vec2, [cx, cy]: Vec2): number {
-	return (bx - ax) * (cy - ay) - (by - ay) * (cx - ax);
+const binary64View = new DataView(
+	new ArrayBuffer(/* Exact arithmetic: 8-byte float64 buffer. */ 8)
+);
+const binary64Offset = /* Exact arithmetic: byte offset zero in the 8-byte buffer. */ 0;
+const subnormalExponent = /* Exact arithmetic: binary64 subnormal exponent (-1022 - 52). */ -1074;
+const normalExponentBias = /* Exact arithmetic: binary64 exponent bias (1023) plus 52 significand bits. */ 1075;
+const orientFilterFactor =
+	/* Exact arithmetic: conservative Shewchuk orient2d filter (4 * eps). */ 4 * Number.EPSILON;
+
+const zeroDyadic: readonly [mantissa: bigint, exponent: number] = [
+	/* Exact arithmetic: zero mantissa. */ 0n,
+	/* Exact arithmetic: zero exponent. */ 0
+];
+
+function readDyadic(value: number): readonly [mantissa: bigint, exponent: number] {
+	if (value === 0) return zeroDyadic;
+	binary64View.setFloat64(binary64Offset, value);
+	const bits = binary64View.getBigUint64(binary64Offset);
+	const negative = bits >> 63n !== 0n;
+	const rawExponent = Number((bits >> 52n) & 0x7ffn);
+	const fraction = bits & 0xfffffffffffffn;
+	const mantissa = rawExponent === 0 ? fraction : (1n << 52n) | fraction;
+	const exponent = rawExponent === 0 ? subnormalExponent : rawExponent - normalExponentBias;
+	return [negative ? -mantissa : mantissa, exponent];
+}
+
+function exactTurn(a: Vec2, b: Vec2, c: Vec2): number {
+	const parts = [a[0], a[1], b[0], b[1], c[0], c[1]].map(readDyadic);
+	let minExponent = Infinity;
+	for (const [mantissa, exponent] of parts)
+		if (mantissa !== 0n && exponent < minExponent) minExponent = exponent;
+	if (!Number.isFinite(minExponent)) return 0;
+	const [ax, ay, bx, by, cx, cy] = parts.map(([mantissa, exponent]) =>
+		mantissa === 0n ? 0n : mantissa << BigInt(exponent - minExponent)
+	);
+	const determinant = (bx - ax) * (cy - ay) - (by - ay) * (cx - ax);
+	return determinant > 0n ? 1 : determinant < 0n ? -1 : 0;
+}
+
+function turn(a: Vec2, b: Vec2, c: Vec2): number {
+	const left = (b[0] - a[0]) * (c[1] - a[1]);
+	const right = (b[1] - a[1]) * (c[0] - a[0]);
+	const determinant = left - right;
+	const scale = Math.abs(left) + Math.abs(right);
+	if (Number.isFinite(scale) && Math.abs(determinant) > scale * orientFilterFactor)
+		return Math.sign(determinant);
+	return exactTurn(a, b, c);
 }
 
 function inSegmentBounds([x, y]: Vec2, [ax, ay]: Vec2, [bx, by]: Vec2): boolean {
@@ -232,6 +277,29 @@ function retraces(previous: Vec2, a: Vec2, b: Vec2): boolean {
 	);
 }
 
+function ringsMeet(first: readonly Vec2[], second: readonly Vec2[]): boolean {
+	for (let i = 0; i < first.length; i++) {
+		const a = first[i];
+		const b = first[(i + 1) % first.length];
+		for (let j = 0; j < second.length; j++) {
+			if (segmentsMeet(a, b, second[j], second[(j + 1) % second.length])) return true;
+		}
+	}
+	return false;
+}
+
+function isPointInsideSimpleRing(point: Vec2, ring: readonly Vec2[]): boolean {
+	let inside = false;
+	for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
+		const a = ring[i];
+		const b = ring[j];
+		if (a[1] > point[1] === b[1] > point[1]) continue;
+		const side = turn(a, b, point);
+		if (b[1] > a[1] ? side > 0 : side < 0) inside = !inside;
+	}
+	return inside;
+}
+
 /** Tests an implicitly closed ring of finite XY points in meters, in either winding.
  * Permits straight runs. Rejects duplicate vertices, retraced edges and all intersections
  * except the shared ends of consecutive edges. Does not modify the input. */
@@ -248,4 +316,32 @@ export function isSimpleRing(ring: readonly Vec2[]): boolean {
 		}
 	}
 	return true;
+}
+
+/** Tests an outer boundary and optional holes in XY meters. Requires every ring to be simple,
+ * every hole to lie strictly inside the outer ring, and all rings to be mutually disjoint and
+ * non-nested with positive remaining area. Does not modify the inputs. */
+export function isSimplePolygon(
+	outline: readonly Vec2[],
+	holes: readonly (readonly Vec2[])[] = []
+): boolean {
+	if (!isSimpleRing(outline)) return false;
+	let netArea = Math.abs(measurePolygon(outline).area);
+	if (netArea <= 0) return false;
+	for (let i = 0; i < holes.length; i++) {
+		const hole = holes[i];
+		if (!isSimpleRing(hole)) return false;
+		if (ringsMeet(outline, hole) || !isPointInsideSimpleRing(hole[0], outline)) return false;
+		for (let j = 0; j < i; j++) {
+			const other = holes[j];
+			if (
+				ringsMeet(other, hole) ||
+				isPointInsideSimpleRing(hole[0], other) ||
+				isPointInsideSimpleRing(other[0], hole)
+			)
+				return false;
+		}
+		netArea -= Math.abs(measurePolygon(hole).area);
+	}
+	return netArea > 0;
 }

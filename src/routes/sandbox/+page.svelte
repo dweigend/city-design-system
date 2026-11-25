@@ -494,7 +494,11 @@
 	}
 
 	function removeSelected() {
-		if (selected) apply([{ kind: 'remove', id: selected.id }], 'House removed.');
+		if (selected)
+			apply(
+				[{ kind: 'remove', id: selected.id }],
+				town?.isHouse(selected.assetId) ? 'House removed.' : 'Grove removed.'
+			);
 	}
 
 	function shortcut(event: KeyboardEvent) {

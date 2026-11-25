@@ -6,6 +6,7 @@ import {
 	distance,
 	dotProduct,
 	interpolation,
+	isSimplePolygon,
 	isSimpleRing,
 	length,
 	measurePointSegmentDistance,
@@ -154,4 +155,85 @@ test('Q-05 permits a concave ring with a straight run but rejects retracing and 
 			[4, 0]
 		])
 	).toBe(false);
+});
+
+test('Q-05 uses exact orientation for large-coordinate triangles in both windings', () => {
+	const n = 2 ** 27;
+	const triangle: readonly Vec2[] = [
+		[0, 0],
+		[n + 1, n],
+		[n, n - 1]
+	];
+	expect(isSimpleRing(triangle)).toBe(true);
+	expect(isSimpleRing([...triangle].reverse())).toBe(true);
+});
+
+test('isSimplePolygon requires disjoint strictly interior non-nested holes', () => {
+	const outer: readonly Vec2[] = [
+		[0, 0],
+		[40, 0],
+		[40, 40],
+		[0, 40]
+	];
+	const leftHole: readonly Vec2[] = [
+		[4, 4],
+		[14, 4],
+		[14, 14],
+		[4, 14]
+	];
+	const rightHole: readonly Vec2[] = [
+		[20, 20],
+		[30, 20],
+		[30, 30],
+		[20, 30]
+	];
+	expect(isSimplePolygon(outer, [leftHole, rightHole])).toBe(true);
+	// Disjoint hole outside the outer ring.
+	expect(
+		isSimplePolygon(outer, [
+			[
+				[50, 50],
+				[60, 50],
+				[60, 60],
+				[50, 60]
+			]
+		])
+	).toBe(false);
+	// Hole touching the outer ring.
+	expect(
+		isSimplePolygon(outer, [
+			[
+				[0, 10],
+				[10, 10],
+				[10, 20],
+				[0, 20]
+			]
+		])
+	).toBe(false);
+	// Overlapping holes.
+	expect(
+		isSimplePolygon(outer, [
+			leftHole,
+			[
+				[10, 10],
+				[20, 10],
+				[20, 20],
+				[10, 20]
+			]
+		])
+	).toBe(false);
+	// Nested holes.
+	expect(
+		isSimplePolygon(outer, [
+			leftHole,
+			[
+				[6, 6],
+				[12, 6],
+				[12, 12],
+				[6, 12]
+			]
+		])
+	).toBe(false);
+	// Hole enclosing the outer ring.
+	expect(isSimplePolygon(leftHole, [outer])).toBe(false);
 });

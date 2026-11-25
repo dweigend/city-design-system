@@ -238,3 +238,111 @@ test('grove lawn and trees leave a hole in a complex holding', () => {
 		}
 	}
 });
+
+test('grove seats trees on the triangulated lawn above an interior terrain depression', () => {
+	const grove = buildAsset(
+		'park/grove',
+		{
+			kind: 'parcel',
+			parcel: {
+				id: 'bowl',
+				outline: [
+					[0, 0],
+					[30, 0],
+					[30, 30],
+					[0, 30]
+				]
+			},
+			groundAt: ([x, y]) => (x > 1 && x < 29 && y > 1 && y < 29 ? 0 : 10)
+		},
+		{ density: 8, height: 8 },
+		7
+	);
+	const trunk = grove.parts.find(({ slot }) => slot === 'trunk')?.shape;
+	const canopy = grove.parts.find(({ slot }) => slot === 'canopy')?.shape;
+	if (trunk?.kind !== 'mesh' || canopy?.kind !== 'mesh')
+		throw new Error('Expected trunk and canopy meshes');
+	expect(trunk.positions.length).toBeGreaterThan(0);
+	for (let i = 2; i < trunk.positions.length; i += 3)
+		expect(trunk.positions[i]).toBeGreaterThanOrEqual(10);
+	for (let i = 2; i < canopy.positions.length; i += 3)
+		expect(canopy.positions[i]).toBeGreaterThan(10);
+});
+
+test('grove host validation rejects outside, intersecting, overlapping, nested and enclosing holes', () => {
+	const outline = [
+		[0, 0],
+		[40, 0],
+		[40, 40],
+		[0, 40]
+	] as const;
+	const invalidHoles = [
+		// Disjoint hole outside the parcel.
+		[
+			[
+				[50, 50],
+				[60, 50],
+				[60, 60],
+				[50, 60]
+			]
+		],
+		// Hole crossing the outer boundary.
+		[
+			[
+				[30, 10],
+				[50, 10],
+				[50, 30],
+				[30, 30]
+			]
+		],
+		// Overlapping holes.
+		[
+			[
+				[4, 4],
+				[18, 4],
+				[18, 18],
+				[4, 18]
+			],
+			[
+				[12, 12],
+				[26, 12],
+				[26, 26],
+				[12, 26]
+			]
+		],
+		// Nested holes.
+		[
+			[
+				[4, 4],
+				[26, 4],
+				[26, 26],
+				[4, 26]
+			],
+			[
+				[10, 10],
+				[20, 10],
+				[20, 20],
+				[10, 20]
+			]
+		],
+		// Hole enclosing the parcel.
+		[
+			[
+				[-10, -10],
+				[50, -10],
+				[50, 50],
+				[-10, 50]
+			]
+		]
+	] as const;
+	for (const holes of invalidHoles) {
+		const invalidHost = {
+			kind: 'parcel',
+			parcel: { id: 'bad', outline },
+			groundAt: () => 0,
+			holes
+		} as const;
+		expect(() => validateAssetHost('park/grove', invalidHost)).toThrow(RangeError);
+		expect(() => buildAsset('park/grove', invalidHost, {}, 1)).toThrow(RangeError);
+	}
+});
