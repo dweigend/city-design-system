@@ -1,3 +1,4 @@
+import { defaults } from '../../../config/stage';
 import {
 	crossProduct,
 	dotProduct,
@@ -14,8 +15,8 @@ import { shadowReach, sun } from './tone';
 import type { TerrainAnchor } from './content';
 
 // Quarry BLICK, converted from its Y-up projection to world coordinates.
-const bearingRad = (32 * Math.PI) / 180;
-const elevationRad = (26 * Math.PI) / 180;
+const bearingRad = defaults.stageBearingRad;
+const elevationRad = defaults.stageElevationRad;
 
 export const views = {
 	iso: {
@@ -24,11 +25,16 @@ export const views = {
 			-Math.cos(bearingRad) * Math.cos(elevationRad),
 			Math.sin(elevationRad)
 		],
-		up: [0, 0, 1],
-		fill: 0.7,
+		up: /* Exact arithmetic: the world up axis is positive Z. */ [0, 0, 1],
+		fill: defaults.stageObliqueFill,
 		shadowFit: false
 	},
-	plan: { eye: [0, 0, 1], up: [0, 1, 0], fill: 0.63, shadowFit: true }
+	plan: {
+		eye: /* Exact arithmetic: a plan looks down the Z axis. */ [0, 0, 1],
+		up: /* Exact arithmetic: a plan has positive Y at the top. */ [0, 1, 0],
+		fill: defaults.stagePlanFill,
+		shadowFit: true
+	}
 } satisfies Record<string, { eye: Vec3; up: Vec3; fill: number; shadowFit: boolean }>;
 
 export type View = keyof typeof views;
@@ -124,21 +130,26 @@ export function fitCamera(
 	const { right, imageUp } = baseAxes;
 
 	const frame = fit.focus ?? bounds;
-	const half = scaled(displacement(frame.min, frame.max), 0.5);
+	const half = scaled(
+		displacement(frame.min, frame.max),
+		/* Exact arithmetic: take the midpoint or half extent. */ 0.5
+	);
 	const extent = (axis: Vec3) =>
 		dotProduct(half, [Math.abs(axis[0]), Math.abs(axis[1]), Math.abs(axis[2])]);
 	const shift = scaled(
-		[-sun[0], -sun[1], 0],
+		/* Exact arithmetic: cast shadow lies in the XY plane. */ [-sun[0], -sun[1], 0],
 		!fit.focus && !fit.subject && (shadowFit || landscape) ? half[2] * shadowReach : 0
 	);
 	const subjectHeight = fit.subject?.halfHeight ?? extent(imageUp);
 	const subjectWidth = fit.subject?.halfWidth ?? extent(right);
-	const objectFit = Math.max(subjectHeight, subjectWidth / aspect, 0.05) / (fit.fill ?? fill);
+	const objectFit =
+		Math.max(subjectHeight, subjectWidth / aspect, defaults.stageMinimumFitHeightM) /
+		(fit.fill ?? fill);
 	const shadowFitHeight =
 		Math.max(
 			subjectHeight + Math.abs(dotProduct(shift, imageUp)),
 			(subjectWidth + Math.abs(dotProduct(shift, right))) / aspect
-		) / (landscape ? (fit.fill ?? 0.9) : 0.9);
+		) / (landscape ? (fit.fill ?? defaults.stageShadowFitFill) : defaults.stageShadowFitFill);
 	const halfHeight =
 		(fit.width === undefined ? Math.max(objectFit, shadowFitHeight) : fit.width / (2 * aspect)) /
 		(fit.zoom ?? 1);
@@ -150,21 +161,40 @@ export function fitCamera(
 	} = fit.elevationAtWidth && view === 'iso'
 		? axes(view, { ...fit, elevation: fit.elevationAtWidth(halfHeight * 2 * aspect) })
 		: baseAxes;
-	const offset = fit.offset ?? [0, 0];
+	const offset = fit.offset ?? /* Exact arithmetic: zero pan offset. */ [0, 0];
 	const pan = sum(scaled(panRight, offset[0]), scaled(panUp, offset[1]));
 	const center = sum(
-		sum(fit.subject?.center ?? interpolation(frame.min, frame.max, 0.5), shift),
+		sum(
+			fit.subject?.center ??
+				interpolation(
+					frame.min,
+					frame.max,
+					/* Exact arithmetic: take the midpoint or half extent. */ 0.5
+				),
+			shift
+		),
 		pan
 	);
-	const sceneHalf = scaled(displacement(clippingBounds.min, clippingBounds.max), 0.5);
+	const sceneHalf = scaled(
+		displacement(clippingBounds.min, clippingBounds.max),
+		/* Exact arithmetic: take the midpoint or half extent. */ 0.5
+	);
 	const depth = dotProduct(sceneHalf, [
 		Math.abs(direction[0]),
 		Math.abs(direction[1]),
 		Math.abs(direction[2])
 	]);
-	const sceneCenter = interpolation(clippingBounds.min, clippingBounds.max, 0.5);
+	const sceneCenter = interpolation(
+		clippingBounds.min,
+		clippingBounds.max,
+		/* Exact arithmetic: take the midpoint or half extent. */ 0.5
+	);
 	const depthShift = dotProduct(displacement(center, sceneCenter), direction);
-	const depthMarginM = Math.max(1, half[2] * 1.2, depth * 0.01);
+	const depthMarginM = Math.max(
+		defaults.stageMinimumDepthMarginM,
+		half[2] * defaults.stageSubjectHeightDepthMarginRatio,
+		depth * defaults.stageSceneDepthMarginRatio
+	);
 	return {
 		center,
 		eye: sum(center, scaled(direction, depth + depthShift + depthMarginM)),
@@ -210,14 +240,17 @@ function imagePoint({ center, right, imageUp, metersPerPixel }: CameraFrame, [x,
 
 /** Reads the displayed terrain at a pixel offset from the image center. */
 export function pickGround(frame: CameraFrame, offset: Vec2): Vec3 | undefined {
-	return frame.hit?.(imagePoint(frame, offset), scaled(frame.direction, -1));
+	return frame.hit?.(
+		imagePoint(frame, offset),
+		scaled(frame.direction, /* Exact arithmetic: reverse the view direction. */ -1)
+	);
 }
 
 /** Reads the displayed ground, with a plane through the frame center as fallback. */
 export function groundAt(frame: CameraFrame, offset: Vec2, next?: CameraFrame): Vec3 {
 	const { center, direction } = frame;
 	const onImage = imagePoint(frame, offset);
-	const ray = scaled(direction, -1);
+	const ray = scaled(direction, /* Exact arithmetic: reverse the view direction. */ -1);
 	if (next?.displayGround && frame.locateGround) {
 		const anchor = frame.locateGround(onImage, ray);
 		if (anchor) return next.displayGround(anchor);
@@ -225,7 +258,7 @@ export function groundAt(frame: CameraFrame, offset: Vec2, next?: CameraFrame): 
 		const hit = frame.hit?.(onImage, ray);
 		if (hit) return hit;
 	}
-	if (Math.abs(direction[2]) < 1e-9) return onImage;
+	if (Math.abs(direction[2]) < defaults.stageGroundRayTolerance) return onImage;
 	return sum(onImage, scaled(direction, (center[2] - onImage[2]) / direction[2]));
 }
 

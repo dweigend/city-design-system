@@ -1,3 +1,4 @@
+import { defaults } from '../../../config/valley-projection';
 import { sum, scaled, type Vec3 } from '../../core/geometry';
 import { channelPolygons, type Valley } from '../../domain/valley';
 import type { ReachFrame } from './frame';
@@ -30,13 +31,22 @@ function clip(polygon: Polygon, axis: 0 | 1, bound: number, side: number): Polyg
 }
 
 function clipWindow(polygon: Polygon, x: number, y: number): Polygon {
-	return clip(clip(clip(clip(polygon, 0, -x, -1), 0, x, 1), 1, -y, -1), 1, y, 1);
+	const along = /* Exact arithmetic: X coordinate index. */ 0;
+	const across = /* Exact arithmetic: Y coordinate index. */ 1;
+	const low = /* Exact arithmetic: outward sign at the low bound. */ -1;
+	const high = /* Exact arithmetic: outward sign at the high bound. */ 1;
+	return clip(
+		clip(clip(clip(polygon, along, -x, low), along, x, high), across, -y, low),
+		across,
+		y,
+		high
+	);
 }
 
 function weld(surface: Mesh) {
 	const byPosition = new Map<string, number>();
 	return (p: Vec3) => {
-		const key = p.map((v) => Math.round(v * 1e6)).join(',');
+		const key = p.map((v) => Math.round(v * defaults.valleyWaterWeldPerM)).join(',');
 		const previous = byPosition.get(key);
 		if (previous !== undefined) return previous;
 		const index = surface.positions.length / 3;
@@ -56,7 +66,10 @@ export function waterSurface(valley: Valley, frame: ReachFrame, width: number, s
 		// A fan from a boundary vertex can skip collinear seam edges. Use an interior fan
 		// for pieces with split edges so every inserted vertex reaches the mesh.
 		const a = split
-			? polygon.reduce<Vec3>((total, p) => sum(total, scaled(p, 1 / polygon.length)), [0, 0, 0])
+			? polygon.reduce<Vec3>(
+					(total, p) => sum(total, scaled(p, 1 / polygon.length)),
+					/* Exact arithmetic: the sum begins at the origin. */ [0, 0, 0]
+				)
 			: polygon[0];
 		const first = split ? point(a) : indices[0];
 		for (let i = split ? 0 : 1; i < (split ? polygon.length : polygon.length - 1); i++) {
@@ -64,7 +77,7 @@ export function waterSurface(valley: Valley, frame: ReachFrame, width: number, s
 			const [b, c] = [polygon[i], polygon[next]];
 			if (first === indices[i] || indices[i] === indices[next] || first === indices[next]) continue;
 			const area = (b[0] - a[0]) * (c[1] - a[1]) - (c[0] - a[0]) * (b[1] - a[1]);
-			if (Math.abs(area) < 1e-8) continue;
+			if (Math.abs(area) < defaults.valleyWaterTriangleArea2ToleranceM2) continue;
 			if (area > 0) surface.indices.push(first, indices[i], indices[next]);
 			else surface.indices.push(first, indices[next], indices[i]);
 		}
@@ -96,7 +109,15 @@ export function waterSections(sides: readonly (readonly SectionPoint[])[]): Mesh
 			if (a.water < a.z || b.water < b.z || (a.water === a.z && b.water === b.z)) continue;
 			const start = result.positions.length / 3;
 			result.positions.push(a.x, a.y, a.water, a.x, a.y, a.z, b.x, b.y, b.water, b.x, b.y, b.z);
-			result.indices.push(start, start + 1, start + 2, start + 2, start + 1, start + 3);
+			const far = start + /* Exact arithmetic: the fourth vertex completes the quad. */ 3;
+			result.indices.push(
+				start,
+				start + 1,
+				start + /* Exact arithmetic: second pair. */ 2,
+				start + /* Exact arithmetic: second pair. */ 2,
+				start + 1,
+				far
+			);
 		}
 	}
 	return result;

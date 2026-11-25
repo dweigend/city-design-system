@@ -1,3 +1,4 @@
+import { defaults } from '../../../config/stage';
 import {
 	Color,
 	DoubleSide,
@@ -24,10 +25,10 @@ import { projectTerrainField } from './field';
 import { flatTolerance, graphite, grain, levels, sun, type drawingPalette } from './tone';
 import { terrainColor } from './terrain';
 
-const finishOpacity = {
+const finishOpacity = /* Exact arithmetic: unit opacity is opaque and zero omits the fill. */ {
 	matte: 1,
 	gloss: 1,
-	glass: 0.7,
+	glass: defaults.stageGlassOpacity,
 	line: 0,
 	terrain: 1,
 	shadow: 1
@@ -67,16 +68,24 @@ export function fillMaterial(palette: ReturnType<typeof drawingPalette>, field?:
 	const material = new MeshBasicNodeMaterial({
 		side: DoubleSide,
 		forceSinglePass: true,
-		polygonOffsetFactor: 1,
-		polygonOffsetUnits: 1
+		polygonOffsetFactor: defaults.stageFillDepthFactor,
+		polygonOffsetUnits: defaults.stageFillDepthBias
 	});
-	const terrain = uniform(0);
-	const flat = uniform(0);
-	const heightScale = uniform(1);
-	const hatch = uniform(0);
+	const terrain = uniform(
+		/* Exact arithmetic: zero initializes a flag or disables its effect. */ 0
+	);
+	const flat = uniform(/* Exact arithmetic: zero initializes a flag or disables its effect. */ 0);
+	const heightScale = uniform(
+		/* Exact arithmetic: unit scale before applying drawable parameters. */ 1
+	);
+	const hatch = uniform(/* Exact arithmetic: zero initializes a flag or disables its effect. */ 0);
 	const faces = uniform(new Vector3(levels.top, levels.lit, levels.shadow));
-	const grainAmount = uniform(0);
-	const grainCell = uniform(1);
+	const grainAmount = uniform(
+		/* Exact arithmetic: zero initializes a flag or disables its effect. */ 0
+	);
+	const grainCell = uniform(
+		/* Exact arithmetic: unit scale before applying drawable parameters. */ 1
+	);
 
 	const atlas = field ? projectTerrainField(field) : undefined;
 	material.colorNode = mix(
@@ -110,7 +119,7 @@ export function pencilFill(
 	grainCell: Node<'float'>,
 	hatch: Node<'float'>
 ) {
-	const roof = normal.z.greaterThan(0.7);
+	const roof = normal.z.greaterThan(defaults.stageRoofNormalZ);
 	const facesLight = normal.xy.dot(vec2(...sun)).greaterThanEqual(-flatTolerance);
 	const top = roof.and(facesLight);
 	const shadow = roof.or(facesLight).not();
@@ -118,35 +127,71 @@ export function pencilFill(
 	const pressure = top.select(grain.top, shadow.select(grain.shadow, grain.lit));
 	// Fine even grain of cork and card: one random lightness per world-space speck. The cell index
 	// wraps every 509 specks, so the hash input stays exact in single precision at city scale.
-	const speck = positionWorld.div(grainCell).floor().mod(509);
-	const speckle = hash(speck.x.add(speck.y.mul(509)).add(speck.z.mul(259081))).sub(0.5);
+	const speck = positionWorld.div(grainCell).floor().mod(defaults.stageSpeckPeriod);
+	const speckle = hash(
+		speck.x
+			.add(speck.y.mul(defaults.stageSpeckPeriod))
+			.add(speck.z.mul(defaults.stageSpeckPeriod ** 2))
+	).sub(/* Exact arithmetic: center the normalized phase around zero. */ 0.5);
 	const fill = graphite(
 		color,
-		level.add(palette.dark.mul(0.076)).add(speckle.mul(grainAmount)).mul(palette.hull.oneMinus()),
+		level
+			.add(palette.dark.mul(defaults.stageDarkFillLift))
+			.add(speckle.mul(grainAmount))
+			.mul(palette.hull.oneMinus()),
 		mix(pressure, grain.top, palette.hull)
 	);
 	// Sparse 45° pencil strokes, 5 CSS pixels apart, on the faces turned from the sun.
 	const pixel = screenCoordinate.div(screenDPR);
-	const across = pixel.x.add(pixel.y).div(5).fract().sub(0.5).abs().mul(5);
-	const hatching = across.smoothstep(0.3, 0.9).oneMinus().mul(shadow.select(hatch, 0));
-	return mix(fill, palette.ink, hatching.mul(0.55));
+	const across = pixel.x
+		.add(pixel.y)
+		.div(defaults.stageHatchSpacingPx)
+		.fract()
+		.sub(/* Exact arithmetic: center the normalized phase around zero. */ 0.5)
+		.abs()
+		.mul(defaults.stageHatchSpacingPx);
+	const hatching = across
+		.smoothstep(...defaults.stageHatchSoftEdgePx)
+		.oneMinus()
+		.mul(shadow.select(hatch, /* Exact arithmetic: zero omits hatching on lit faces. */ 0));
+	return mix(fill, palette.ink, hatching.mul(defaults.stageHatchInkShare));
 }
 
 export function readColors(css: CSSStyleDeclaration, document: Document) {
 	const pixel = document.createElement('canvas');
-	pixel.width = pixel.height = 1;
+	pixel.width = pixel.height = /* Exact arithmetic: the color probe needs one pixel. */ 1;
 	const context = pixel.getContext('2d', { willReadFrequently: true });
 	if (!context) throw new Error('Cannot resolve the stage CSS palette');
 	const colors = new Map<string, Color>();
 	return (token: string): Color => {
 		const cached = colors.get(token);
 		if (cached) return cached;
-		context.clearRect(0, 0, 1, 1);
+		context.clearRect(
+			/* Exact arithmetic: one-pixel origin. */ 0,
+			/* Exact arithmetic: one-pixel origin. */ 0,
+			/* Exact arithmetic: width of the color probe. */ 1,
+			/* Exact arithmetic: height of the color probe. */ 1
+		);
 		context.fillStyle =
 			css.getPropertyValue(token).trim() || css.getPropertyValue('--paper').trim();
-		context.fillRect(0, 0, 1, 1);
-		const [r, g, b] = context.getImageData(0, 0, 1, 1).data;
-		const color = new Color().setRGB(r / 255, g / 255, b / 255, SRGBColorSpace);
+		context.fillRect(
+			/* Exact arithmetic: one-pixel origin. */ 0,
+			/* Exact arithmetic: one-pixel origin. */ 0,
+			/* Exact arithmetic: width of the color probe. */ 1,
+			/* Exact arithmetic: height of the color probe. */ 1
+		);
+		const [r, g, b] = context.getImageData(
+			/* Exact arithmetic: one-pixel origin. */ 0,
+			/* Exact arithmetic: one-pixel origin. */ 0,
+			/* Exact arithmetic: width of the color probe. */ 1,
+			/* Exact arithmetic: height of the color probe. */ 1
+		).data;
+		const color = new Color().setRGB(
+			r / /* Exact arithmetic: maximum unsigned 8-bit channel value. */ 255,
+			g / /* Exact arithmetic: maximum unsigned 8-bit channel value. */ 255,
+			b / /* Exact arithmetic: maximum unsigned 8-bit channel value. */ 255,
+			SRGBColorSpace
+		);
 		colors.set(token, color);
 		return color;
 	};

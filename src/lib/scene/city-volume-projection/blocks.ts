@@ -7,7 +7,13 @@ import {
 	type DistrictKind
 } from '../../domain/city-volume';
 import { stockPencilShare } from '../focus';
-import { stockBoxFootingM, stockBoxInsetM, stockBoxMinShare } from './constants';
+import {
+	stockBoxFootingM,
+	stockBoxInsetM,
+	stockBoxMinShare,
+	stockInsetMinEdgeM,
+	stockStoreyTopToleranceM
+} from '../../../config/city-volume-projection';
 import { clockwise, mesh } from './mesh';
 
 /** Stock boxes of one district kind, plain or drawn in pencil. */
@@ -34,13 +40,13 @@ export function drawnInPencil(seed: number) {
 function insetRing(ring: readonly Vec2[]): Vec2[] {
 	const [cx, cy] = ring.reduce(
 		([x, y], [u, v]) => [x + u / ring.length, y + v / ring.length],
-		[0, 0]
+		/* Exact arithmetic: the sum of no coordinates starts at the origin. */ [0, 0]
 	);
 	let apothem = Infinity;
 	for (const [i, [ax, ay]] of ring.entries()) {
 		const [bx, by] = ring[(i + 1) % ring.length];
 		const length = Math.hypot(bx - ax, by - ay);
-		if (length > 1e-6)
+		if (length > stockInsetMinEdgeM)
 			apothem = Math.min(apothem, Math.abs((bx - ax) * (ay - cy) - (by - ay) * (ax - cx)) / length);
 	}
 	const scale = Math.max(stockBoxMinShare, 1 - stockBoxInsetM / apothem);
@@ -112,7 +118,7 @@ export function blockMeshes(
 			part.walls.push(ax, ay, bottom + stockBoxFootingM, ax, ay, top);
 			for (let level = Math.ceil((bottom - datumZ) / levelHeightM + 0.5); ; level++) {
 				const z = datumZ + level * levelHeightM;
-				if (z >= top - 1e-6) break;
+				if (z >= top - stockStoreyTopToleranceM) break;
 				part.storeys.push(ax, ay, z, bx, by, z);
 			}
 		}

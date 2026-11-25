@@ -87,6 +87,8 @@ A domain verb names an operation the table does not cover. Keep `validate`, `par
 
 Use `build` to realize a recipe or registered asset. A computed query can use the exact name of its result, such as `cellCenter`, `latticeVolumes`, or `cityWindow`. The naming check lists these names explicitly so each new noun has a reviewable entry. `required` is the core invariant assertion.
 
+PascalCase construction owners name the state or lifecycle they encapsulate. `Random` owns a continuing draw stream, `Valley` owns a solved catchment, `TerrainGrid` owns the carrier and its embedding, and `Stage` owns the renderer lifecycle. Their operations use the shared vocabulary, such as `Stage.create`. The public function check covers callable exports. These construction owners expose factory methods.
+
 - Put the subject first, followed by required inputs in dependency order and optional choices last. Ordered endpoints go from start to end, as in `distance(from, to)`.
 - Group independent optional choices in a trailing `Options` object. Factories with several named inputs take one object, as in `TerrainGrid.create({ seed, site, variant, heightAt })`.
 - Use `TypeError` for an input of the wrong shape, `RangeError` for an out-of-range value, and `Error` for a broken invariant. Document an empty result when absence is expected. `clipPolylineToSquare` returns `null` if no positive-length reach survives.

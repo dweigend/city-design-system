@@ -15,7 +15,7 @@ import { projectCityDistricts, projectCityTerrain } from '../../lib/scene/city-v
 import {
 	blockTriangleBudget,
 	faceAreaM2,
-	houseDetailOf,
+	readHouseDetail,
 	houseLevels,
 	houseMaterials,
 	projectCladHouse,
@@ -168,7 +168,7 @@ export function townSheet(
 ) {
 	const { groundAt, placement, toLocal } = town;
 	const { chosen, drawables } = town.context(scope);
-	const detail = houseDetailOf(setup.level);
+	const detail = readHouseDetail(setup.level);
 	const results = chosen.map((block, index) => {
 		const style = styleOf(setup, styles, index);
 		return { style, ...createTownBlockHouses(town, block, setup, houseStyles[style]) };

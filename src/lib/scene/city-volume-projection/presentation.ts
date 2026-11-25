@@ -20,7 +20,7 @@ import {
 	veilOverLattice,
 	type BodyLook,
 	type Stroke
-} from './constants';
+} from '../../../config/city-volume-projection';
 import type { CityDrawable } from './drawable';
 import { overlaySubsystems } from './focus';
 import { cityElevation, cityProfile } from './profile';
@@ -222,7 +222,10 @@ export function cityPresentation({
 		const frame: Frame = {
 			detail,
 			levelHeightM,
-			vertical: { pivot: 0, scale: detail.factor },
+			vertical: {
+				pivot: /* Exact arithmetic: scale elevations about the origin. */ 0,
+				scale: detail.factor
+			},
 			amount: taper * detail.taper
 		};
 		const drawables = [

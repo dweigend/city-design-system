@@ -1,9 +1,10 @@
+import { defaults } from '../../../config/city-volume-projection';
 import type { Vec2, Vec3 } from '../../core/geometry';
 import type { Shape } from '../../core/object';
 import type { ParcelPlan, PlanPolygon } from '../../domain/parcels';
 import { planOverlaySurfaces, type Drawable } from '../surface';
 import { createTerrainDrape } from '../terrain-grid-projection';
-import { planLineLiftM } from './constants';
+import { planLineLiftM } from '../../../config/city-volume-projection';
 import { mesh } from './mesh';
 import { appendParcelFill } from './parcel-fill';
 import { planOverlayIds } from './plan-water';
@@ -20,7 +21,7 @@ function projectParcelDrawables(
 	const main: number[] = [];
 	const parcels: number[] = [];
 	const outerLiftM = 2 * planLineLiftM;
-	const detailLiftM = 3 * planLineLiftM;
+	const detailLiftM = defaults.parcelDetailLiftRatio * planLineLiftM;
 
 	function stroke(buffer: number[], a: Vec2, b: Vec2, lift: number) {
 		const points = drape(a, b, lift);

@@ -1,3 +1,4 @@
+import { defaults } from '../../../config/valley-projection';
 import type { TerrainField } from '../surface';
 import type { ReachFrame } from './frame';
 import { sectionCuts } from './sections';
@@ -20,7 +21,8 @@ function section(
 	const regular = [-half, ...slopeSpacing(field, x, -half, half, count)];
 	const points: SectionPoint[] = [];
 	for (const y of regular) {
-		if (crossings.some(({ across }) => Math.abs(y - across) < 0.03)) continue;
+		if (crossings.some(({ across }) => Math.abs(y - across) < defaults.valleyBankCrossingMergeM))
+			continue;
 		const { height, water } = frame.sample(x, y);
 		const index = crossings.findIndex(({ across }) => across >= y);
 		const next = crossings[index];
@@ -31,12 +33,18 @@ function section(
 			points.push({
 				x,
 				y,
-				z: Math.min(height * scale, surface - 0.015 * scale),
+				z: Math.min(height * scale, surface - defaults.valleySubmergedGroundGapM * scale),
 				water: surface,
-				bankSide: 0
+				bankSide: /* Exact arithmetic: sample is not a bank endpoint. */ 0
 			});
 		} else {
-			points.push({ x, y, z: height * scale, water: water * scale, bankSide: 0 });
+			points.push({
+				x,
+				y,
+				z: height * scale,
+				water: water * scale,
+				bankSide: /* Exact arithmetic: sample is not a bank endpoint. */ 0
+			});
 		}
 	}
 	for (const { across, water, bank, bankSide } of crossings) {
@@ -71,7 +79,8 @@ function matchBanks(left: Row, right: Row) {
 	const anchors: [number, number][] = [];
 	const a = banks(left);
 	const b = banks(right);
-	const reach = 1.5 * (right[0].x - left[0].x) + 12;
+	const reach =
+		defaults.valleyJoinSpanFactor * (right[0].x - left[0].x) + defaults.valleyJoinSpanPaddingM;
 	let i = 0;
 	let j = 0;
 	while (i < a.length && j < b.length) {
@@ -132,12 +141,20 @@ function stations(
 	const step = frame.length / count;
 	const regular = Array.from({ length: count + 1 }, (_, i) => i * step - frame.length / 2);
 	const edgeCrossings = polygons.flatMap((polygon) =>
-		polygon.filter(([, y]) => Math.abs(Math.abs(y) - field.depth / 2) < 1e-7).map(([x]) => x)
+		polygon
+			.filter(
+				([, y]) => Math.abs(Math.abs(y) - field.depth / 2) < defaults.valleyBoundaryVertexToleranceM
+			)
+			.map(([x]) => x)
 	);
 	return [...regular, ...edgeCrossings]
 		.sort((a, b) => a - b)
 		.filter(
-			(x, i, xs) => i === 0 || i === xs.length - 1 || (x - xs[i - 1] > 0.15 && xs[i + 1] - x > 0.15)
+			(x, i, xs) =>
+				i === 0 ||
+				i === xs.length - 1 ||
+				(x - xs[i - 1] > defaults.valleyRowMergeSpacingM &&
+					xs[i + 1] - x > defaults.valleyRowMergeSpacingM)
 		);
 }
 
@@ -148,10 +165,22 @@ export function terrainMeshes(
 	water: Water,
 	budget: number
 ) {
-	const count = Math.max(32, Math.min(136, Math.ceil(field.width / 58)));
+	const count = Math.max(
+		defaults.valleyAcrossMinSegments,
+		Math.min(
+			defaults.valleyAcrossMaxSegments,
+			Math.ceil(field.width / defaults.valleyAcrossTargetStepM)
+		)
+	);
 	const lateral = Math.min(
-		75,
-		Math.max(26, Math.floor((budget - water.surface.indices.length / 3 - 3200) / (count * 2)) - 14)
+		defaults.valleyAlongMaxSegments,
+		Math.max(
+			defaults.valleyAlongMinSegments,
+			Math.floor(
+				(budget - water.surface.indices.length / 3 - defaults.valleyMeshReserveTriangles) /
+					(count * 2)
+			) - defaults.valleyAlongReserveRows
+		)
 	);
 	const rows = stations(frame, field, count, water.polygons).map((x) =>
 		section(frame, x, scale, field, lateral, water.polygons)
@@ -166,7 +195,7 @@ export function terrainMeshes(
 	for (const row of rows) for (const { z } of row) lowest = Math.min(lowest, z);
 	const parts = [
 		{ id: 'ground', slot: 'ground', shape: groundMesh(rows) },
-		{ id: 'earth', slot: 'earth', shape: skirt(sides, lowest - 7 * scale) }
+		{ id: 'earth', slot: 'earth', shape: skirt(sides, lowest - defaults.valleySkirtDepthM * scale) }
 	];
 	if (water.surface.indices.length)
 		parts.push({ id: 'river', slot: 'water', shape: water.surface });

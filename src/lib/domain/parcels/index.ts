@@ -5,18 +5,31 @@ import { laneAddress } from './reserve';
 import type { HoldingRule, LaneInput, ParcelLane, ParcelPlanInput } from './types';
 
 export type {
+	/** A realized parcel with stable corner keys and its implicitly closed CCW ring. */
 	AddressedParcel,
+	/** An entrance where a public court passage meets an addressed lane. */
 	CourtEntrance,
+	/** A corner address and its current XY position in meters. */
 	HoldingCorner,
+	/** Generic holding dimensions and operations, supplied by the caller per kind. */
 	HoldingRule,
+	/** The city's lane width and roles, assigned by the caller to one clipped edge. */
 	LaneInput,
+	/** Block merge candidates in preferred order, with the kind of each proposed larger holding. */
 	MergeProposal,
+	/** A connected holding with an implicitly closed CCW outline and a permanent frontage portal. */
 	Parcel,
+	/** One usable block with the original cell addresses and a counterclockwise plan boundary. */
 	ParcelBlock,
+	/** One immutable lane interval with permanent incident block addresses. */
 	ParcelLane,
+	/** A fixed carrier, reservation policy and holding program. */
 	ParcelPlanInput,
+	/** Contiguous contact between a parcel and the public side of an addressed lane. */
 	ParcelPortal,
+	/** Geometry tolerance in meters and the fixed and relative limits on block account rounding. */
 	ParcelTolerance,
+	/** A simple oriented outer ring and any clockwise holes, in horizontal meters. */
 	PlanPolygon
 } from './types';
 

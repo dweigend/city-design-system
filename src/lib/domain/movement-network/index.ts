@@ -5,10 +5,15 @@ import { shortest } from './route';
 
 import type { MovementEdge, MovementLink, MovementNetwork, MovementNode } from './types';
 export type {
+	/** A measured link with its complete centerline in meters. */
 	MovementEdge,
+	/** An undirected link with caller-defined kind and positive cost, oriented from its first end. */
 	MovementLink,
+	/** An indexed, undirected graph whose kinds carry caller-defined semantics. */
 	MovementNetwork,
+	/** IDs are nonempty, opaque, case-sensitive strings unique within a node or edge list. */
 	MovementNode,
+	/** A route in traversal order. */
 	MovementRoute
 } from './types';
 
@@ -121,9 +126,14 @@ export function createMovementNetwork<K extends string>(
 
 /** Single-edge access objects and their configured widths. */
 export {
+	/** Schemas for editable single-edge clear widths in meters. */
 	accessObjectParams,
+	/** Builds one supported stair with metric treads. */
 	createStairObject,
+	/** Rejects malformed XYZ points and bearings, and edges without an inclined run of positive horizontal length. */
 	validateStairEdge,
+	/** Builds one supported deck along its resolved edge, with an anchor at each end. */
 	createWalkwayObject,
+	/** Geometry required from a measured graph edge or a resolved plan edge. */
 	type AccessEdge
 } from './object';

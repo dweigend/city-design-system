@@ -82,7 +82,7 @@ const pencil: Surface = Object.freeze({
 		color: '--stock-line' as const,
 		width: pencilStroke.width,
 		opacity: pencilStroke.opacity,
-		hidden: 0
+		hidden: /* Exact arithmetic: zero suppresses hidden strokes. */ 0
 	}
 });
 

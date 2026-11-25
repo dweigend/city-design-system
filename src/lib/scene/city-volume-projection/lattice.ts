@@ -1,7 +1,11 @@
 import type { Vec2, Vec3 } from '../../core/geometry';
 import { required } from '../../core/invariant';
 import type { CityLattice, CityTaper } from '../../domain/city-volume';
-import { chordRiseMaxM, latticeJointRadiusM, uprightRunPerRise } from './constants';
+import {
+	chordRiseMaxM,
+	latticeJointRadiusM,
+	latticeUprightRunPerRise
+} from '../../../config/city-volume-projection';
 import { mesh } from './mesh';
 
 /** The drawing rank of a member: a chord on one level (by its rank, its face or a level run) is a
@@ -10,7 +14,7 @@ import { mesh } from './mesh';
 export function memberRank([ax, ay, az]: Vec3, [bx, by, bz]: Vec3, chord: boolean) {
 	const rise = Math.abs(bz - az);
 	if (chord || rise <= chordRiseMaxM) return 'rims';
-	return Math.hypot(bx - ax, by - ay) <= uprightRunPerRise * rise ? 'uprights' : 'detail';
+	return Math.hypot(bx - ax, by - ay) <= latticeUprightRunPerRise * rise ? 'uprights' : 'detail';
 }
 
 /** Joints and member wires of a lattice in local meters, by drawing rank, with the taper offset of
@@ -31,7 +35,8 @@ export function latticeMesh(
 		const joint = { point: [u, v, z] as Vec3, offset: [su - u, sv - v] as Vec2 };
 		positions.set(id, joint);
 		addNode(geometry, joint.point);
-		for (let i = 0; i < 6; i++) jointTaper.push(...joint.offset);
+		for (let i = 0; i < /* Exact arithmetic: four ring vertices and two tips. */ 6; i++)
+			jointTaper.push(...joint.offset);
 	}
 	const wires = { rims: [] as number[], uprights: [] as number[], detail: [] as number[] };
 	const offsets = { rims: [] as number[], uprights: [] as number[], detail: [] as number[] };
@@ -63,9 +68,16 @@ function addNode(nodes: ReturnType<typeof mesh>, [x, y, z]: Vec3) {
 	const radius = latticeJointRadiusM;
 	nodes.positions.push(x + radius, y, z, x, y + radius, z, x - radius, y, z, x, y - radius, z);
 	nodes.positions.push(x, y, z + radius, x, y, z - radius);
-	for (let i = 0; i < 4; i++) {
+	for (let i = 0; i < /* Exact arithmetic: four vertices around the joint equator. */ 4; i++) {
 		const a = index + i;
-		const b = index + ((i + 1) % 4);
-		nodes.indices.push(a, b, index + 4, b, a, index + 5);
+		const b = index + ((i + 1) % /* Exact arithmetic: wrap around the four ring vertices. */ 4);
+		nodes.indices.push(
+			a,
+			b,
+			index + /* Exact arithmetic: upper tip after the four ring vertices. */ 4,
+			b,
+			a,
+			index + /* Exact arithmetic: lower tip after the upper tip. */ 5
+		);
 	}
 }

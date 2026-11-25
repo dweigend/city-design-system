@@ -1,6 +1,6 @@
 import { createCellSpace, parcelEdgeId } from '../../domain/cell-space';
 import { createHouseCourt, createHouseObject } from '../../domain/house-court';
-import { houseDetailOf, projectHouse } from './index';
+import { readHouseDetail, projectHouse } from './index';
 
 // A hexagonal corner plot drawn in pencil, as stock beside a focused subject.
 export function example() {
@@ -16,5 +16,5 @@ export function example() {
 		storeyCount: 6
 	});
 	const house = createHouseCourt(space, { height: 10.5, width: 12, complexity: 0.4, seed: 11 });
-	return projectHouse(createHouseObject(space, house, houseDetailOf('pencil')), 'pencil');
+	return projectHouse(createHouseObject(space, house, readHouseDetail('pencil')), 'pencil');
 }

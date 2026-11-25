@@ -8,9 +8,17 @@ test('discovers public names, aliases, the fixed caller, config ownership and kn
 		{
 			'src/lib/core/marker/index.ts': [
 				'/** Module: Places a survey marker. */',
-				"export { Survey as Marker, type Point } from './marker';",
+				'export {',
+				'  /** Marks the measured position. */ Survey as Marker,',
+				'  /** Local XY coordinates in meters. */ type Point',
+				"} from './marker';",
+				'/** Survey marker label. */',
 				'export interface Label { name: string }',
-				'export const roles = [], names = [];',
+				'/** Registered marker roles. */',
+				'export const roles = [];',
+				'/** Names of sample markers. */',
+				'export const { names } = examples;',
+				'/** Creates a sample marker. */',
 				'export function create(): void;',
 				'export function create() {}'
 			].join('\n'),
@@ -27,6 +35,14 @@ test('discovers public names, aliases, the fixed caller, config ownership and kn
 		module: 'core/marker',
 		purpose: 'Places a survey marker.',
 		exports: ['Marker', 'Point', 'Label', 'roles', 'names', 'create'],
+		exportDocumentation: {
+			Marker: 'Marks the measured position.',
+			Point: 'Local XY coordinates in meters.',
+			Label: 'Survey marker label.',
+			roles: 'Registered marker roles.',
+			names: 'Names of sample markers.',
+			create: 'Creates a sample marker.'
+		},
 		example: 'src/lib/core/marker/example.ts',
 		exampleCall: 'example',
 		exampleDemo: null,
@@ -47,7 +63,11 @@ test('reports missing purpose, missing example and example without a caller', ()
 		new Set()
 	);
 	expect(rows.map(({ errors }) => errors)).toEqual([
-		['Missing module purpose in index.ts', 'Missing example.ts'],
+		[
+			'Missing module purpose in index.ts',
+			'Missing example.ts',
+			'Missing export documentation for marker'
+		],
 		['Missing example caller']
 	]);
 });
@@ -55,7 +75,9 @@ test('reports missing purpose, missing example and example without a caller', ()
 test('rejects whitespace purposes and examples whose result bypasses their public entry', () => {
 	const entry = 'src/lib/core/marker/index.ts';
 	const example = 'src/lib/core/marker/example.ts';
-	const sources = { [entry]: '/** Module:    */\nexport function create() { return 1; }' };
+	const sources = {
+		[entry]: '/** Module:    */\n/** Creates a marker. */\nexport function create() { return 1; }'
+	};
 	for (const body of [
 		'export const example = () => 1;',
 		"import { create } from './index'; export function example() { create(); return 1; }",

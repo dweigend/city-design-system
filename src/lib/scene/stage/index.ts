@@ -1,4 +1,5 @@
 /** Module: Renders drawables with WebGPU in shared camera views. */
+import { defaults } from '../../../config/stage';
 import type { Vec2, Vec3 } from '../../core/geometry';
 import { OrthographicCamera, Scene } from 'three/webgpu';
 import type { Drawable } from '../surface';
@@ -19,15 +20,29 @@ import { stageState } from './state';
 import { drawingPalette } from './tone';
 
 /** Camera projections for the same geometry. */
-export type { View, ViewFit } from './camera';
-/** Shadows fall along a horizontal unit direction, `shadowReach` metres per metre of height. */
-export { shadowDirection, shadowReach } from './tone';
+export type {
+	/** Named camera projections of the same stage geometry. */
+	View,
+	/** Optional orthographic fit with radian angles, a fill fraction, and positive relative zoom. */
+	ViewFit
+} from './camera';
+export {
+	/** Unit direction of cast shadows in world XY. */
+	shadowDirection,
+	/** Horizontal shadow distance in meters per meter of object height. */
+	shadowReach
+} from './tone';
 /** Direction of the stage light for surface recipes. */
 export { surfaceLight } from './tone';
 /** Measures a subject in the plane of a fitted view. */
 export { projectFocus } from './camera';
 /** Connects pointer and keyboard navigation to camera framing. */
-export { stageNavigation, type ZoomLimits } from './navigation';
+export {
+	/** Pointer and keyboard navigation. */
+	stageNavigation,
+	/** Positive, finite relative zoom bounds, inclusive. */
+	type ZoomLimits
+} from './navigation';
 /** Triangulates a box, prism or mesh shape into flat positions and triangle indices. */
 export { shapeArrays } from './geometry';
 /** Horizontal framing in world meters and CSS pixels, independent of device pixel ratio. */
@@ -63,7 +78,12 @@ async function create({
 	scene.add(content.group);
 	let aspect = 1;
 	let widthPx = 1;
-	let viewport: Viewport = { width: 1, metersPerPixel: 1, center: [0, 0, 0] };
+	let viewport: Viewport =
+		/* Exact arithmetic: the initial viewport is one unit wide and centered at the origin. */ {
+			width: 1,
+			metersPerPixel: 1,
+			center: [0, 0, 0]
+		};
 	let present: Presentation | undefined;
 	let presentAt: Viewport | undefined;
 	let presented: readonly Drawable[] | undefined;
@@ -150,7 +170,7 @@ async function create({
 					stageDisplay: display,
 					stageTheme: dark ? 'dark' : 'light',
 					stageWidth: String(width),
-					stageFrameCpuMs: (performance.now() - start).toFixed(2)
+					stageFrameCpuMs: (performance.now() - start).toFixed(defaults.stageTimingDigits)
 				});
 			} finally {
 				gpu.stop();
@@ -174,7 +194,10 @@ async function create({
 			presentAt = undefined;
 			presented = undefined;
 			const builds = content.show(drawables);
-			if (builds) canvas.dataset.stageMeshMs = (performance.now() - start).toFixed(2);
+			if (builds)
+				canvas.dataset.stageMeshMs = (performance.now() - start).toFixed(
+					defaults.stageTimingDigits
+				);
 			state.show(drawables, builds);
 			draw();
 		},
@@ -246,7 +269,11 @@ async function create({
 			const height = Math.max(1, Math.round(heightPx));
 			widthPx = width;
 			aspect = width / height;
-			renderer.setDrawingBufferSize(width, height, Math.min(devicePixelRatio, 2));
+			renderer.setDrawingBufferSize(
+				width,
+				height,
+				Math.min(devicePixelRatio, defaults.stageMaxPixelRatio)
+			);
 			draw();
 		},
 		/** Returns a detached observation. Geometry builds are cumulative per drawable. */

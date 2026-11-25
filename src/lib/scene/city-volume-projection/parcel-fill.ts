@@ -3,7 +3,7 @@ import { ShapeUtils, Vector2 } from 'three/webgpu';
 import type { Vec2 } from '../../core/geometry';
 import type { PlanPolygon } from '../../domain/parcels';
 import type { createTerrainDrape } from '../terrain-grid-projection';
-import { overlayClipPrecisionDigits } from './constants';
+import { overlayClipPrecisionDigits } from '../../../config/city-volume-projection';
 import type { mesh } from './mesh';
 
 export function appendParcelFill(

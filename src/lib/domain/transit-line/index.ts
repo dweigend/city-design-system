@@ -6,15 +6,25 @@ import { railStations } from './stations';
 import type { StraightLevelRailSurvey, TransitLine } from './types';
 
 export type {
+	/** Candidate dry ground anchor with a caller-defined plan address. */
 	RailAnchor,
+	/** An approach preference at one site. */
 	RailCatchment,
+	/** Numeric constraints can override the defaults. */
 	RailConstraints,
+	/** Ordered endpoints of a candidate straight corridor, in world XY meters. */
 	RailCorridor,
+	/** Ground survey at one XY point, with the top of water or terrain and signed dry clearance. */
 	RailGround,
+	/** Horizontal outline of an obstruction and its upper elevation. */
 	RailObstacle,
+	/** A bearing on the guideway and its dry ground foundation. */
 	RailPier,
+	/** A station identified by its catchment ID and docked toward an approach address. */
 	RailStation,
+	/** Survey inputs and preferences. */
 	StraightLevelRailSurvey,
+	/** A level guideway with two endpoints, foundations and optional station sites. */
 	TransitLine
 } from './types';
 
@@ -85,9 +95,14 @@ function levelLine(
 
 /** Single-pier and station objects used by the rail projection and placement registry. */
 export {
+	/** Builds a rail pier between the supplied base and bearing, including any offset crosshead. */
 	createRailPierObject,
+	/** Builds a platform, paired shelters and their posts along a horizontal track direction. */
 	createStationPlatformObject,
+	/** Thickness of the guideway slab and its crossheads in meters. */
 	railDeckThicknessM,
+	/** Returns the length of a finite, nonzero XY track direction in meters. */
 	trackDirectionLength,
+	/** Schemas for editable pier radius and platform width in meters. */
 	transitObjectParams
 } from './objects';

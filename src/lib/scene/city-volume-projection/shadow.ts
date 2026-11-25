@@ -1,6 +1,6 @@
 import type { Vec2, Vec3 } from '../../core/geometry';
 import { shadowDirection, shadowReach } from '../stage';
-import { contactShadeReachPerM } from './constants';
+import { contactShadeReachPerM } from '../../../config/city-volume-projection';
 import { mesh } from './mesh';
 
 /** Ground shade per metre of height: a short dark contact band and the stage's longer cast shadow. */
@@ -44,7 +44,10 @@ export function shadowMesh(
 			const length = (top - point[2]) * reach;
 			const offset: Vec2 = [sx * length, sy * length];
 			return [
-				{ point, reach: [0, 0] },
+				{
+					point,
+					reach: /* Exact arithmetic: the base edge has no projected displacement. */ [0, 0]
+				},
 				{ point: [point[0] + offset[0], point[1] + offset[1], point[2]], reach: offset }
 			];
 		});

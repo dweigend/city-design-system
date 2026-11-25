@@ -5,7 +5,14 @@ import { distance, pointAt, polylineLength } from './polyline';
 /** Validates and measures the length of an interleaved XY polyline in meters. */
 export { polylineLength } from './polyline';
 /** Reads XY points and computes their Euclidean distance in the input unit. */
-export { distance, pointAt, type Point } from './polyline';
+export {
+	/** Returns Euclidean distance in the points’ linear unit. */
+	distance,
+	/** Reads one XY pair at its flat index. */
+	pointAt,
+	/** A point in the packed polyline's XY coordinate units. */
+	type Point
+} from './polyline';
 
 /** One detached clipped polyline in meters and its border contact count. */
 export type ClippedReach = Readonly<{

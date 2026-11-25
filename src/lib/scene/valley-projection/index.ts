@@ -1,4 +1,5 @@
 /** Module: Projects terrain and water for a metric valley window. */
+import { defaults } from '../../../config/valley-projection';
 import { required } from '../../core/invariant';
 import { PlaceableObject, type Shape } from '../../core/object';
 import type { Valley } from '../../domain/valley';
@@ -11,20 +12,32 @@ import { waterSurface } from './water';
 import { tributaryStrokes } from './tributaries';
 
 /** Maximum triangle count including ground, water and the cut earth sides. */
-export const valleyTriangleBudget = 36_000;
+export const { valleyTriangleBudget } = defaults;
 
-const stripWidth = 4000;
+const stripWidth = defaults.valleyStripWidthM;
 
-const lowlandScale = 14;
-const tributaryWidthPx = 2.2;
-const contourSteps = [1, 2.5, 5, 10] as const;
+const lowlandScale = defaults.valleyLowlandScale;
+const tributaryWidthPx = defaults.valleyTributaryStrokePx;
+const contourSteps = defaults.valleyContourStepsM;
 
 function visualScale(relief: number) {
-	return Math.min(lowlandScale, Math.round(10 * lowlandScale * Math.sqrt(38 / relief)) / 10);
+	return Math.min(
+		lowlandScale,
+		Math.round(
+			defaults.valleyScaleStepsPerUnit *
+				lowlandScale *
+				Math.sqrt(defaults.valleyScaleReferenceReliefM / relief)
+		) / defaults.valleyScaleStepsPerUnit
+	);
 }
 
 function contourScale(relief: number) {
-	return contourSteps.find((step) => step * 2 * 75 >= relief) ?? 10;
+	return (
+		contourSteps.find(
+			(step) =>
+				step * defaults.valleyContourFieldStride * defaults.valleyContourFieldLimit >= relief
+		) ?? contourSteps[contourSteps.length - 1]
+	);
 }
 
 /** Projects the river from the 8 km measurement window as a 4 km wide strip in the
@@ -75,7 +88,11 @@ function traceTributaries(
 	return strokeSegments.length
 		? {
 				strokeSegments: Object.freeze(strokeSegments),
-				stroke: { color: landscape.water.color, width: tributaryWidthPx, opacity: 1 }
+				stroke: {
+					color: landscape.water.color,
+					width: tributaryWidthPx,
+					opacity: /* Exact arithmetic: unit opacity makes these strokes fully opaque. */ 1
+				}
 			}
 		: undefined;
 }
@@ -93,7 +110,12 @@ function project(
 	if (!Number.isFinite(heightScale) || heightScale <= 0)
 		throw new RangeError('Height scale must be finite and positive');
 	const contourStep = contourScale(relief);
-	for (let i = 0; i < field.samples.length; i += 4) field.samples[i] /= contourStep;
+	for (
+		let i = 0;
+		i < field.samples.length;
+		i += /* Exact arithmetic: four channels per terrain texel. */ 4
+	)
+		field.samples[i] /= contourStep;
 	const water = waterSurface(valley, frame, width, heightScale);
 	const parts = terrainMeshes(frame, heightScale, field, water, valleyTriangleBudget);
 	const traces = drawTributaries

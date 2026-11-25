@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { defaults } from '../../../config/slider';
 	import { Slider as Primitive } from 'bits-ui';
 
 	interface Props {
@@ -17,7 +18,10 @@
 	}
 
 	const id = $props.id();
-	const readValue = new Intl.NumberFormat('en', { maximumFractionDigits: 6, useGrouping: false });
+	const readValue = new Intl.NumberFormat('en', {
+		maximumFractionDigits: defaults.sliderValueFractionDigits,
+		useGrouping: false
+	});
 	let { label, min, max, step, value = $bindable(), onCommit }: Props = $props();
 </script>
 
@@ -38,7 +42,11 @@
 			{#each tickItems as tick (tick.index)}
 				<Primitive.Tick class="control-slider-tick" index={tick.index} />
 			{/each}
-			<Primitive.Thumb class="control-slider-thumb" aria-labelledby={id} index={0}>
+			<Primitive.Thumb
+				class="control-slider-thumb"
+				aria-labelledby={id}
+				index={/* Exact arithmetic: the only slider thumb is first. */ 0}
+			>
 				<span class="tag" aria-hidden="true">{readValue.format(value)}</span>
 			</Primitive.Thumb>
 		{/snippet}

@@ -18,20 +18,45 @@ import { createLattice, type LatticeVariant } from './lattices';
 export { cityVolumeConfig } from '../../../config/city-volume';
 
 /** Ranks dry ground by distance, corridors, grade and water clearance. */
-export { cityAccessibility, type CityApproachPolicy } from './accessibility';
+export {
+	/** Ranks ground from independently drawn approaches. */
+	cityAccessibility,
+	/** Determines which ground an approach may traverse. */
+	type CityApproachPolicy
+} from './accessibility';
 /** Column roof elevation, default level spacing and storeys per structural level. */
 export {
+	/** Reads the horizontal roof elevation in world meters on the specified plane grid. */
 	columnRoof,
+	/** Default spacing of common upper level planes, in meters. */
 	levelHeight,
+	/** The index of a point on the common level grid. */
 	planeIndex as readLevelIndex,
+	/** Default number of fine storeys per structural level. */
 	storeysPerLevel
 } from './foundation';
 /** Produces a nested city footprint from the accessibility of plan cells. */
-export { cityGrowth, cityGrowthDefaults, type CityGrowthPolicy } from './footprint';
+export {
+	/** Orders growth by access. */
+	cityGrowth,
+	/** Publication thresholds for the default city. */
+	cityGrowthDefaults,
+	/** Area needed to publish a new region and the maximum number of regions allowed to start. */
+	type CityGrowthPolicy
+} from './footprint';
 
 /** Settlement thresholds, fixed district levels, neighbor step limit and the
  * peak law, with their units and reasons. */
-export { districtLevels, maximumLevelStep, peakLaw, settlementThresholds } from './settlement';
+export {
+	/** Default structural levels for fixed-height districts sharing an eaves line. */
+	districtLevels,
+	/** Maximum rise between neighboring columns in structural levels. */
+	maximumLevelStep,
+	/** Peak levels at the city threshold and at the largest valley city, and that city's area. */
+	peakLaw,
+	/** Built-up area in km² at which a settlement becomes a town or a city. */
+	settlementThresholds
+} from './settlement';
 
 /** Village, town or city, decided by built-up area. */
 export type { SettlementKind } from './settlement';
@@ -73,30 +98,71 @@ export { prismVariants } from './frame';
 /** Horizontal meters a tapered corner moves per level above its lowest neighbor. */
 export { taperStep } from './taper';
 /** The continuous retreat or overhang of the city volume, read at any plan address and height. */
-export { createCityTaper, type CityTaper } from './taper';
+export {
+	/** Builds a field of horizontal retreat or overhang in world meters. */
+	createCityTaper,
+	/** The taper field of one city volume. */
+	type CityTaper
+} from './taper';
 
 /** One closed volume cell of a lattice, owned by one bay, with faces wound outward. */
-export { solidEdgeFaults, type LatticeSolid } from './solid';
+export {
+	/** Counts solid edges incident to more than two faces and edges with inconsistent winding. */
+	solidEdgeFaults,
+	/** One closed volume cell of a lattice. */
+	type LatticeSolid
+} from './solid';
 
 /** All structural lattice models, in display order. */
 export { latticeVariants } from './lattices';
 
 /** Stable district identity, current density region and height of a plan cell, and the ranked growth data. */
-export type { DistrictKind, DistrictCell, DistrictGrowth } from './districts';
+export type {
+	/** Density class of a district cell from detached housing to the high-rise center. */
+	DistrictKind,
+	/** District and density region IDs, building kind, and target level count of one plan cell. */
+	DistrictCell,
+	/** Ranked plan cell IDs and the reserved fringe for later expansion. */
+	DistrictGrowth
+} from './districts';
 
 /** Canonical bay, face, and corner addresses. */
-export type { LatticeBay, BayFace, LatticePoint } from './bay-addresses';
+export type {
+	/** A coarse cell and its boundary in counterclockwise plan order. */
+	LatticeBay,
+	/** A canonical bay face. */
+	BayFace,
+	/** A stable lattice point with an XYZ position in meters and optional ground contact. */
+	LatticePoint
+} from './bay-addresses';
 /** Logical child cell, face, and edge addresses for a bisected bay. */
-export { subdivideBay, type ChildBay, type ChildBayFace } from './subdivision';
+export {
+	/** Splits the plan into one kite per corner, then halves each kite vertically. */
+	subdivideBay,
+	/** A child bay and its six face loops of logical point IDs. */
+	type ChildBay,
+	/** A child face with an undirected address, a point loop and undirected edge addresses. */
+	type ChildBayFace
+} from './subdivision';
 
 /** Lattice model name, and the resulting canonical bays, faces, joints, members and solids. */
-export type { LatticeVariant, CityLattice };
+export type {
+	/** Registered lattice construction variant. */
+	LatticeVariant,
+	/** Canonical bays, faces, joints, members, and solids of a lattice in world meters. */
+	CityLattice
+};
 
 /** One column per plan cell, carrying district identity and terrain corners in world meters. */
 export type CityColumn = StructuralColumn & DistrictCell;
 
 /** Validates and detaches columns from caller-owned topology. */
-export { createStructuralColumns, type StructuralColumn } from './columns';
+export {
+	/** Returns validated columns in input order with immutable structural data. */
+	createStructuralColumns,
+	/** One plan cell's keyed terrain ring, neighboring cells and nominal level count. */
+	type StructuralColumn
+} from './columns';
 
 function requireBuildableGrid(plan: TerrainGrid) {
 	if (plan.cells.some(({ groundKind }) => groundKind !== undefined && groundKind !== 'dry'))
@@ -210,4 +276,9 @@ export function createCityLattice(
 }
 
 /** Reads or builds one addressed bay using its canonical solid faces and members. */
-export { createLatticeBayObject, readLatticeBay } from './bay-object';
+export {
+	/** Builds one addressed bay with canonical solid faces, member profiles and joint anchors. */
+	createLatticeBayObject,
+	/** Reads the owned solids, addressed joints and member connections of one lattice bay. */
+	readLatticeBay
+} from './bay-object';

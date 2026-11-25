@@ -1,3 +1,4 @@
+import { defaults } from '../../../config/stage';
 import {
 	Box3,
 	BufferGeometry,
@@ -30,7 +31,7 @@ export type StrokeSource =
 
 export function renderOrder(drawable: Drawable) {
 	if (drawable.finish === 'shadow') return 1;
-	return drawable.strokeSegments ? 4 : 0;
+	return drawable.strokeSegments ? defaults.stageExplicitFillOrder : 0;
 }
 
 function partsEdges(drawable: Drawable, { positions, indices }: ReturnType<typeof shapeArrays>) {
@@ -101,7 +102,13 @@ export function segmentData(geometry: LineSegmentsGeometry) {
 
 function plainGeometry(arrays: ReturnType<typeof shapeArrays>, smooth: boolean) {
 	const indexed = new BufferGeometry()
-		.setAttribute('position', new Float32BufferAttribute(arrays.positions, 3))
+		.setAttribute(
+			'position',
+			new Float32BufferAttribute(
+				arrays.positions,
+				/* Exact arithmetic: XYZ components per vertex. */ 3
+			)
+		)
 		.setIndex([...arrays.indices]);
 	const fill = smooth ? indexed : indexed.toNonIndexed();
 	fill.computeVertexNormals();
@@ -128,7 +135,13 @@ function separateFill(
 			: arrays.indices.flatMap((i) => [warp.fill[2 * i], warp.fill[2 * i + 1]]);
 		warpTargets.push({ array, base: array.slice(), offsets });
 	}
-	return { mesh, drawing, warpTargets, warpAmount: 0, veil: undefined as Mesh | undefined };
+	return {
+		mesh,
+		drawing,
+		warpTargets,
+		warpAmount: /* Exact arithmetic: initially no warp has been applied. */ 0,
+		veil: undefined as Mesh | undefined
+	};
 }
 
 function separateStrokes(
@@ -164,7 +177,9 @@ function separateStrokes(
 				});
 		return painters.map(({ material, recede, owned, shared }, index) => {
 			const line = new LineSegments2(geometry, material);
-			line.renderOrder = explicit ? 5 : 2 + index;
+			line.renderOrder = explicit
+				? defaults.stageExplicitStrokeOrder
+				: defaults.stageDerivedStrokeBaseOrder + index;
 			return {
 				line,
 				kind,
@@ -222,7 +237,7 @@ function warpNormals(
 ) {
 	const [a, b, c] = [new Vector3(), new Vector3(), new Vector3()];
 	function moveVertex(point: Vector3, vertex: number) {
-		const i = vertex * 3;
+		const i = vertex * /* Exact arithmetic: XYZ components per vertex. */ 3;
 		point.set(
 			positions[i] + amount * offsets[vertex * 2],
 			positions[i + 1] + amount * offsets[vertex * 2 + 1],
@@ -239,7 +254,12 @@ function warpNormals(
 			moveVertex(b, triangles[i + 1]);
 			moveVertex(c, triangles[i + 2]);
 			b.sub(a).cross(c.sub(a)).normalize();
-			attribute.setXYZ(i / 3, b.x, b.y, b.z);
+			attribute.setXYZ(
+				i / /* Exact arithmetic: convert a packed XYZ offset to a vertex index. */ 3,
+				b.x,
+				b.y,
+				b.z
+			);
 		}
 		attribute.needsUpdate = true;
 	}
@@ -251,7 +271,7 @@ export function warpPart({ fill, drawable, bounds, individual, warpPositions }: 
 	fill.warpAmount = amount;
 	for (const { array, base, offsets } of fill.warpTargets) {
 		for (let point = 0; point < offsets.length / 2; point++) {
-			const i = point * 3;
+			const i = point * /* Exact arithmetic: XYZ components per point. */ 3;
 			array[i] = base[i] + amount * offsets[2 * point];
 			array[i + 1] = base[i + 1] + amount * offsets[2 * point + 1];
 		}
@@ -317,7 +337,7 @@ export function styleIndividual(
 		mesh.position.z = look.offset;
 		if (look.veil && !fill.veil) {
 			fill.veil = new Mesh(mesh.geometry, veilMaterial);
-			fill.veil.renderOrder = 6;
+			fill.veil.renderOrder = defaults.stageVeilOrder;
 			mesh.add(fill.veil);
 		} else if (!look.veil && fill.veil) {
 			mesh.remove(fill.veil);
@@ -331,7 +351,7 @@ export function styleIndividual(
 		if (recede) {
 			line.material.color.copy(look.strokeColor);
 			line.material.opacity = look.strokeOpacity * (hidden ? look.hidden : 1);
-			line.material.linewidth = look.width * (hidden ? 0.75 : 1);
+			line.material.linewidth = look.width * (hidden ? defaults.stageHiddenStrokeWidthRatio : 1);
 			recede.value = look.recede;
 		}
 		line.visible = look.visible && line.material.opacity > 0;

@@ -1,10 +1,11 @@
+import { defaults } from '../../../config/city-volume-projection';
 import type { Shape } from '../../core/object';
 import type { Vec3 } from '../../core/geometry';
 
 type Triangle = [number, number, number];
 type Mesh = Extract<Shape, { kind: 'mesh' }>;
 
-const barycentricTolerance = 1e-9;
+const barycentricTolerance = defaults.cityAnchorBarycentricTolerance;
 
 function triangleWeights(positions: readonly number[], [a, b, c]: Triangle, x: number, y: number) {
 	const ux = positions[3 * b] - positions[3 * a];
@@ -21,7 +22,7 @@ function triangleWeights(positions: readonly number[], [a, b, c]: Triangle, x: n
 	if (weights.every((weight) => weight >= -barycentricTolerance)) return weights;
 }
 
-const bucketM = 50;
+const bucketM = defaults.cityAnchorBucketM;
 
 function* buckets(positions: readonly number[], triangle: Triangle) {
 	const xs = triangle.map((i) => Math.floor(positions[3 * i] / bucketM));

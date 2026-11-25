@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { defaults } from '../../../config/popover';
 	import { Popover as Primitive } from 'bits-ui';
 	import type { Snippet } from 'svelte';
 	import { Icon } from '../icon';
@@ -24,8 +25,8 @@
 		<Primitive.Content
 			class="control-popup control-popover"
 			align="start"
-			sideOffset={4}
-			collisionPadding={16}
+			sideOffset={defaults.popoverOffsetPx}
+			collisionPadding={defaults.popoverCollisionPaddingPx}
 			role="dialog"
 			aria-label={label}
 		>

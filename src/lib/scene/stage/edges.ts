@@ -1,3 +1,4 @@
+import { defaults } from '../../../config/stage';
 import type { Bounds3 } from '../../core/geometry';
 import {
 	GreaterDepth,
@@ -30,8 +31,13 @@ type Edge = {
 	backTriangle?: readonly number[];
 };
 type EdgeFaces = { fronts: number[]; backs: number[] };
-const weldPerMeter = 10_000;
-const creaseDot = Math.cos(Math.PI / 180);
+const xyzComponents = /* Exact arithmetic: XYZ components per vertex. */ 3;
+const triangleVertices = /* Exact arithmetic: vertices per triangle. */ 3;
+const planNormal = /* Exact arithmetic: a plan edge has an upward unit normal. */ [
+	0, 0, 1
+] as const;
+const weldPerMeter = defaults.stageEdgeWeldPerM;
+const creaseDot = Math.cos(defaults.stageCreaseAngleRad);
 
 export function creases(
 	positions: readonly number[],
@@ -43,8 +49,10 @@ export function creases(
 	const limit = creaseAngleRad === undefined ? creaseDot : Math.cos(creaseAngleRad);
 	const edges = new Map<string, Edge>();
 	for (let i = 0; i < indices.length; i += 3) {
-		const triangle = indices.slice(i, i + 3);
-		const points = triangle.map((index) => new Vector3().fromArray(positions, index * 3));
+		const triangle = indices.slice(i, i + triangleVertices);
+		const points = triangle.map((index) =>
+			new Vector3().fromArray(positions, index * xyzComponents)
+		);
 		const [a, b, c] = points;
 		const front = b.clone().sub(a).cross(c.clone().sub(a)).normalize();
 		if (!front.lengthSq()) continue;
@@ -54,8 +62,8 @@ export function creases(
 				.map((x) => Math.round(x * weldPerMeter))
 				.join(',')
 		);
-		for (let j = 0; j < 3; j += 1) {
-			const next = (j + 1) % 3;
+		for (let j = 0; j < triangleVertices; j += 1) {
+			const next = (j + 1) % triangleVertices;
 			const key = [keys[j], keys[next]].sort().join('/');
 			const edge = edges.get(key);
 			if (edge) {
@@ -79,8 +87,8 @@ export function creases(
 	for (const { start, end, front, back, frontTriangle, backTriangle } of edges.values()) {
 		if (back && front.dot(back) > limit) continue;
 		segments.push(
-			...positions.slice(start * 3, start * 3 + 3),
-			...positions.slice(end * 3, end * 3 + 3)
+			...positions.slice(start * xyzComponents, start * xyzComponents + xyzComponents),
+			...positions.slice(end * xyzComponents, end * xyzComponents + xyzComponents)
 		);
 		vertices?.push(start, end);
 		fronts.push(...front.toArray());
@@ -104,8 +112,14 @@ export type Edges = {
 export function lineGeometry({ segments, fronts, backs }: Edges) {
 	const geometry = new LineSegmentsGeometry().setPositions(segments);
 	if (fronts.length) {
-		geometry.setAttribute('edgeFront', new InstancedBufferAttribute(new Float32Array(fronts), 3));
-		geometry.setAttribute('edgeBack', new InstancedBufferAttribute(new Float32Array(backs), 3));
+		geometry.setAttribute(
+			'edgeFront',
+			new InstancedBufferAttribute(new Float32Array(fronts), xyzComponents)
+		);
+		geometry.setAttribute(
+			'edgeBack',
+			new InstancedBufferAttribute(new Float32Array(backs), xyzComponents)
+		);
 	}
 	return geometry;
 }
@@ -122,9 +136,9 @@ function weldVertices(positions: readonly number[]) {
 	const keys = new Map<string, number>();
 	const welded = new Array<number>(positions.length / 3);
 	for (let i = 0; i < welded.length; i++) {
-		const base = i * 3;
+		const base = i * xyzComponents;
 		const key = positions
-			.slice(base, base + 3)
+			.slice(base, base + xyzComponents)
 			.map((value) => Math.round(value * weldPerMeter))
 			.join(',');
 		const existing = keys.get(key);
@@ -141,9 +155,9 @@ function edgeKey(a: number, b: number, vertexCount: number) {
 function openEdges(indices: readonly number[], vertexCount: number) {
 	const edges = new Set<number>();
 	for (let i = 0; i < indices.length; i += 3) {
-		for (let side = 0; side < 3; side++) {
+		for (let side = 0; side < triangleVertices; side++) {
 			const a = indices[i + side];
-			const b = indices[i + ((side + 1) % 3)];
+			const b = indices[i + ((side + 1) % triangleVertices)];
 			if (a === b) continue;
 			const key = edgeKey(a, b, vertexCount);
 			if (!edges.delete(key)) edges.add(key);
@@ -171,8 +185,11 @@ export function boundaries(
 		const segment = edgeKey(a, b, welded.length);
 		if (a === b || drawn.has(segment)) continue;
 		drawn.add(segment);
-		segments.push(...positions.slice(a * 3, a * 3 + 3), ...positions.slice(b * 3, b * 3 + 3));
-		normals.push(0, 0, 1);
+		segments.push(
+			...positions.slice(a * xyzComponents, a * xyzComponents + xyzComponents),
+			...positions.slice(b * xyzComponents, b * xyzComponents + xyzComponents)
+		);
+		normals.push(...planNormal);
 		vertices?.push(a, b);
 	}
 	return { segments, fronts: normals, backs: normals, vertices };
@@ -180,33 +197,53 @@ export function boundaries(
 
 export function strokeMaterials(landscape = false) {
 	const eye = uniform(new Vector3());
-	const front = attribute('edgeFront', 'vec3').dot(eye).greaterThan(1e-5);
-	const back = attribute('edgeBack', 'vec3').dot(eye).greaterThan(1e-5);
+	const front = attribute('edgeFront', 'vec3')
+		.dot(eye)
+		.greaterThan(defaults.stageEdgeFacingTolerance);
+	const back = attribute('edgeBack', 'vec3')
+		.dot(eye)
+		.greaterThan(defaults.stageEdgeFacingTolerance);
 	const silhouette = front.and(back.not()).or(back.and(front.not()));
 	const options = { depthWrite: false, transparent: true };
-	const pencilBias = landscape ? { polygonOffset: true, polygonOffsetUnits: -96 } : {};
-	const outer = new Line2NodeMaterial({ ...options, linewidth: 1.4 });
+	const pencilBias = landscape
+		? { polygonOffset: true, polygonOffsetUnits: defaults.stageTerrainPencilDepthBias }
+		: {};
+	const outer = new Line2NodeMaterial({ ...options, linewidth: defaults.stageOuterStrokePx });
 	const crease = new Line2NodeMaterial({
 		...options,
 		...pencilBias,
-		linewidth: landscape ? 1.35 : 0.75
+		linewidth: landscape
+			? defaults.stageLandscapeCreaseStrokePx
+			: defaults.stageObjectCreaseStrokePx
 	});
 	const gridDepth = {
 		// The screen-space ribbon extends beyond the terrain-draped centerline.
 		polygonOffset: true,
-		polygonOffsetFactor: -1,
-		polygonOffsetUnits: -16384,
+		polygonOffsetFactor: defaults.stageGridDepthFactor,
+		polygonOffsetUnits: defaults.stageGridDepthBias,
 		// Rasterized coverage keeps shared caps solid where the drape crosses triangles.
 		alphaToCoverage: false
 	};
-	const grid = new Line2NodeMaterial({ ...options, ...gridDepth, linewidth: 1.5 });
-	const gridBoundary = new Line2NodeMaterial({ ...options, ...gridDepth, linewidth: 2.5 });
-	const ground = new Line2NodeMaterial({ ...options, linewidth: 0.75 });
+	const grid = new Line2NodeMaterial({
+		...options,
+		...gridDepth,
+		linewidth: defaults.stageGridStrokePx
+	});
+	const gridBoundary = new Line2NodeMaterial({
+		...options,
+		...gridDepth,
+		linewidth: defaults.stageGridBoundaryStrokePx
+	});
+	const ground = new Line2NodeMaterial({ ...options, linewidth: defaults.stageGroundStrokePx });
 	outer.maskNode = silhouette;
 	crease.maskNode = silhouette.not();
 	// Explicit strokes lie on faces; `pull` lifts them toward the eye in meters so the face in
 	// front of them decides visibility, and `near` and `far` bound the picture's view depth.
-	const depth = { pull: uniform(0), near: uniform(0), far: uniform(1) };
+	const depth = {
+		pull: uniform(/* Exact arithmetic: zero initial depth pull, near plane or recession. */ 0),
+		near: uniform(/* Exact arithmetic: zero initial depth pull, near plane or recession. */ 0),
+		far: uniform(/* Exact arithmetic: normalized far plane ends at one. */ 1)
+	};
 	return {
 		eye,
 		silhouette,
@@ -232,15 +269,20 @@ export function explicitStroke(
 		blending: NormalBlending,
 		depthWrite: false,
 		alphaToCoverage: false,
-		linewidth: 1
+		linewidth: defaults.stageExplicitStrokePx
 	});
 	if (hidden) material.depthFunc = GreaterDepth;
-	const recede = uniform(0);
+	const recede = uniform(
+		/* Exact arithmetic: zero initial depth pull, near plane or recession. */ 0
+	);
 	const distance = positionView.z
 		.negate()
 		.sub(depth.near)
-		.div(depth.far.sub(depth.near).max(1e-3))
-		.clamp(0, 1);
+		.div(depth.far.sub(depth.near).max(defaults.stageStrokeDepthFloor))
+		.clamp(
+			/* Exact arithmetic: lower bound of a unit interval. */ 0,
+			/* Exact arithmetic: upper bound of a unit interval. */ 1
+		);
 	// Keep line coverage but blend the ink into all preceding layers, including other translucent fills.
 	material.outputNode = vec4(
 		style?.color ?? materialColor,
@@ -255,7 +297,7 @@ export function explicitStroke(
 }
 
 /** Strokes on a face are lifted about two and a half CSS pixels toward the eye. */
-const strokePullPx = 2.5;
+const strokePullPx = defaults.stageStrokePullPx;
 
 /** Sets the stroke lift and the view-depth range of the visible bounds for one frame. */
 export function setStrokeDepth(

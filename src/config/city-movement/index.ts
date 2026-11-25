@@ -62,12 +62,6 @@ export const settings = defineSettings({
 		meaning: 'Distance between the two flight axes of a switchback',
 		rationale: 'Leave space between flights'
 	},
-	stairHalfWidthM: {
-		value: 0.8,
-		unit: 'm',
-		meaning: 'Half width of a stair flight',
-		rationale: 'Survey the whole walking surface and its bearings'
-	},
 	stairFootprintProbeStepM: {
 		value: 1,
 		unit: 'm',

@@ -36,6 +36,7 @@ export const terrainGridParams = defineParams({
 
 /** Immutable quality limits in plan (radians and ratio) and grade limit (rise/run). */
 export { quality as terrainGridQuality } from './metrics';
+/** Metric and dimensionless bounds on shore-driven changes to the carrier embedding. */
 export { shorelineMorphLimits } from '../../../config/terrain-grid';
 
 /** Addressed vertex with sampled position, in meters with Z up. */
@@ -447,12 +448,19 @@ export const TerrainGrid = Object.freeze({ create, createPlan, select });
 
 /** Edge topology and shortest paths for routing between plan cells. */
 export {
+	/** Reads unique plan edges in first-incidence order. */
 	planEdges,
+	/** Reads surviving edges of the clipped grid with original plan support and shoreline provenance. */
 	dryPlanEdges,
+	/** Indexes the caller's eligible edges once. */
 	planEdgeGraph,
+	/** An undirected edge with a canonical ID, end nodes and incident cells. */
 	type PlanEdge,
+	/** A walkable segment, with ascending fractions on its original support when present. */
 	type DryPlanEdge,
+	/** A directed walk over plan-grid edges, in traversal order, measured in horizontal meters. */
 	type PlanEdgePath,
+	/** A plan edge oriented in the direction of traversal. */
 	type OrientedPlanEdge
 } from './edge-path';
 

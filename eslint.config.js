@@ -90,11 +90,8 @@ const scopes = [
 	{ files: ['src/lib/ui/**/*.svelte'], rules: [namedExports, ...stage, ...styles] },
 	{ files: ['src/lib/scene/stage/**/*.svelte'], rules: [namedExports, kit, ...styles, controls] }
 ];
-// Existing modules still using their local constants join this rule when migrated.
-const pendingConfigModules = [
-	'scene/{city-volume-projection,focus,stage,stage-view,surface,terrain-grid-projection,valley-projection}',
-	'ui/{accordion,button,icon,icon-button,popover,scale-legend,select,slider,switch,tabs,toggle-group}'
-];
+/** @type {readonly string[]} Modules awaiting numeric settings migration. */
+const pendingConfigModules = [];
 /** @type {import('eslint').Linter.Config} */
 const numericSettings = {
 	files: [`${library}/**/*.${code}`, `${library}/**/*.svelte`],

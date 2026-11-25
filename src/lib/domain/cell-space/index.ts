@@ -14,7 +14,14 @@ import { parcelEdgeId, validate } from './validate';
 /** What lies across one side of a fine cell. */
 export type { CellSide } from './sides';
 /** Strip counts of a parcel and the width measure of a cell's sliver check. */
-export { cellWidth, stripCounts, type StripCounts } from './strips';
+export {
+	/** Returns twice the cell area divided by its perimeter, in meters. */
+	cellWidth,
+	/** Rounds frontage and mean depth to bounded column and row counts at the target edge length. */
+	stripCounts,
+	/** Number of columns along the parcel frontage and rows across its depth. */
+	type StripCounts
+} from './strips';
 /** Smallest accepted strip cell width in meters. */
 export const minimumStripWidthM = defaults.stripMinimumWidthM;
 /** Thrown for a parcel with a vanishing edge or area. */
@@ -25,13 +32,21 @@ export const defaultStoreyHeightM = defaults.storeyHeightM;
 
 /** Storey sizing and world-scoped storey addresses. */
 export {
+	/** Keeps the existing plan subdivision and replaces its vertical sizing. */
 	createCellSpaceStoreys,
+	/** Reads just the requested boundary window of a repeating mixed stack. */
 	createMixedStoreyBoundaries,
+	/** Creates a detached stack of storey heights and their absolute boundary elevations. */
 	createStoreyStack,
+	/** Storeys in cell order, then from bottom to top, with references in the supplied world. */
 	readCellStoreys,
+	/** Absolute elevation of a storey boundary, including the roof above the last storey. */
 	readStoreyElevation,
+	/** Recipe height of a storey, indexed from zero. */
 	readStoreyHeight,
+	/** World-independent tuple key for a storey. */
 	readStoreyKey,
+	/** Stable address of a storey in one fine cell. */
 	readStoreyRef
 } from './storeys';
 
@@ -43,13 +58,21 @@ export { parcelEdgeId } from './validate';
 
 /** Parcel, fine cell and cell space shapes. */
 export type {
+	/** Fine plan cells stacked in storeys from the base elevation in meters. */
 	CellSpace,
+	/** Eligibility and access requirements supplied by the subdivision. */
 	CellSpaceHouseRules,
+	/** One addressed vertical slice of a fine cell. */
 	CellStorey,
+	/** Convex counterclockwise cell in meters with stable corner keys and side adjacency. */
 	FineCell,
+	/** Counterclockwise metric parcel ring with frontage, optional court edges, and storey sizing. */
 	Parcel,
+	/** Stable corner key and position in plan meters. */
 	ParcelCorner,
+	/** Recipe input for the vertical extent of a parcel or an existing subdivision. */
 	StoreySizing,
+	/** Individual storey heights and boundary elevations, with shorthand for uniform stacks. */
 	StoreyStack
 } from './types';
 

@@ -11,7 +11,7 @@ import {
 import type { DisplayLevel } from '../../lib/scene/focus';
 import {
 	blockTriangleBudget,
-	houseDetailOf,
+	readHouseDetail,
 	houseMaterials,
 	houseSheetGapM,
 	projectCladHouse
@@ -38,7 +38,7 @@ function build(setup: HouseSetup) {
 	const style = houseStyles[setup.style];
 	const space = createCellSpace(parcelShapes[setup.shape].parcel);
 	const house = createHouseCourt(space, setup, style);
-	const detail = houseDetailOf(setup.level);
+	const detail = readHouseDetail(setup.level);
 	const object = createHouseObject(space, house, detail, style);
 	return { space, house, object, faces: houseFaces(space, house, detail, style) };
 }

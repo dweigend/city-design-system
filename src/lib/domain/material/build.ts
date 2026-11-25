@@ -137,7 +137,7 @@ function prints(pattern: PatternKind, params: PatternParams, level: SurfaceLevel
 /** Whether a level prints the marks of a family at a pattern scale: every pattern near and mid,
  * only a large graphic one (pitch at least `farMarkPitchM`) far, none in pencil. */
 // Exact arithmetic: a module scale of one keeps the configured pitch.
-export function printsMarks(
+export function hasPrintedMarks(
 	family: Family,
 	level: SurfaceLevel | SurfaceLevelAlias,
 	moduleScale = /* Exact arithmetic: unity scale preserves physical dimensions. */ 1,

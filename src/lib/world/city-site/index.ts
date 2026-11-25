@@ -27,17 +27,40 @@ export const maximumCellRiseM = citySiteConfig.maximumCellRiseM;
 export const cityBankSetbackM = citySiteConfig.bankSetbackM;
 /** City carrier limits used by planning and its studies. */
 export { citySiteConfig };
-export type { CityTerrainReading, CityTerrainSampler } from './sampling';
-export type { CityCrossing, CrossableWater } from './crossings';
+export type {
+	/** Elevation and signed water clearance in meters, with water kind and surface height at wet points. */
+	CityTerrainReading,
+	/** Reads ground elevation, signed bank clearance and any water surface in meters. */
+	CityTerrainSampler
+} from './sampling';
+export type {
+	/** A bank-to-bank crossing addressed by an edge path, with an optional direct bridge span. */
+	CityCrossing,
+	/** Selects which wet ground kinds may form one continuous crossing. */
+	CrossableWater
+} from './crossings';
 export {
+	/** Resolves a uniform or mixed stack that spans a full coarse level. */
 	createCityVerticalRecipe,
+	/** The seeded valley favors main-river approaches and permits crossings of flowing water. */
 	riverCityRecipe,
+	/** Selects water, growth thresholds and vertical sizing. */
 	type CityRecipe,
+	/** Author-supplied overrides for the city recipe. */
 	type CityRecipeInput,
+	/** Resolved coarse spacing and storey sizing. */
 	type CityVerticalRecipe,
+	/** Vertical dimensions supplied by a recipe author. */
 	type CityVerticalRecipeInput
 } from './recipe';
-export { cityLatticesByPlan, cityPlanVariants, type CityPlanVariant } from './presets';
+export {
+	/** Tiled plan families offered by the city chapter and the lattice models each may use. */
+	cityLatticesByPlan,
+	/** Chapter plan families in display order. */
+	cityPlanVariants,
+	/** Plan families offered by the city chapter. */
+	type CityPlanVariant
+} from './presets';
 
 /** City size sets the target area in the fixed valley. The seed varies access and plan jitter. */
 export const citySiteParams = defineParams({

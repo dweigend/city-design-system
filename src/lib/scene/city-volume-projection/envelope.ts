@@ -1,3 +1,7 @@
+import {
+	envelopeFirstLevelTolerance,
+	envelopeLevelPlaneToleranceM
+} from '../../../config/city-volume-projection';
 import type { Vec2, Vec3 } from '../../core/geometry';
 import { required } from '../../core/invariant';
 import {
@@ -75,10 +79,14 @@ function addWire(
 /** Wall heights from the floor to the roof: the floor, every plane between, the roof. */
 function wallHeights(floor: number, top: number, datumZ: number, levelHeightM: number) {
 	const heights = [];
-	for (let level = Math.ceil((floor - datumZ) / levelHeightM - 1e-9); ; level++) {
+	for (
+		let level = Math.ceil((floor - datumZ) / levelHeightM - envelopeFirstLevelTolerance);
+		;
+		level++
+	) {
 		const z = datumZ + level * levelHeightM;
-		if (z >= top - 1e-9) break;
-		if (z > floor + 1e-9) heights.push(z);
+		if (z >= top - envelopeLevelPlaneToleranceM) break;
+		if (z > floor + envelopeLevelPlaneToleranceM) heights.push(z);
 	}
 	return [...heights, top];
 }

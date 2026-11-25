@@ -101,7 +101,11 @@ export const landscape = Object.freeze({
 
 const districtEnvelope = {
 	finish: 'matte',
-	stroke: { color: '--district-edge', width: 0.9, opacity: 0.8 }
+	stroke: {
+		color: '--district-edge',
+		width: defaults.districtEnvelopeStrokePx,
+		opacity: defaults.districtEnvelopeStrokeOpacity
+	}
 } as const;
 
 /** Three saturated lightness steps of blueprint, light to deep, for the detached, block and
@@ -121,7 +125,11 @@ export const planningStudy = Object.freeze({
 		color: '--ink-2',
 		finish: 'matte',
 		flat: true,
-		stroke: { color: '--ink-2', width: 0.68, opacity: 0.53 }
+		stroke: {
+			color: '--ink-2',
+			width: defaults.planningLatticeStrokePx,
+			opacity: defaults.planningLatticeStrokeOpacity
+		}
 	}
 } as const satisfies SurfaceAssignment);
 
@@ -131,28 +139,48 @@ export const planOverlaySurfaces = Object.freeze({
 	plan: {
 		color: '--ink-2',
 		finish: 'matte',
-		stroke: { color: '--ink-2', width: 0.8, opacity: 0.82 }
+		stroke: {
+			color: '--ink-2',
+			width: defaults.cityPlanStrokePx,
+			opacity: defaults.cityPlanStrokeOpacity
+		}
 	},
 	'water-cells': {
 		color: '--river-section',
 		finish: 'matte',
-		stroke: { color: '--river-section', width: 0.8, opacity: 0.75 }
+		stroke: {
+			color: '--river-section',
+			width: defaults.cityWaterCellStrokePx,
+			opacity: defaults.cityWaterCellStrokeOpacity
+		}
 	},
 	crossings: {
 		color: '--path',
 		finish: 'matte',
-		stroke: { color: '--path', width: 3, opacity: 1 }
+		stroke: {
+			color: '--path',
+			width: defaults.cityCrossingStrokePx,
+			opacity: /* Exact arithmetic: unit opacity keeps the crossing stroke fully opaque. */ 1
+		}
 	},
 	lanes: {
 		color: '--path-plan',
 		finish: 'matte',
 		flat: true,
-		stroke: { color: '--path', width: 1.2, opacity: 1 }
+		stroke: {
+			color: '--path',
+			width: defaults.cityLaneStrokePx,
+			opacity: /* Exact arithmetic: unit opacity keeps the lane stroke fully opaque. */ 1
+		}
 	},
 	parcels: {
 		color: '--ink-2',
 		finish: 'matte',
-		stroke: { color: '--ink-2', width: 0.7, opacity: 0.74 }
+		stroke: {
+			color: '--ink-2',
+			width: defaults.cityParcelStrokePx,
+			opacity: defaults.cityParcelStrokeOpacity
+		}
 	},
 	'merged-units': {
 		color: '--public-ground',
@@ -177,7 +205,7 @@ export function heightRamp(height: number, maximumHeightM: number = cityHeightSc
 	if (!Number.isFinite(maximumHeightM) || maximumHeightM <= 0)
 		throw new RangeError('Expected a finite positive height ramp range');
 	const share = Math.min(1, Math.max(0, height / maximumHeightM));
-	const breakPoint = 0.15;
+	const breakPoint = defaults.cityHeightRampKnee;
 	const low = share <= breakPoint;
 	return {
 		color: low ? '--height-low' : '--height-mid',

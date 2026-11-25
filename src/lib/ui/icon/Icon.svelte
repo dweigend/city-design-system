@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { defaults } from '../../../config/icon';
 	import {
 		ChevronDown,
 		Dices,
@@ -39,4 +40,9 @@
 	const Glyph = $derived(icons[name]);
 </script>
 
-<Glyph class="control-icon" size={16} strokeWidth={1.5} aria-hidden="true" />
+<Glyph
+	class="control-icon"
+	size={defaults.iconSizePx}
+	strokeWidth={defaults.iconStrokeWidth}
+	aria-hidden="true"
+/>

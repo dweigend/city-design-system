@@ -5,7 +5,7 @@ import {
 	createHouseCourt,
 	createHouseObject,
 	houseScale,
-	houseStyleFor,
+	readHouseStyle,
 	houseStyles
 } from './index';
 
@@ -30,8 +30,8 @@ test('a town plot is calm, a hall large, and a calm house draws few colours', ()
 	expect(houseScale(plot(80, 60))).toBe('large');
 	const space = plot(18, 12);
 	expect(createHouseCourt(space, { seed: 7 }, houseStyles.memphis).scale).toBe('regular');
-	expect(houseStyleFor(space, houseStyles.memphis, 7)).toBe(houseStyles.memphis);
-	const style = houseStyleFor(space, houseStyles.memphis, 7, houseScale(space));
+	expect(readHouseStyle(space, houseStyles.memphis, 7)).toBe(houseStyles.memphis);
+	const style = readHouseStyle(space, houseStyles.memphis, 7, houseScale(space));
 	expect(style.fill.kinds).toHaveLength(1);
 	expect(style.roof.kinds).toHaveLength(1);
 	expect(style.slots.body.length).toBeLessThanOrEqual(

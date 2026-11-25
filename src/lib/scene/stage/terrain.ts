@@ -1,3 +1,4 @@
+import { defaults } from '../../../config/stage';
 import {
 	dFdx,
 	dFdy,
@@ -14,31 +15,46 @@ import {
 import type { Node } from 'three/webgpu';
 import { graphite, grain, type drawingPalette } from './tone';
 
-const contourInterval = 2;
+const contourInterval = defaults.stageContourInterval;
 const northWest = vec2(-Math.SQRT1_2, Math.SQRT1_2);
 
 function pencil(height: Node<'float'>, interval: number, radius: number) {
 	const dx = dFdx(height).abs();
 	const dy = dFdy(height).abs();
 	const slope = vec2(dx, dy).length().mul(screenDPR);
-	const perPixel = slope.max(0.0001);
+	const perPixel = slope.max(defaults.stageContourDerivativeFloor);
 	const level = height.div(interval).round();
 	const across = height.sub(level.mul(interval)).abs().div(perPixel);
 	const pixel = screenCoordinate.div(screenDPR);
-	const stagger = hash(level.add(257));
-	const dots = pixel.div(3.3).add(stagger).fract().sub(0.5).mul(3.3);
+	const stagger = hash(level.add(defaults.stageContourStaggerKey));
+	const dots = pixel
+		.div(defaults.stageContourDotSpacingPx)
+		.add(stagger)
+		.fract()
+		.sub(/* Exact arithmetic: center the normalized phase around zero. */ 0.5)
+		.mul(defaults.stageContourDotSpacingPx);
 	const fromX = vec2(across, dots.x)
 		.length()
-		.smoothstep(radius - 0.28, radius + 0.28)
+		.smoothstep(
+			radius - defaults.stageContourDotFeatherPx,
+			radius + defaults.stageContourDotFeatherPx
+		)
 		.oneMinus();
 	const fromY = vec2(across, dots.y)
 		.length()
-		.smoothstep(radius - 0.28, radius + 0.28)
+		.smoothstep(
+			radius - defaults.stageContourDotFeatherPx,
+			radius + defaults.stageContourDotFeatherPx
+		)
 		.oneMinus();
-	const tangent = dx.div(dx.add(dy).max(0.0001)).smoothstep(0.37, 0.63);
+	const tangent = dx
+		.div(dx.add(dy).max(defaults.stageContourDerivativeFloor))
+		.smoothstep(...defaults.stageContourTangentBlend);
 	const linked = mix(fromX, fromY, tangent);
 	const spacing = perPixel.reciprocal().mul(interval);
-	return linked.mul(spacing.smoothstep(1.25, 2.65)).mul(slope.smoothstep(0.00035, 0.003));
+	return linked
+		.mul(spacing.smoothstep(...defaults.stageContourSpacingFadePx))
+		.mul(slope.smoothstep(...defaults.stageContourSlopeFade));
 }
 
 export function terrainColor(
@@ -49,17 +65,37 @@ export function terrainColor(
 	const height = field?.x ?? positionWorld.z.div(heightScale);
 	const gradient = field ? field.yz.mul(heightScale) : normalWorldGeometry.xy.negate();
 	const slope = gradient.length();
-	const facing = gradient.negate().dot(northWest).div(slope.max(0.0001));
-	const steepness = slope.smoothstep(0.018, 2.45);
-	const shading = steepness.mul(facing.mul(0.032).sub(0.262));
-	const bank = field ? field.w.max(0).smoothstep(6, 102).oneMinus().mul(0.085) : float(0);
+	const facing = gradient.negate().dot(northWest).div(slope.max(defaults.stageTerrainNormalFloor));
+	const steepness = slope.smoothstep(...defaults.stageTerrainShadeSlope);
+	const shading = steepness.mul(
+		facing.mul(defaults.stageTerrainFacingLight).sub(defaults.stageTerrainDarken)
+	);
+	const bank = field
+		? field.w
+				.max(/* Exact arithmetic: clamp signed bank distances to the exterior. */ 0)
+				.smoothstep(...defaults.stageBankShadeFadeM)
+				.oneMinus()
+				.mul(defaults.stageBankShadeStrength)
+		: float(/* Exact arithmetic: absent terrain field contributes no bank shade. */ 0);
 	const offset = shading
 		.sub(bank)
-		.max(-0.262)
-		.add(palette.dark.mul(steepness.mul(0.41).add(0.079)))
+		.max(-defaults.stageTerrainDarken)
+		.add(
+			palette.dark.mul(
+				steepness.mul(defaults.stageDarkSteepnessLift).add(defaults.stageDarkTerrainLift)
+			)
+		)
 		.mul(palette.hull.oneMinus());
 	const paper = graphite(materialColor, offset, float(grain.shadow));
-	const minor = pencil(height, contourInterval, 0.66).mul(palette.dark.mul(0.1).add(0.25));
-	const index = pencil(height, contourInterval * 5, 0.79).mul(palette.dark.mul(-0.15).add(0.5));
+	const minor = pencil(height, contourInterval, defaults.stageMinorContourRadiusPx).mul(
+		palette.dark.mul(defaults.stageDarkMinorContourInkLift).add(defaults.stageMinorContourInk)
+	);
+	const index = pencil(
+		height,
+		contourInterval * defaults.stageIndexContourStride,
+		defaults.stageIndexContourRadiusPx
+	).mul(
+		palette.dark.mul(defaults.stageDarkIndexContourInkShift).add(defaults.stageIndexContourInk)
+	);
 	return mix(paper, palette.ink, minor.max(index).mul(palette.hull.oneMinus()));
 }

@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { defaults } from '../../../config/accordion';
 	import { Accordion as Primitive } from 'bits-ui';
 	import type { Snippet } from 'svelte';
 	import { Icon } from '../icon';
@@ -18,7 +19,7 @@
 <Primitive.Root class="control-accordion" type="single" bind:value>
 	{#each items as item (item.value)}
 		<Primitive.Item value={item.value} disabled={item.disabled}>
-			<Primitive.Header class="control-accordion-heading" level={4}>
+			<Primitive.Header class="control-accordion-heading" level={defaults.accordionHeadingLevel}>
 				<Primitive.Trigger class="control control-accordion-trigger">
 					{item.label}
 					<Icon name="chevron-down" />

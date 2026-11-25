@@ -20,7 +20,11 @@ import { projectWetPlan } from './plan-water';
 export function projectCityTerrain(city: CitySite, grid: TerrainGrid, plan = grid) {
 	const window = cityWindow(city, plan);
 	const { drawables, footprint, toLocal, autoHeightScale, traceTributaries } = city.valley
-		? projectValleyWindow(city.valley, window, 1)
+		? projectValleyWindow(
+				city.valley,
+				window,
+				/* Exact arithmetic: unit scale retains true elevations. */ 1
+			)
 		: projectSampledWindow(city, window);
 	const ground = required(
 		drawables.find(({ finish }) => finish === 'terrain'),
@@ -56,5 +60,11 @@ function projectSampledWindow(city: CitySite, window: ReturnType<typeof cityWind
 	const { ground, water, toLocal, footprint } = sampleCityWindow(city.sampleGround, window);
 	const drawables: Drawable[] = [{ id: 'ground', shape: ground, ...landscape.ground }];
 	if (water.indices.length) drawables.push({ id: 'river', shape: water, ...landscape.water });
-	return { drawables, footprint, toLocal, autoHeightScale: 1, traceTributaries: undefined };
+	return {
+		drawables,
+		footprint,
+		toLocal,
+		autoHeightScale: /* Exact arithmetic: unit scale retains true elevations. */ 1,
+		traceTributaries: undefined
+	};
 }

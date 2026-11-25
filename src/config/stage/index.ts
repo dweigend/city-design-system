@@ -1,19 +1,10 @@
-import { defineSettings, settingValues } from '../setting';
+import { defineSettings, joinSettings, settingValues } from '../setting';
+import { cameraSettings } from './camera';
+import { terrainSettings } from './terrain';
+import { drawingSettings } from './drawing';
 
 /** Spatial partition for retained stage geometry. */
-export const settings = defineSettings({
-	navigationMinZoom: {
-		value: 0.55,
-		unit: 'ratio',
-		meaning: 'Minimum relative camera zoom during navigation',
-		rationale: 'Preserves the standard stage zoom range.'
-	},
-	navigationMaxZoom: {
-		value: 32,
-		unit: 'ratio',
-		meaning: 'Maximum relative camera zoom during navigation',
-		rationale: 'Preserves the standard stage zoom range.'
-	},
+const batchingSettings = defineSettings({
 	chunkSizeM: {
 		value: 192,
 		unit: 'm',
@@ -22,5 +13,12 @@ export const settings = defineSettings({
 		rationale: 'Keeps a parcel edit local while batching several blocks per visible draw.'
 	}
 });
+
+export const settings = joinSettings(
+	batchingSettings,
+	cameraSettings,
+	terrainSettings,
+	drawingSettings
+);
 
 export const defaults = settingValues(settings);

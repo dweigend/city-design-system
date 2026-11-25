@@ -14,7 +14,7 @@ import {
 	taperFadeWidthM,
 	townFrameShare,
 	uprightFadeMPerPx
-} from './constants';
+} from '../../../config/city-volume-projection';
 
 /** Camera elevation and height scaling parameters. Ranges increase from quarter to whole city. */
 export type CityCameraHeightPreset = Readonly<{
@@ -47,7 +47,7 @@ function fade(value: number, [start, end]: readonly [number, number]) {
 	if (!Number.isFinite(start) || !Number.isFinite(end) || end <= start)
 		throw new RangeError(`Expected finite increasing fade range, got [${start}, ${end}]`);
 	const t = Math.max(0, Math.min(1, (value - start) / (end - start)));
-	return t * t * (3 - 2 * t);
+	return t * t * /* Exact arithmetic: cubic smoothstep polynomial. */ (3 - 2 * t);
 }
 
 /** Camera elevation in radians for a true horizontal frame width in meters. */
@@ -66,7 +66,10 @@ export function cityElevation(
 		cityElevationFlatDeg + cityElevationPerReliefDeg * relief
 	);
 	const share = fade(widthM, cityElevationRangeM);
-	return ((quarterElevationDeg + (wholeCity - quarterElevationDeg) * share) * Math.PI) / 180;
+	return (
+		((quarterElevationDeg + (wholeCity - quarterElevationDeg) * share) * Math.PI) /
+		/* Exact arithmetic: half-turn in degrees. */ 180
+	);
 }
 
 /** Smooth detail weights and vertical scale for a fitted city. At a broad view the projected

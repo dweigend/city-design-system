@@ -19,7 +19,7 @@ export function shapeArrays(shape: Shape): {
 			const [width, depth, height] = shape.size;
 			const cos = Math.cos(shape.rotation);
 			const sin = Math.sin(shape.rotation);
-			const ring = [
+			const ring = /* Exact arithmetic: corner signs of an axis-aligned rectangle. */ [
 				[-1, -1],
 				[1, -1],
 				[1, 1],
@@ -43,7 +43,7 @@ function prismArrays(ring: Vector2[], base: number, top: number) {
 	const n = ring.length;
 	const positions = [base, top].flatMap((height) => ring.flatMap(({ x, y }) => [x, y, height]));
 	const indices = caps.flatMap(([a, b, c]) => [c, b, a, a + n, b + n, c + n]);
-	const sides = n === 2 ? 1 : n;
+	const sides = n === /* Exact arithmetic: a two-point path represents one segment. */ 2 ? 1 : n;
 	for (let a = 0; a < sides; a += 1) {
 		const b = (a + 1) % n;
 		indices.push(a, b, b + n, a, b + n, a + n);

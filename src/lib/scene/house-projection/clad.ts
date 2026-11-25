@@ -8,7 +8,7 @@ import {
 	createClad,
 	fitModuleScale,
 	lowerLevel,
-	printsMarks,
+	hasPrintedMarks,
 	readFamily,
 	readLevelDetail,
 	type CladObject,
@@ -106,7 +106,7 @@ function skinOf(
 ): Skin | undefined {
 	if (!readLevelDetail(level).parts) return undefined;
 	if (face.place === 'wall' && readLevelDetail(level).openings && recessed) return 'deep';
-	if (printsMarks(material.family, level) || face.place === 'roof') return 'thin';
+	if (hasPrintedMarks(material.family, level) || face.place === 'roof') return 'thin';
 	return undefined;
 }
 

@@ -74,7 +74,6 @@ const resultNames: Record<Layer, readonly string[]> = {
 		'houseFigures',
 		'houseScale',
 		'houseSlots',
-		'houseStyleFor',
 		'latticeVolumes',
 		'parcelEdgeId',
 		'peakHeightM',
@@ -82,7 +81,6 @@ const resultNames: Record<Layer, readonly string[]> = {
 		'planEdgeId',
 		'planEdges',
 		'portalExample',
-		'printsMarks',
 		'seamEdgeId',
 		'sinuosity',
 		'solidEdgeFaults',
@@ -99,13 +97,11 @@ const resultNames: Record<Layer, readonly string[]> = {
 		'faceAreaM2',
 		'heightRamp',
 		'houseCladdings',
-		'houseDetailOf',
 		'pathsPresentation',
 		'shapeArrays',
 		'stageExample',
 		'stageNavigation',
 		'structureProjectionExample',
-		'terrainDrape',
 		'terrainGridProjection'
 	]
 };

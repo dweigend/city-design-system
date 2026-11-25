@@ -1,6 +1,7 @@
+import { defaults } from '../../../config/valley-projection';
 import type { Vec3 } from '../../core/geometry';
 import type { Reach } from '../../domain/valley';
-import { terrainDrape } from '../terrain-grid-projection';
+import { createTerrainSegmentProjector } from '../terrain-grid-projection';
 import type { ReachFrame } from './frame';
 import type { Shape } from '../../core/object';
 
@@ -38,7 +39,7 @@ export function tributaryStrokes(
 ) {
 	const tributaries = reaches.filter(({ trunk }) => !trunk);
 	if (!tributaries.length) return [];
-	const project = terrainDrape(ground, 64);
+	const project = createTerrainSegmentProjector(ground, defaults.valleyTributaryBucketsM);
 	const segments: number[] = [];
 	for (const { stations } of tributaries) {
 		const local = stations.map(({ xy, water }): Vec3 => [...frame.toLocal(...xy), water * scale]);
@@ -49,10 +50,14 @@ export function tributaryStrokes(
 			const dx = bx - ax;
 			const dy = by - ay;
 			const span = dx * dx + dy * dy;
-			if (span < 1e-8) continue;
+			if (span < defaults.valleyTributaryMinSpanM) continue;
 			const points = project([ax, ay], [bx, by]).map(([x, y, groundZ]): Vec3 => {
 				const t = ((x - ax) * dx + (y - ay) * dy) / span;
-				return [x, y, Math.max(groundZ, az + t * (bz - az)) + 0.15 * scale];
+				return [
+					x,
+					y,
+					Math.max(groundZ, az + t * (bz - az)) + defaults.valleyTributaryLiftM * scale
+				];
 			});
 			for (let j = 1; j < points.length; j++) segments.push(...points[j - 1], ...points[j]);
 		}

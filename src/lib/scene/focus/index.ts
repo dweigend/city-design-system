@@ -15,7 +15,7 @@ export const displayLevels = Object.freeze([
 export type DisplayLevel = (typeof displayLevels)[number];
 
 /** Share of the stock drawn in pencil (COLOR-5). */
-export { stockPencilShare } from './constants';
+export { stockPencilShare } from '../../../config/focus';
 
 /** Menu label, the subsystems a choice highlights, and an optional analysis mode. */
 export type FocusOption = Readonly<{

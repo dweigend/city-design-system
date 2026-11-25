@@ -19,10 +19,10 @@ export function stageNavigation(
 	if (!Number.isFinite(minZoom) || !Number.isFinite(maxZoom) || minZoom <= 0 || maxZoom < minZoom)
 		throw new RangeError('Expected finite, positive and ordered zoom limits');
 	const clampZoom = (zoom: number) => Math.min(maxZoom, Math.max(minZoom, zoom));
-	const initialZoom = clampZoom(1);
+	const initialZoom = clampZoom(/* Exact arithmetic: unit zoom applies no magnification. */ 1);
 	const pointers = new Map<number, Point>();
 	let zoom = initialZoom;
-	let offset: [number, number] = [0, 0];
+	let offset: [number, number] = /* Exact arithmetic: zero pan offset. */ [0, 0];
 	let metersPerPixel = 1;
 	let previousScale = 1;
 
@@ -57,7 +57,11 @@ export function stageNavigation(
 
 	function gesture() {
 		const [a, b] = pointers.values();
-		if (!b) return { point: a, distance: 1 };
+		if (!b)
+			return {
+				point: a,
+				distance: /* Exact arithmetic: a single pointer contributes no pinch scaling. */ 1
+			};
 		return {
 			point: { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 },
 			distance: Math.max(1, Math.hypot(a.x - b.x, a.y - b.y))
@@ -70,7 +74,7 @@ export function stageNavigation(
 
 	function reset() {
 		zoom = initialZoom;
-		offset = [0, 0];
+		offset = /* Exact arithmetic: zero pan offset. */ [0, 0];
 		previousScale = NaN;
 		fit(initialZoom === 1 ? {} : { zoom: initialZoom });
 	}
@@ -83,15 +87,24 @@ export function stageNavigation(
 			event.preventDefault();
 			const delta =
 				event.deltaY *
-				(event.deltaMode === 1 ? 16 : event.deltaMode === 2 ? canvas.clientHeight : 1);
-			move(point(event), point(event), Math.exp(-delta * 0.0017));
+				(event.deltaMode === /* Exact arithmetic: DOM wheel delta mode for lines. */ 1
+					? defaults.stageWheelLinePx
+					: event.deltaMode === /* Exact arithmetic: DOM wheel delta mode for pages. */ 2
+						? canvas.clientHeight
+						: 1);
+			move(point(event), point(event), Math.exp(-delta * defaults.stageWheelZoomRate));
 		},
 		{ signal, passive: false }
 	);
 	canvas.addEventListener(
 		'pointerdown',
 		(event) => {
-			if (event.button !== 0 || pointers.size >= 2 || canDrag?.() === false) return;
+			if (
+				event.button !== 0 ||
+				pointers.size >= /* Exact arithmetic: the gesture uses at most a pointer pair. */ 2 ||
+				canDrag?.() === false
+			)
+				return;
 			canvas.setPointerCapture(event.pointerId);
 			pointers.set(event.pointerId, point(event));
 		},
@@ -118,9 +131,18 @@ export function stageNavigation(
 		(event) => {
 			const rect = canvas.getBoundingClientRect();
 			const center = { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 };
-			const dx = 40 * (Number(event.key === 'ArrowLeft') - Number(event.key === 'ArrowRight'));
-			const dy = 40 * (Number(event.key === 'ArrowUp') - Number(event.key === 'ArrowDown'));
-			const ratio = event.key === '+' || event.key === '=' ? 1.25 : event.key === '-' ? 0.8 : 1;
+			const dx =
+				defaults.stageKeyPanPx *
+				(Number(event.key === 'ArrowLeft') - Number(event.key === 'ArrowRight'));
+			const dy =
+				defaults.stageKeyPanPx *
+				(Number(event.key === 'ArrowUp') - Number(event.key === 'ArrowDown'));
+			const ratio =
+				event.key === '+' || event.key === '='
+					? defaults.stageKeyZoomIn
+					: event.key === '-'
+						? defaults.stageKeyZoomOut
+						: 1;
 			if (event.key === 'Home') reset();
 			else if (dx || dy || ratio !== 1) move(center, { x: center.x + dx, y: center.y + dy }, ratio);
 			else return;

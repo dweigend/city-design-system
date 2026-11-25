@@ -4,9 +4,9 @@ import type { Shape } from '../../core/object';
 import type { ParcelPlan } from '../../domain/parcels';
 import { planEdges, type TerrainGrid } from '../../domain/terrain-grid';
 import type { CityCrossing, CitySite } from '../../world/city-site';
-import { terrainDrape } from '../terrain-grid-projection';
+import { createTerrainSegmentProjector } from '../terrain-grid-projection';
 import { planOverlaySurfaces, type Drawable } from '../surface';
-import { crossingLiftM, planLineLiftM } from './constants';
+import { crossingLiftM, planLineLiftM } from '../../../config/city-volume-projection';
 
 const emptyMesh = { kind: 'mesh', positions: [], indices: [] } as const;
 
@@ -30,7 +30,7 @@ export function projectWetPlan(
 	crossings: readonly CityCrossing[],
 	mergedUnits: ParcelPlan['mergedUnits']
 ): readonly Drawable[] {
-	const drape = terrainDrape(ground);
+	const drape = createTerrainSegmentProjector(ground);
 	const vertices = new Map(grid.vertices.map(({ id, position: [x, y] }) => [id, [x, y] as Vec2]));
 	const dry: number[] = [];
 	const wet: number[] = [];
@@ -59,7 +59,7 @@ export function projectWetPlan(
 		for (const { from, to } of path.edges) project(point(from), point(to), markers, crossingLiftM);
 	}
 
-	function project(a: Vec2, b: Vec2, output: number[], lift = planLineLiftM) {
+	function project(a: Vec2, b: Vec2, output: number[], lift: number = planLineLiftM) {
 		const start = toLocal(...a);
 		const end = toLocal(...b);
 		const length = distance(start, end);

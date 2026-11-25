@@ -34,7 +34,9 @@ import {
 import { createTownParcelSites, readParcelHouseWalls, type ParcelHouseRecipe } from '../house-site';
 import { readSandboxIdentity } from './identity';
 
+/** Maintains active objects by placement ID. */
 export { createPlacementCache } from './cache';
+/** A well-formed address cannot host a placement in the current snapshot. */
 export { UnavailableHostError };
 
 type TopologyHostKind = Exclude<HostAddress['kind'], 'ground'>;

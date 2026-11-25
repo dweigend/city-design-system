@@ -71,7 +71,10 @@ export function rayHit(meshes: Mesh[], point: Vec3, direction: Vec3): Vec3 | und
 
 function toBounds(box: Box3): Bounds3 {
 	return box.isEmpty()
-		? { min: [0, 0, 0], max: [0, 0, 0] }
+		? /* Exact arithmetic: empty content uses zero bounds at the origin. */ {
+				min: [0, 0, 0],
+				max: [0, 0, 0]
+			}
 		: { min: box.min.toArray(), max: box.max.toArray() };
 }
 
@@ -176,7 +179,7 @@ export function createContent(
 	function add(drawable: Drawable) {
 		const part: Part = {
 			...projectPart(drawable, strokes, palette, landscape),
-			row: -1
+			row: /* Exact arithmetic: an unallocated row is outside the nonnegative index range. */ -1
 		};
 		warpPart(part);
 		if (part.fill) {

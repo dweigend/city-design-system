@@ -29,7 +29,7 @@ See [Lanes](docs/standards/README.md#lanes) and [Git Workflow](docs/development/
 
 ## Library
 
-- [Architecture](docs/standards/ARCHITECTURE.md) owns the ten rules. `src/lib/` contains `core`, `domain`, `world`, `scene` and `ui`. Each module is one flat folder with a documented `index.ts`, private siblings, a contract test and a fixed-input example.
+- [Architecture](docs/standards/ARCHITECTURE.md) owns the eleven rules. `src/lib/` contains `core`, `domain`, `world`, `scene` and `ui`. Each module is one flat folder with a documented `index.ts`, private siblings, a contract test and a fixed-input example.
 - Core, domain and world run headlessly. Geometry names slots. Scene assigns color and material and projects data with three.js. Only the stage creates renderers, cameras and frame loops.
 - Page text and page-local widgets live in `src/routes`. Put CSS in `src/app.css`. Use controls from `src/lib/ui`, the home of Bits UI and Lucide imports.
 - Use short, focused functions. Follow the [coding standards](docs/standards/CODING_STANDARDS.md), [naming conventions](docs/standards/NAMING_CONVENTIONS.md) and [glossary](docs/standards/GLOSSARY.md).

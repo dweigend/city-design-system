@@ -1,6 +1,7 @@
 import type { Vec2 } from '../../core/geometry';
 import { clipPolylineToSquare } from '../../core/polyline';
 import type { Valley } from '../../domain/valley';
+import { VALLEY_MEASUREMENT_PROTOCOL } from '../../world/valley-protocol';
 
 export type ValleyWindow = Readonly<{
 	origin: Vec2;
@@ -31,7 +32,7 @@ export function windowFrame(valley: Valley, { origin: [cx, cy], bearing, length 
 export type ReachFrame = ReturnType<typeof windowFrame>;
 
 export function reachFrame(valley: Valley, width: number) {
-	const reach = clipPolylineToSquare(valley.course.xy, 8000);
+	const reach = clipPolylineToSquare(valley.course.xy, VALLEY_MEASUREMENT_PROTOCOL.regionalWindowM);
 	if (!reach) throw new RangeError('The river does not cross the regional window');
 	const xy = Object.freeze(Array.from(reach.xy));
 	const [startX, startY] = xy;

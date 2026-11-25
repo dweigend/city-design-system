@@ -1,9 +1,10 @@
+import { defaults } from '../../../config/terrain-grid-projection';
 import type { Vec2, Vec3 } from '../../core/geometry';
 import type { Shape } from '../../core/object';
 
 type Triangle = readonly [Vec3, Vec3, Vec3];
 
-const epsilon = 1e-9;
+const epsilon = defaults.terrainDrapeTolerance;
 
 function* buckets(points: readonly Vec2[] | readonly Vec3[], bucketSize: number) {
 	const xs = points.map(([x]) => Math.floor(x / bucketSize));
@@ -27,7 +28,11 @@ function weights([x, y]: Vec2, [a, b, c]: Triangle) {
 function clip(start: number[], end: number[]) {
 	let from = 0;
 	let to = 1;
-	for (let index = 0; index < 3; index++) {
+	for (
+		let index = 0;
+		index < /* Exact arithmetic: three barycentric coordinates per facet. */ 3;
+		index++
+	) {
 		const a = start[index];
 		const b = end[index];
 		if (a < -epsilon && b < -epsilon) return;
@@ -41,7 +46,7 @@ function clip(start: number[], end: number[]) {
 
 export function createTerrainDrape(
 	{ positions, indices }: Extract<Shape, { kind: 'mesh' }>,
-	bucketSize = 16
+	bucketSize: number = defaults.terrainDrapeBucketM
 ) {
 	if (!(Number.isFinite(bucketSize) && bucketSize > 0))
 		throw new RangeError('Expected a positive triangle bucket size');
@@ -101,6 +106,9 @@ export function createTerrainDrape(
 	return { segment, facets, heightOnFacet };
 }
 
-export function drape(ground: Extract<Shape, { kind: 'mesh' }>, bucketSize?: number) {
+export function createTerrainSegmentProjector(
+	ground: Extract<Shape, { kind: 'mesh' }>,
+	bucketSize?: number
+) {
 	return createTerrainDrape(ground, bucketSize).segment;
 }

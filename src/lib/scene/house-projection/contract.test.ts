@@ -18,7 +18,7 @@ import { paintClad } from '../surface';
 import { example } from './example';
 import { fullSurfaces } from './surfaces';
 import {
-	houseDetailOf,
+	readHouseDetail,
 	houseLevels,
 	houseMaterials,
 	houseUseColors,
@@ -114,7 +114,7 @@ describe('projectHouse', () => {
 			);
 			for (const level of Object.keys(houseLevels) as (keyof typeof houseLevels)[]) {
 				const drawables = projectHouse(
-					createHouseObject(space, house, houseDetailOf(level), style),
+					createHouseObject(space, house, readHouseDetail(level), style),
 					level
 				);
 				if (level === 'hidden') expect(drawables).toEqual([]);

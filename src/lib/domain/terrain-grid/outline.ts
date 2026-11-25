@@ -1,5 +1,5 @@
 import { defaults } from '../../../config/terrain-grid';
-import type { Vec2 } from '../../core/geometry';
+import { measurePolygon, type Vec2 } from '../../core/geometry';
 
 const epsilon = defaults.outlineToleranceM;
 
@@ -53,9 +53,9 @@ export function validateOutline(ring: readonly Vec2[]) {
 	)
 		throw new RangeError('Expected at least three finite points for the outline');
 	const segments = edges(ring);
-	const start = ring[0];
-	const area = segments.reduce((area, [a, b]) => area + cross(start, a, b), 0);
-	if (Math.abs(area) <= epsilon) throw new RangeError('Expected a nonzero outline area');
+	const { area } = measurePolygon(ring);
+	// The outline tolerance originally compared the doubled signed area.
+	if (Math.abs(area) <= epsilon / 2) throw new RangeError('Expected a nonzero outline area');
 	for (const [i, [a, b]] of segments.entries()) {
 		const next = ring[(i + 2) % ring.length];
 		if (onEdge(a, b, next) || onEdge(b, next, a))

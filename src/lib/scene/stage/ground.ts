@@ -1,3 +1,4 @@
+import { defaults } from '../../../config/stage';
 import {
 	BufferGeometry,
 	Float32BufferAttribute,
@@ -16,7 +17,7 @@ export function shadowPolygon({ min, max }: Bounds3) {
 	const [right, top, height] = max;
 	const length = (height - ground) * shadowReach;
 	const [dx, dy] = sun.map((axis) => -axis * length);
-	const z = ground - 0.002;
+	const z = ground - defaults.stageShadowOffsetM;
 	return [
 		[left, bottom, z],
 		[right, bottom, z],
@@ -29,16 +30,30 @@ export function shadowPolygon({ min, max }: Bounds3) {
 
 export function projectGround(bounds: Bounds3, footprint: Bounds3, pencil: Line2NodeMaterial) {
 	const material = new MeshBasicNodeMaterial({ depthWrite: false });
-	material.colorNode = graphite(materialColor, float(0), float(grain.shadow));
+	material.colorNode = graphite(
+		materialColor,
+		float(/* Exact arithmetic: zero leaves lightness unchanged. */ 0),
+		float(grain.shadow)
+	);
 	const geometry = new BufferGeometry();
-	geometry.setAttribute('position', new Float32BufferAttribute(shadowPolygon(bounds).flat(), 3));
-	geometry.setIndex([0, 1, 2, 0, 2, 3, 0, 3, 4, 0, 4, 5]);
+	geometry.setAttribute(
+		'position',
+		new Float32BufferAttribute(
+			shadowPolygon(bounds).flat(),
+			/* Exact arithmetic: XYZ components per vertex. */ 3
+		)
+	);
+	geometry.setIndex(
+		/* Exact arithmetic: triangle fan for a six-point shadow polygon. */ [
+			0, 1, 2, 0, 2, 3, 0, 3, 4, 0, 4, 5
+		]
+	);
 	const shadow = new Mesh(geometry, material);
-	shadow.renderOrder = -1;
+	shadow.renderOrder = defaults.stageShadowOrder;
 
 	const { min, max } = footprint;
-	const pad = Math.min(max[0] - min[0], max[1] - min[1]) * 0.065;
-	const z = min[2] - 0.001;
+	const pad = Math.min(max[0] - min[0], max[1] - min[1]) * defaults.stageGroundOutlinePad;
+	const z = min[2] - defaults.stageGroundOutlineOffsetM;
 	const corners = [
 		[min[0] - pad, min[1] - pad, z],
 		[max[0] + pad, min[1] - pad, z],

@@ -20,10 +20,15 @@ import {
 } from './records';
 
 export {
+	/** A malformed edit, placement, or document cannot enter the sandbox state. */
 	SandboxDataError,
+	/** Before and after records for one placement ID, with absence for creation or removal. */
 	type PlacementChange,
+	/** A reversible place, remove, or replace operation on a sandbox placement. */
 	type SandboxEdit,
+	/** A rebuildable placement with its stable slot ID, scoped host, and registry revision. */
 	type SandboxPlacement,
+	/** World ID, optional seed, and the terrain, topology, and registry revisions for saved edits. */
 	type WorldIdentity
 };
 
@@ -47,7 +52,12 @@ type ResolveParams = (
 const format = 'sandbox/3';
 const noChanges: readonly PlacementChange[] = Object.freeze([]);
 
-export { readHostReference, readPlacementId };
+export {
+	/** Scopes a local host to its world, encoding ground positions as integer lattice coordinates. */
+	readHostReference,
+	/** Returns the stable ID for the single placement slot at an address in one world. */
+	readPlacementId
+};
 
 /** A well-formed address cannot host a placement in the current snapshot. */
 export class UnavailableHostError extends Error {

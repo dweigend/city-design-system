@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { defaults } from '../../../config/select';
 	import { Select as Primitive } from 'bits-ui';
 	import { Icon } from '../icon';
 
@@ -27,7 +28,7 @@
 			<Primitive.Content
 				class="control-popup control-options"
 				align="start"
-				sideOffset={4}
+				sideOffset={defaults.selectOffsetPx}
 				aria-labelledby={id}
 			>
 				<Primitive.Viewport class="control-options-viewport">

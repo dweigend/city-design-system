@@ -50,6 +50,18 @@ export const settings = defineSettings({
 		meaning: 'Recorded trials per parcel timing case.',
 		rationale: 'PB-3 default.'
 	},
+	mirrorProbeSpacingM: {
+		value: 24,
+		unit: 'm',
+		meaning: 'Spacing of the footprint samples and their reflections',
+		rationale: 'Samples the occupied halves of lowland plans at the scale of individual blocks.'
+	},
+	mirrorFootprintBucketM: {
+		value: 90,
+		unit: 'm',
+		meaning: 'Side of the mirror study footprint lookup buckets',
+		rationale: 'Keeps each footprint query local to neighboring plan cells.'
+	},
 	footprintCompactnessRange: {
 		value: [0.45, 0.75],
 		unit: 'ratio',
@@ -62,7 +74,13 @@ export const settings = defineSettings({
 
 /** Values used by the city study acceptance checks. */
 const values = settingValues(settings);
-export const { footprintCompactnessRange, parcelTimingWarmups, parcelTimingRuns } = values;
+export const {
+	footprintCompactnessRange,
+	mirrorFootprintBucketM,
+	mirrorProbeSpacingM,
+	parcelTimingWarmups,
+	parcelTimingRuns
+} = values;
 export const parcelAreaEstimates = new Map<string, readonly [number, number]>([
 	['detached', values.detachedAreaEstimateM2],
 	['block', values.perimeterAreaEstimateM2],

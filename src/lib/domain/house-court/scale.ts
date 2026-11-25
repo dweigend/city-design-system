@@ -39,7 +39,7 @@ function draw<T>(random: Random, key: string, list: readonly T[], count: number)
  * fill and roof kinds and one roof colour. Regular houses use the row unchanged. Deterministic in
  * the seed. */
 // Exact arithmetic: one kind per calm house.
-export function houseStyleFor(
+export function readHouseStyle(
 	space: CellSpace,
 	style: HouseStyle,
 	seed: number,

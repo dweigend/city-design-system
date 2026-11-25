@@ -1,3 +1,4 @@
+import { defaults } from '../../../config/stage';
 import { Color, type Scene } from 'three/webgpu';
 import type { Drawable } from '../surface';
 import type { createContent } from './content';
@@ -36,12 +37,15 @@ export function createStyle(
 			palette.ink.value.copy(ink);
 			strokes.outer.color.copy(ink);
 			strokes.crease.color.copy(ink);
-			if (landscape) strokes.crease.color.lerp(paper, dark ? 0.13 : 0.04);
-			strokes.ground.color.copy(paper).lerp(ink, 0.48);
+			if (landscape)
+				strokes.crease.color.lerp(paper, defaults.stageLandscapeCreasePaperShare[Number(dark)]);
+			strokes.ground.color.copy(paper).lerp(ink, defaults.stageGroundInkShare);
 			palette.dark.value = Number(dark);
 			palette.hull.value = Number(readStagePresentation(display).treatment === 'ghost');
 		}
-		content.ground?.shadow.material.color.copy(paper).lerp(ink, dark ? 0.016 : 0.32);
+		content.ground?.shadow.material.color
+			.copy(paper)
+			.lerp(ink, defaults.stageGroundShadowInkShare[Number(dark)]);
 		const style = readDisplay(display);
 		content.update((drawable: Drawable, hasFill) => {
 			const shade = drawable.finish === 'shadow';
@@ -56,7 +60,8 @@ export function createStyle(
 			const visible = drawable.visible !== false;
 			const opacity = visible && hasFill && drawable.fillVisible !== false ? alpha : 0;
 			if (shade) tint.copy(paper).lerp(color(drawable.color), drawable.fillAlpha ?? 1);
-			else if (usePaper) tint.copy(paper).lerp(color('--ink'), dark ? 0.09 : 0.19);
+			else if (usePaper)
+				tint.copy(paper).lerp(color('--ink'), defaults.stagePaperTintInkShare[Number(dark)]);
 			else {
 				tint.copy(color(drawable.color));
 				if (drawable.colorMix) tint.lerp(color(drawable.colorMix.token), drawable.colorMix.amount);

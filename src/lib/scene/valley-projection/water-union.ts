@@ -1,5 +1,6 @@
+import { defaults } from '../../../config/valley-projection';
 import { measurePolygon, type Vec3 } from '../../core/geometry';
-import { waterSeamToleranceM, waterUnionAreaEpsilonM2, waterUnionBucketM } from './constants';
+const { waterSeamToleranceM, waterUnionAreaEpsilonM2, waterUnionBucketM } = defaults;
 
 type Polygon = readonly Vec3[];
 export type WaterFace = Readonly<{ polygon: Polygon; split: boolean }>;

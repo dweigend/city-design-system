@@ -5,7 +5,14 @@ import { defineParams, resolveParams, type ParameterSchema } from '../params';
 import { Random } from '../random';
 import type { AssetHost } from './hosts';
 
-export type { AssetHost, HostAddress, Placement } from './hosts';
+export type {
+	/** Resolved placement inputs in world meters. */
+	AssetHost,
+	/** Local host address. */
+	HostAddress,
+	/** A rebuildable placement. */
+	Placement
+} from './hosts';
 
 type Parameters = Readonly<Record<string, number>>;
 

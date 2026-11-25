@@ -98,6 +98,7 @@ export function mesh() {
 	};
 }
 
+/** Mutable triangle mesh with packed XYZ coordinates in meters and zero-based indices. */
 export type Mesh = ReturnType<typeof mesh>;
 
 /** Freezes nonempty mesh layers as an object and measures their XY footprint in meters. */

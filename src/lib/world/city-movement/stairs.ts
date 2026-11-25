@@ -1,6 +1,6 @@
 import type { Vec2, Vec3 } from '../../core/geometry';
 import type { CityColumn } from '../../domain/city-volume';
-import type { MovementNode } from '../../domain/movement-network';
+import { accessObjectParams, type MovementNode } from '../../domain/movement-network';
 import type { CitySite } from '../city-site';
 import { defaults } from '../../../config/city-movement';
 import { columnClearance, type walkwayClearance } from './clearance';
@@ -93,7 +93,7 @@ export function stairSurvey(
 		const z = base.position[2];
 		const rise = top.position[2] - z;
 		if (rise <= 0) return undefined;
-		const half = defaults.stairHalfWidthM;
+		const half = accessObjectParams.stair.width.default / 2;
 		const side = defaults.stairFlightSeparationM / 2;
 		const padding = half + side;
 		const pairs = Math.ceil(rise / defaults.stairFlightRiseM / 2);

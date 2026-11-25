@@ -89,7 +89,7 @@ function fillBatch(
 		} else {
 			// Keep flat faces of object studies. Vertices cannot be shared across a hard fold.
 			for (const index of source.indices) {
-				const i = index * 3;
+				const i = index * /* Exact arithmetic: XYZ components per vertex. */ 3;
 				positions.push(source.positions[i], source.positions[i + 1], source.positions[i + 2]);
 				indices.push(owners.length);
 				owners.push(part.row);
@@ -99,8 +99,17 @@ function fillBatch(
 	}
 	if (!ranges.size) return;
 	const geometry = new BufferGeometry()
-		.setAttribute('position', new Float32BufferAttribute(positions, 3))
-		.setAttribute('aPartIndex', new Uint32BufferAttribute(owners, 1))
+		.setAttribute(
+			'position',
+			new Float32BufferAttribute(positions, /* Exact arithmetic: XYZ components per vertex. */ 3)
+		)
+		.setAttribute(
+			'aPartIndex',
+			new Uint32BufferAttribute(
+				owners,
+				/* Exact arithmetic: each vertex stores one owner index. */ 1
+			)
+		)
 		.setIndex(indices);
 	geometry.computeVertexNormals();
 	const opaque = mesh ?? new Mesh(geometry, materials.opaque);
@@ -124,13 +133,30 @@ function strokeBatch(
 	const rows: number[] = [];
 	const ranges: StrokeRange[] = [];
 	for (const { part, source } of members) {
-		ranges.push({ part, source, start: edges.segments.length, scale: 1, offset: 0 });
+		ranges.push({
+			part,
+			source,
+			start: edges.segments.length,
+			scale: /* Exact arithmetic: identity stroke scale. */ 1,
+			offset: /* Exact arithmetic: identity stroke translation. */ 0
+		});
 		for (const channel of ['segments', 'fronts', 'backs'] as const)
 			for (const value of source.edges[channel]) edges[channel].push(value);
-		for (let i = 0; i < source.edges.segments.length; i += 6) rows.push(part.row);
+		for (
+			let i = 0;
+			i < source.edges.segments.length;
+			i += /* Exact arithmetic: two XYZ endpoints per segment. */ 6
+		)
+			rows.push(part.row);
 	}
 	const geometry = lineGeometry(edges);
-	geometry.setAttribute('aPartIndex', new InstancedBufferAttribute(new Uint32Array(rows), 1));
+	geometry.setAttribute(
+		'aPartIndex',
+		new InstancedBufferAttribute(
+			new Uint32Array(rows),
+			/* Exact arithmetic: one owner index per stroke. */ 1
+		)
+	);
 	const painters = {
 		explicit: [materials.front, materials.back],
 		edge: [materials.crease, materials.outer],
@@ -140,7 +166,10 @@ function strokeBatch(
 	const lines = painters.map((material, index) => {
 		const line = previous?.[index] ?? new LineSegments2(geometry, material);
 		line.geometry = geometry;
-		line.renderOrder = kind === 'explicit' ? 5 : 2 + index;
+		line.renderOrder =
+			kind === 'explicit'
+				? defaults.stageExplicitStrokeOrder
+				: defaults.stageDerivedStrokeBaseOrder + index;
 		return line;
 	});
 	return { geometry, lines, ranges };
@@ -342,7 +371,7 @@ export function packChunk(materials: Materials, group: Group, smooth: boolean) {
 		scratch.getBoundingSphere(alpha.sphere);
 		if (look.veil && !alpha.veil) {
 			alpha.veil = new Mesh(alpha.body.geometry, materials.veil);
-			alpha.veil.renderOrder = 6;
+			alpha.veil.renderOrder = defaults.stageVeilOrder;
 			group.add(alpha.veil);
 		} else if (!look.veil && alpha.veil) {
 			releaseVeil(alpha.veil);

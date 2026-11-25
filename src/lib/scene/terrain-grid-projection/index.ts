@@ -4,12 +4,12 @@ import { required } from '../../core/invariant';
 import { PlaceableObject, type Shape } from '../../core/object';
 import type { TerrainGrid } from '../../domain/terrain-grid';
 import { resolveSurfaces } from '../surface';
-import { drape } from './drape';
+import { createTerrainSegmentProjector } from './drape';
 
 /** Indexes the rendered ground mesh and returns a segment projector in local meters.
  * The optional bucket side in meters defaults to 16. Each segment follows crossed triangles
  * and throws if it leaves the mesh. */
-export { drape as terrainDrape };
+export { createTerrainSegmentProjector };
 
 /** Indexes a mesh in local meters for segment draping and planar facet lookup. Facets are
  * returned once per query from buckets touched by the outline's bounds. Heights are interpolated
@@ -25,13 +25,13 @@ export function terrainGridProjection(
 	toLocal: (x: number, y: number) => Vec2,
 	footprint: Readonly<{ width: number; depth: number }>
 ) {
-	const project = drape(ground);
+	const project = createTerrainSegmentProjector(ground);
 	return (grid: TerrainGrid) => projectGrid(grid, project, toLocal, footprint);
 }
 
 function projectGrid(
 	grid: TerrainGrid,
-	project: ReturnType<typeof drape>,
+	project: ReturnType<typeof createTerrainSegmentProjector>,
 	toLocal: (x: number, y: number) => Vec2,
 	footprint: Readonly<{ width: number; depth: number }>
 ) {
@@ -60,7 +60,7 @@ function projectGrid(
 				const [u, v] = required(vertex.get(id), 'cell corner');
 				return [x + u / vertexIds.length, y + v / vertexIds.length];
 			},
-			[0, 0]
+			/* Exact arithmetic: the reference origin is zero in XY. */ [0, 0]
 		);
 		// The fill is invisible. The fan supplies connected topology even at collinear terrain cuts.
 		positions.push(...middle, ring[0][2]);

@@ -10,7 +10,7 @@ import { caps, figureOpenings, trees } from './dress';
 import { cellSolids, type CellSolid } from './fills';
 import { additionFrames, structure } from './structure';
 import { envelopeFaces, solidFaces, type HouseFace } from './faces';
-import { houseStyleFor } from './scale';
+import { readHouseStyle } from './scale';
 import { houseStyles, type HouseStyle } from './styles';
 import { side } from './boxes';
 import {
@@ -264,7 +264,7 @@ export function createHouseCourt(
 	const id = houseId(space);
 	let addresses: readonly HousePartAddress[] | undefined;
 	const ctx = () =>
-		context(space, house, houseStyleFor(space, style, house.inputs.seed, house.scale), []);
+		context(space, house, readHouseStyle(space, style, house.inputs.seed, house.scale), []);
 	return Object.freeze({
 		...house,
 		id,
@@ -291,7 +291,7 @@ export function readHousePartRefs(
 					context(
 						space,
 						house,
-						houseStyleFor(space, style, house.inputs.seed, house.scale),
+						readHouseStyle(space, style, house.inputs.seed, house.scale),
 						adjoiningWalls
 					),
 					house,
@@ -319,7 +319,7 @@ const houseId = (space: CellSpace) => `house/${space.id}`;
  * plates; for an `envelope` fill the merged envelope shells with a parapet rim and plain openings;
  * otherwise one closed solid per cell body, capsule or roof inside its own cell, flat tops with a
  * parapet rim; then figure openings, the entrance canopy accent, planted caps, frame and services,
- * court trees, galleries, the court stair and the entrance steps. The row is applied at the house's scale (`houseStyleFor`): a calm
+ * court trees, galleries, the court stair and the entrance steps. The row is applied at the house's scale (`readHouseStyle`): a calm
  * house draws few kinds and colours, a large one its row's large tendency. Galleries also run
  * along parcel edges onto a shared court. `block` keeps plates, solids and steps, as slots `mass`
  * and `plot`. No colours; slots name roles (MAT-1). Anchors: `entrance` on the frontage at lane
@@ -333,7 +333,7 @@ export function createHouseObject(
 	style: HouseStyle = houseStyles.neutral,
 	adjoiningWalls: readonly AdjoiningWall[] = []
 ): PlaceableObject {
-	const used = houseStyleFor(space, style, house.inputs.seed, house.scale);
+	const used = readHouseStyle(space, style, house.inputs.seed, house.scale);
 	const ctx = context(space, house, used, adjoiningWalls);
 	return createObject(ctx, detail, allParts(ctx, house, detail));
 }
@@ -349,7 +349,7 @@ export function createHouseAssembly(
 	const ctx = context(
 		space,
 		house,
-		houseStyleFor(space, style, house.inputs.seed, house.scale),
+		readHouseStyle(space, style, house.inputs.seed, house.scale),
 		adjoiningWalls
 	);
 	const parts = allParts(ctx, house, detail);
@@ -395,7 +395,7 @@ export function houseFaces(
 	style: HouseStyle = houseStyles.neutral,
 	adjoiningWalls: readonly AdjoiningWall[] = []
 ): readonly HouseFace[] {
-	const used = houseStyleFor(space, style, house.inputs.seed, house.scale);
+	const used = readHouseStyle(space, style, house.inputs.seed, house.scale);
 	const ctx = context(space, house, used, adjoiningWalls);
 	const solids = cellSolids(ctx);
 	const faces = [

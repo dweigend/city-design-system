@@ -1,3 +1,4 @@
+import { defaults } from '../../../config/stage';
 import {
 	DoubleSide,
 	MeshBasicNodeMaterial,
@@ -21,8 +22,8 @@ import type { Drawable } from '../surface';
 
 // Five vec4s per part: fill RGBA, face tones and flat flag, Z transform and grain,
 // stroke RGBA, then hidden share, depth fade, hatch and visible width.
-const vectorsPerPart = 5;
-const components = 4;
+const vectorsPerPart = /* Exact arithmetic: five packed Vec4 fields per part. */ 5;
+const components = /* Exact arithmetic: components per Vec4 field. */ 4;
 const rowSize = vectorsPerPart * components;
 
 export type PartLook = {
@@ -43,7 +44,7 @@ export function createRows() {
 	const buffer = storage(
 		new StorageBufferAttribute(components, components),
 		'vec4',
-		0
+		/* Exact arithmetic: initial uniform offset. */ 0
 	).toReadOnly();
 	const free: number[] = [];
 	let size = 0;
@@ -112,7 +113,7 @@ export function createRows() {
 			buffer.value.addUpdateRange(start, end - start);
 			buffer.value.needsUpdate = true;
 			start = Infinity;
-			end = 0;
+			end = /* Exact arithmetic: empty storage starts at the first row. */ 0;
 		},
 		delete() {
 			buffer.value.dispose();
@@ -126,11 +127,27 @@ export function batchMaterials(
 	strokes: ReturnType<typeof strokeMaterials>,
 	landscape: boolean
 ) {
-	const [fill, faces, grain, ink, flags] = [0, 1, 2, 3, 4].map(rows.at);
-	const transform = rows.inVertex(2);
+	const [fill, faces, grain, ink, flags] =
+		/* Exact arithmetic: column offsets of fill, faces, grain, ink and flags. */ [
+			0, 1, 2, 3, 4
+		].map(rows.at);
+	const transform = rows.inVertex(/* Exact arithmetic: transform column offset. */ 2);
 	const position = vec3(positionLocal.xy, positionLocal.z.mul(transform.x).add(transform.y));
-	const scale = grain.x.lessThan(0).select(grain.x.min(-1e-4), grain.x.max(1e-4));
-	const normal = normalWorldGeometry.mul(vec3(1, 1, scale.reciprocal())).normalize();
+	const scale = grain.x
+		.lessThan(/* Exact arithmetic: test vertical scale sign. */ 0)
+		.select(
+			grain.x.min(-defaults.stageBatchNormalScaleFloor),
+			grain.x.max(defaults.stageBatchNormalScaleFloor)
+		);
+	const normal = normalWorldGeometry
+		.mul(
+			vec3(
+				/* Exact arithmetic: X normals keep unit scale. */ 1,
+				/* Exact arithmetic: Y normals keep unit scale. */ 1,
+				scale.reciprocal()
+			)
+		)
+		.normalize();
 	const color = mix(
 		pencilFill(palette, fill.rgb, normal, faces.xyz, grain.z, grain.w, flags.z),
 		fill.rgb,
@@ -144,13 +161,16 @@ export function batchMaterials(
 			transparent,
 			depthWrite: !transparent,
 			polygonOffset,
-			polygonOffsetFactor: 1,
-			polygonOffsetUnits: 1
+			polygonOffsetFactor: defaults.stageFillDepthFactor,
+			polygonOffsetUnits: defaults.stageFillDepthBias
 		});
 		material.positionNode = position;
 		material.colorNode = color;
 		if (transparent) material.opacityNode = fill.a;
-		else material.maskNode = fill.a.greaterThanEqual(1);
+		else
+			material.maskNode = fill.a.greaterThanEqual(
+				/* Exact arithmetic: unit opacity is opaque. */ 1
+			);
 		return material;
 	}
 
@@ -164,7 +184,7 @@ export function batchMaterials(
 	const grid = strokes.grid.clone();
 	const rim = strokes.gridBoundary.clone();
 	// Line2 can write RGB even at zero alpha. Discard hidden rows before they cover an alpha fill.
-	const visible = flags.w.greaterThan(0);
+	const visible = flags.w.greaterThan(/* Exact arithmetic: zero means hidden. */ 0);
 	outer.maskNode = strokes.silhouette.and(visible);
 	crease.maskNode = strokes.silhouette.not().and(visible);
 	for (const pencil of [grid, rim]) {
@@ -178,11 +198,11 @@ export function batchMaterials(
 	// Line2 expands a one-pixel ribbon around each endpoint. In an orthographic stage,
 	// scaling that offset preserves the CSS width, round caps and centerline depth.
 	const endpoint = positionGeometry.y
-		.lessThan(0.5)
+		.lessThan(/* Exact arithmetic: split the normalized line at its midpoint. */ 0.5)
 		.select(attribute('instanceStart', 'vec3'), attribute('instanceEnd', 'vec3'));
-	const width = rows.inVertex(4).w;
+	const width = rows.inVertex(/* Exact arithmetic: flags column offset. */ 4).w;
 	front.positionNode = mix(endpoint, positionLocal, width);
-	back.positionNode = mix(endpoint, positionLocal, width.mul(0.75));
+	back.positionNode = mix(endpoint, positionLocal, width.mul(defaults.stageHiddenStrokeWidthRatio));
 
 	const materials = { opaque, alpha, glass, veil, outer, crease, grid, rim, front, back };
 	const unique = new Set(Object.values(materials));

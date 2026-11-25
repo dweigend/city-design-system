@@ -48,13 +48,22 @@ export const VALLEY_MEASUREMENT_PROTOCOL = {
 } as const;
 
 export {
+	/** Inclusive bands for the course, field wet width and bare-earth measurements. */
 	LARGE_LOWLAND_MEASUREMENT_BANDS,
+	/** Form gates for the corrected valley family. */
 	VALLEY_FORM_BANDS,
+	/** ASCII K11a as a u32. */
 	VALLEY_HOLDOUT_ROOT,
+	/** Frozen seed set reserved for independent valley measurement. */
 	VALLEY_HOLDOUT_SEEDS,
+	/** The picture plates face downstream at a shared bearing. */
 	VALLEY_PICTURE_BEARING_RAD,
+	/** Fixed valley seeds used for the canonical reference pictures. */
 	VALLEY_PICTURE_SEEDS,
+	/** River geometry and bare-earth measurements from the reference comparison table. */
 	VALLEY_REFERENCES,
+	/** Geometric differences measured at the seven interior rows of the shared picture frame. */
 	VALLEY_WINDOW_FORM,
+	/** Fixed valley seeds for the X1 measurement matrix. */
 	VALLEY_X1_SEEDS
 } from './reference.evidence';

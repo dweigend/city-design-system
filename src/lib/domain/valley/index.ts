@@ -46,16 +46,30 @@ export { valleyParams } from './parameters';
 export { peakHeightM } from './uplifts';
 /** Index order for named ground bands on the raster. */
 export { valleyBands } from './ground';
-export type { Reach, ReachStation } from './reaches';
+export type {
+	/** A downstream channel between sources, junctions, lakes and exits. */
+	Reach,
+	/** One channel cross section in meters and discharge in cubic meters per second. */
+	ReachStation
+} from './reaches';
+/** Catchment conservation residuals in square meters and counts of invalid receiver steps. */
 export type { DrainageCheck } from './drainage-check';
+/** Kind of water over a sample, with null for dry terrain. */
 export type { WaterKind } from './terrain-sample';
 export type {
+	/** Ground elevation, water elevation, and bank distance in meters, with slope as rise over run. */
 	GroundReading,
+	/** Relief and slope statistics, wet area and share, and hydrology checks over a sampled square. */
 	GroundSurvey,
+	/** Counts of violations of drainage and water surface invariants. */
 	HydrologyFaults,
+	/** Regular valley raster with elevation bands in meters. */
 	HeightGrid,
+	/** A solved lake with closed plan rings, surface elevation in meters, and outlet information. */
 	DrainageLake,
+	/** Ordered river centerline in packed XY meters, with its length and sinuosity. */
 	RiverCourse,
+	/** Square survey side and node spacing in meters, with buildable slope as rise over run. */
 	SurveyWindow
 };
 /** Default survey window: 4 km square, 20 m spacing, buildable below a 20 % slope. */

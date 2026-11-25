@@ -28,7 +28,7 @@ import {
 	projectCityTerrain
 } from './index';
 import { projectParcelPlan } from './parcel-plan';
-import { cityElevationRangeM, planLineLiftM } from './constants';
+import { cityElevationRangeM, planLineLiftM } from '../../../config/city-volume-projection';
 import { memberRank } from './lattice';
 import { clockwise } from './mesh';
 

@@ -16,6 +16,7 @@ export type { CityMovementKind } from './links';
 /** Alternative walkway planes relative to the derived eaves plane. */
 export const walkwayLevelOffsets = defaults.walkwayLevelOffsets;
 
+/** Caller-selected rail survey origin, station catchment centres and terrain upper bounds. */
 export type { CityRailOptions } from './rail';
 
 /** Grade bound used by the Paths valley fixture to envelope its terrain samples. */

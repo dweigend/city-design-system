@@ -1,6 +1,7 @@
 import type { Vec2 } from '../src/lib/core/geometry';
 import type { TerrainGrid } from '../src/lib/domain/terrain-grid';
 import { polygon } from './city-study-plan';
+import { mirrorFootprintBucketM, mirrorProbeSpacingM } from './config/city-study';
 
 /** Matched lowland towns use the terrain study's unit-runoff seed list. */
 export const mirrorSeeds = [
@@ -9,8 +10,8 @@ export const mirrorSeeds = [
 /** At most half of the median town's built samples should have a reflected built counterpart. */
 export const maximumMedianMirrorShare = 0.5;
 
-const stepM = 24;
-const bucketM = 90;
+const stepM = mirrorProbeSpacingM;
+const bucketM = mirrorFootprintBucketM;
 
 function footprint(grid: TerrainGrid) {
 	const ring = polygon(grid);

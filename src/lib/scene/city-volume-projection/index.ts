@@ -1,4 +1,5 @@
 /** Module: Projects city terrain, building stock and lattice members with focus policies. */
+import { cityProjectionDefaultSeed } from '../../../config/city-volume-projection';
 import type { Vec2, Vec3 } from '../../core/geometry';
 import { required } from '../../core/invariant';
 import { bounds, PlaceableObject, type Footprint } from '../../core/object';
@@ -21,22 +22,39 @@ import { shadowBands, shadowMesh } from './shadow';
 type Frame = Readonly<{ footprint: Footprint; toLocal: (x: number, y: number) => Vec2 }>;
 /** Maps the camera framing to continuous detail and height presentation. */
 export {
+	/** The default city camera keeps its existing tilt and height scaling as the frame widens. */
 	cityCameraHeightPreset,
+	/** Camera elevation in radians for a true horizontal frame width in meters. */
 	cityElevation,
+	/** Smooth detail weights and vertical scale for a fitted city. */
 	cityProfile,
+	/** Camera elevation and height scaling parameters. */
 	type CityCameraHeightPreset
 } from './profile';
 /** Camera bearing and frame fill of the city picture. */
 export {
+	/** Default bearing of the city camera from north in radians. */
 	cityCameraBearingRad,
+	/** Minimum requested city camera frame width in meters. */
 	cityCameraMinimumWidthM,
+	/** Fraction of the initial city frame occupied by the flat-ground fit. */
 	cityFrameFillFlat,
+	/** Fraction removed from the default city fit per unit of relief. */
 	cityFrameFillPerRelief
-} from './constants';
+} from '../../../config/city-volume-projection';
 /** Projects the terrain and the city plan in one frame. */
 export { projectCityTerrain } from './terrain';
 /** Resolves the focus choices a city picture offers and the one in effect. */
-export { cityFocus, type CityContent, type FocusChoice, type Subsystem } from './focus';
+export {
+	/** Resolves available focus choices, their order, the active choice, and its analysis colors. */
+	cityFocus,
+	/** What a city picture holds besides terrain and water. */
+	type CityContent,
+	/** A choice in the city's focus menu. */
+	type FocusChoice,
+	/** A projection row in the city preset. */
+	type Subsystem
+} from './focus';
 /** The city page vocabulary and display levels. */
 export { cityFocusPreset } from './focus-policy';
 /** Styles terrain, envelope and lattice by focus as the camera moves. */
@@ -59,7 +77,7 @@ export function projectCityDistricts(
 	datumZ: number,
 	frame: Frame,
 	taper?: CityTaper,
-	seed = 0,
+	seed: number = cityProjectionDefaultSeed,
 	kinds: readonly DistrictKind[] = cityDistrictKinds,
 	levelHeightM = levelHeight
 ) {
@@ -129,11 +147,14 @@ export function projectCityDistricts(
 				{
 					...part,
 					kind: shade.kind,
-					levels: 0,
+					levels: /* Exact arithmetic: this drawable reports no levels. */ 0,
 					drawn: false,
 					role: shade.role,
 					boxShade: shade.boxShade,
-					warp: { fill: shade.warp, amount: 0 }
+					warp: {
+						fill: shade.warp,
+						amount: /* Exact arithmetic: zero leaves positions unwarped. */ 0
+					}
 				}
 			];
 		const block = blocks.get(part.id);
@@ -141,7 +162,7 @@ export function projectCityDistricts(
 			const box: CityDrawable = {
 				...part,
 				kind: block.kind,
-				levels: 0,
+				levels: /* Exact arithmetic: this drawable reports no levels. */ 0,
 				drawn: block.drawn,
 				role: 'block',
 				strokeSegments: block.walls
@@ -161,15 +182,19 @@ export function projectCityDistricts(
 			drawn,
 			role: 'body',
 			strokeSegments: [...wires.walls.values()].flat(),
-			warp: { fill: offsets.fill, stroke: offsets.walls, amount: 0 }
+			warp: {
+				fill: offsets.fill,
+				stroke: offsets.walls,
+				amount: /* Exact arithmetic: zero leaves positions unwarped. */ 0
+			}
 		};
 		const siblings = (['roof', 'storeys', 'joints'] as const)
 			.filter((set) => wires[set].size)
 			.map((set) =>
 				strokeSibling(body, set, [...wires[set].values()].flat(), {
-					fill: offsets.fill.slice(0, 6),
+					fill: offsets.fill.slice(0, /* Exact arithmetic: three packed XY offsets. */ 6),
 					stroke: offsets[set],
-					amount: 0
+					amount: /* Exact arithmetic: zero leaves positions unwarped. */ 0
 				})
 			);
 		return [body, ...siblings];
@@ -199,12 +224,19 @@ function strokeSibling(
 	strokeSegments: readonly number[],
 	warp?: CityDrawable['warp']
 ): CityDrawable {
-	const positions = body.shape.kind === 'mesh' ? body.shape.positions.slice(0, 9) : [];
+	const positions =
+		body.shape.kind === 'mesh'
+			? body.shape.positions.slice(0, /* Exact arithmetic: three packed XYZ vertices. */ 9)
+			: [];
 	return {
 		...body,
 		id: `${body.id}/${role}`,
 		role,
-		shape: { kind: 'mesh', positions, indices: [0, 1, 2] },
+		shape: {
+			kind: 'mesh',
+			positions,
+			indices: /* Exact arithmetic: indices of one triangle. */ [0, 1, 2]
+		},
 		fillVisible: false,
 		strokeSegments,
 		...(warp ? { warp } : {})
@@ -216,7 +248,7 @@ function strokeSibling(
 export function projectCityLattice(
 	lattice: CityLattice,
 	frame: Frame,
-	taper: CityTaper = () => [0, 0]
+	taper: CityTaper = () => /* Exact arithmetic: no taper produces the zero XY offset. */ [0, 0]
 ) {
 	const { geometry, jointTaper, wires, offsets } = latticeMesh(lattice, frame.toLocal, taper);
 	const object = PlaceableObject.create({
@@ -232,15 +264,22 @@ export function projectCityLattice(
 			if (part.shape.kind !== 'mesh') throw new Error('Expected lattice joints');
 			const shape = {
 				kind: 'mesh' as const,
-				positions: part.shape.positions.slice(0, 9),
-				indices: [0, 1, 2]
+				positions: part.shape.positions.slice(
+					0,
+					/* Exact arithmetic: three packed XYZ vertices. */ 9
+				),
+				indices: /* Exact arithmetic: indices of one triangle. */ [0, 1, 2]
 			};
-			const first = jointTaper.slice(0, 6);
+			const first = jointTaper.slice(0, /* Exact arithmetic: three packed XY offsets. */ 6);
 			return [
 				{
 					...part,
 					strokeSegments: wires.rims,
-					warp: { fill: jointTaper, stroke: offsets.rims, amount: 0 }
+					warp: {
+						fill: jointTaper,
+						stroke: offsets.rims,
+						amount: /* Exact arithmetic: zero leaves positions unwarped. */ 0
+					}
 				},
 				{
 					...part,
@@ -248,7 +287,11 @@ export function projectCityLattice(
 					shape,
 					fillVisible: false,
 					strokeSegments: wires.uprights,
-					warp: { fill: first, stroke: offsets.uprights, amount: 0 }
+					warp: {
+						fill: first,
+						stroke: offsets.uprights,
+						amount: /* Exact arithmetic: zero leaves positions unwarped. */ 0
+					}
 				},
 				{
 					...part,
@@ -256,7 +299,11 @@ export function projectCityLattice(
 					shape,
 					fillVisible: false,
 					strokeSegments: wires.detail,
-					warp: { fill: first, stroke: offsets.detail, amount: 0 }
+					warp: {
+						fill: first,
+						stroke: offsets.detail,
+						amount: /* Exact arithmetic: zero leaves positions unwarped. */ 0
+					}
 				}
 			];
 		})

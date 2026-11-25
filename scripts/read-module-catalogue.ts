@@ -24,6 +24,12 @@ if (import.meta.main) {
 	console.log(JSON.stringify(rows, null, 2));
 	const failures = rows.filter(({ errors }) => errors.length);
 	for (const { module, errors } of failures) console.error(`${module}: ${errors.join(', ')}`);
-	console.error(`${rows.length - failures.length} pass, ${failures.length} fail.`);
+	const documented = rows.reduce(
+		(count, row) => count + Object.keys(row.exportDocumentation).length,
+		0
+	);
+	console.error(
+		`${rows.length - failures.length} pass, ${failures.length} fail. ${documented} exports documented.`
+	);
 	if (!rows.length || failures.length) process.exitCode = 1;
 }
