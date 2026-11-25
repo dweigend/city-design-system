@@ -25,7 +25,7 @@ export {
 	type FamilyRecipe,
 	/** Role of the face or printed marks emitted by a material family. */
 	type FamilySlot,
-	/** Plain tone, stripes across the long body axis, or dots in the plane of the face. */
+	/** Plain tone, stripes that wrap the body, or dots in the plane of the face. */
 	type PatternKind,
 	/** Pattern pitch and joint spacing in meters, plus the fraction covered by marks. */
 	type PatternParams

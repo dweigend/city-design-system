@@ -134,6 +134,68 @@ test('stripes wrap a body: the stripe phase matches where wall and roof share an
 	expect(roofFront).toEqual(wallTop);
 });
 
+const stripeCornerFixtures = [
+	{
+		name: 'axis-aligned prism',
+		origin: [0, 0, 0],
+		along: [1, 0, 0],
+		depth: 4.2,
+		endBands: [0.63, 1.47, 2.73, 3.57]
+	},
+	{
+		name: 'rotated and translated prism',
+		origin: [13.1, -7.4, 2.3],
+		along: [0.6, 0.8, 0],
+		depth: 4.2,
+		endBands: [0.63, 1.47, 2.73, 3.57]
+	},
+	{
+		name: 'prism with end walls narrower than half the requested pitch',
+		origin: [-5, 4, 2],
+		along: [1, 0, 0],
+		depth: 0.6,
+		endBands: [0.18, 0.42]
+	}
+] as const;
+
+test.each(stripeCornerFixtures)(
+	'stripes meet at a period boundary on both sides of all four corners of the $name',
+	({ origin, along: [x, y], depth, endBands }) => {
+		const width = 7.2;
+		const at = (u: number, v: number): Vec3 => [
+			origin[0] + x * u - y * v,
+			origin[1] + y * u + x * v,
+			origin[2]
+		];
+		const walls = [
+			{ origin, across: [x, y, 0], normal: [y, -x, 0], size: [width, 2] },
+			{ origin: at(width, 0), across: [-y, x, 0], normal: [x, y, 0], size: [depth, 2] },
+			{ origin: at(width, depth), across: [-x, -y, 0], normal: [-y, x, 0], size: [width, 2] },
+			{ origin: at(0, depth), across: [y, -x, 0], normal: [-x, -y, 0], size: [depth, 2] }
+		] as const;
+		const { surfaces } = createClad(
+			{ id: 'stripe-prism', footprint: { width, depth }, anchors: [] },
+			walls.map((wall) => ({
+				role: 'wall',
+				family: 'stripe',
+				body: 'prism',
+				patch: { ...wall, thickness: 0 }
+			})),
+			{ recipe: { params: { pitch: 1.7, share: 0.4 } } }
+		);
+		// Four 1.8 m periods along the long walls, each with 0.54 m of ground on either side.
+		const longBands = [0.54, 1.26, 2.34, 3.06, 4.14, 4.86, 5.94, 6.66];
+		const transitions: readonly (readonly number[])[] = surfaces.map((surface, i) => {
+			const patch = { ...walls[i], thickness: 0 };
+			const vertices = points(surface.meshes.get('mark')?.positions ?? []);
+			const alongWall = vertices.map((vertex) => Number(local(vertex, patch)[0].toFixed(6)));
+			return [...new Set(alongWall)].sort((a, b) => a - b);
+		});
+		// Every wall starts and ends at a boundary, regardless of its direction around the prism.
+		expect(transitions).toEqual([longBands, endBands, longBands, endBands]);
+	}
+);
+
 test('a dot grid continues round a corner of its body', () => {
 	const south: Patch = {
 		origin: [0, 0, 0],

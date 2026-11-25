@@ -72,7 +72,8 @@ function expectSettlement(town: NonNullable<ReturnType<DetailPass['advance']>>) 
 		triangles: 6277
 	});
 	expect(town.figures.unbuildable).toBe(26);
-	expect(town.figures.triangles).toBe(1068);
+	// The seed-3 count includes the stripe bands that wrap wall corners.
+	expect(town.figures.triangles).toBe(1080);
 	const structure = town.draw('structure');
 	expect(structure.some(({ id, visible }) => id.startsWith('structure/') && visible)).toBe(true);
 	expect(draw.every(({ shape }, index) => shape === structure[index]?.shape)).toBe(true);

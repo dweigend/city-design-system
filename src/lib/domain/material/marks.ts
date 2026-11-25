@@ -25,17 +25,26 @@ function range(outline: readonly Vec2[], value: (point: Vec2) => number) {
 	return [Math.min(...values), Math.max(...values)] as const;
 }
 
-/** Stripes across the body's long axis: every period prints its first `share` dark. A face that
- * does not run along the long axis (an end face) stays plain. Bands are cut around openings. */
-// Exact arithmetic: axis 0 is the body's long axis.
+/** Prints centered bands across the body's long axis, using the other horizontal axis on end
+ * walls. Each axis fits whole periods over the body, so wall corners lie at period boundaries
+ * on both faces and long walls share their phase with the roof at the eaves. Bands are cut
+ * around openings. */
 export function stripeMarks(face: PrintFace, params: PatternParams): Vec2[][] {
-	if (slope(face.map, /* Exact arithmetic: first pattern axis. */ 0) <= planeToleranceM) return [];
-	const pitch = fitPitch(face.body.size[0], params.pitch);
-	const along = coordinate(face.map, /* Exact arithmetic: first pattern axis. */ 0);
+	const long = /* Exact arithmetic: first pattern axis. */ 0;
+	const across = /* Exact arithmetic: second pattern axis. */ 1;
+	const axis = slope(face.map, long) > planeToleranceM ? long : across;
+	const extent = face.body.size[axis];
+	if (extent <= 0) return [];
+	// A wall narrower than the requested pitch still spans a whole period.
+	const pitch = fitPitch(extent, Math.min(extent, params.pitch));
+	const margin =
+		/* Exact arithmetic: divide the unprinted remainder equally. */ (1 - params.share) / 2;
+	const along = coordinate(face.map, axis);
 	const [low, high] = range(face.outline, along);
 	const marks: Vec2[][] = [];
 	for (let k = Math.floor(low / pitch); k * pitch < high; k++) {
-		const [from, to] = [k * pitch, (k + params.share) * pitch];
+		const from = (k + margin) * pitch;
+		const to = (k + margin + params.share) * pitch;
 		const band = clipHalfPlane(
 			clipHalfPlane([...face.outline], (point) => along(point) - from),
 			(point) => to - along(point)
