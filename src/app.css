@@ -464,13 +464,24 @@
 	.chapter-aspect-values dt { color: var(--ink-2); }
 	.chapter-aspect-values dd { margin: 0; }
 	.chapter-aspect-metric { font-weight: 600; }
+	.chapter-aspect-disclosure {
+		min-inline-size: 0;
+		border: var(--hair) solid var(--line);
+		background: var(--paper-2);
+	}
+	.chapter-aspect-disclosure > summary {
+		padding: var(--space-2) var(--space-3);
+		cursor: pointer;
+	}
+	.chapter-aspect-disclosure[open] > summary {
+		border-block-end: var(--hair) solid var(--line);
+	}
 	.chapter-aspect-source {
 		margin: 0;
 		padding: var(--space-3);
 		max-block-size: 16rem;
 		overflow: auto;
 		background: var(--paper-2);
-		border: var(--hair) solid var(--line);
 		font: var(--text-xs) / 1.5 var(--font-mono);
 		tab-size: 2;
 	}

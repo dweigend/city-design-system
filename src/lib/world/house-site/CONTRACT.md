@@ -6,7 +6,9 @@ boundary supplies court tags. The parcel ID derives the house seed from the inpu
 
 The common bay levels of the block members bound the house. When given a terrain sampler,
 the cell space samples inside the parcel for its floor and plinth and at the selected entrance
-for its lane elevation. A parcel without room for a house and access returns a reason.
+for its lane elevation. `createParcelSpace` exposes that terrain-clipped fine-cell and storey
+space before house occupancy validation, while `createParcelHouse` returns a reason when a
+parcel has no room for a house and access.
 
 The Town study selects two adjacent perimeter blocks and a merged hall from the default plan.
 Each block's placement opts into area-based scale and supplies coincident boundary walls

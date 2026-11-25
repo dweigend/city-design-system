@@ -37,7 +37,12 @@
 	import { ToolBar } from '../../lib/ui/tool-bar';
 	import { UnavailableHostError } from '../../lib/world/sandbox-world';
 	import { housePhaseLabels, houseUseLabels, houseUseTone } from '../house-uses';
-	import { createStrokePointer, createVerticalPointer, type VerticalPreview } from './stroke';
+	import {
+		createStrokePointer,
+		createTouchNavigation,
+		createVerticalPointer,
+		type VerticalPreview
+	} from './stroke';
 	import { createTownSandbox, type Detail, type PlacementRequest } from './town';
 
 	type Town = ReturnType<typeof createTownSandbox>;
@@ -89,6 +94,7 @@
 	let pointer: ReturnType<typeof createStrokePointer>;
 	const stroke = createStrokeState<Parcel>();
 	const verticalPointer = createVerticalPointer(readVerticalTarget);
+	const touchNavigation = createTouchNavigation();
 	const queue = createBuildQueue<readonly Drawable[]>(() => performance.now());
 	const serials = new WeakMap<PlacementRequest, number>();
 	let serial = 0;
@@ -109,7 +115,9 @@
 	let style = $state('house/court-neutral');
 	let status = $state('');
 	let loading = $state(false);
-	let panning = $state(false);
+	let spacePanning = $state(false);
+	let touchPanning = $state(false);
+	const panning = $derived(spacePanning || touchPanning);
 	let frameWork = $state.raw<{ run: () => boolean }>();
 	let verticalPreview = $state.raw<VerticalPreview>();
 	let planStorey = $state('0');
@@ -500,17 +508,17 @@
 	function groundPointer(input: GroundPointer) {
 		if (!town || loading) return;
 		const { event } = input;
-		if (event.pointerType === 'touch' && event.type === 'pointerdown' && !event.isPrimary) {
+		const touch = touchNavigation.read(event);
+		touchPanning = touch.panning;
+		if (touch.started) {
 			// A second finger turns the gesture into navigation; the open stroke is taken back.
 			for (const next of stroke.read({ type: 'cancel', pointer: lastPointer, hits: [], tool }))
 				effect(next);
 			pointer.release();
 			releaseVertical();
-			panning = true;
 			return;
 		}
-		if (event.type === 'pointerup' && event.pointerType === 'touch' && event.isPrimary)
-			panning = false;
+		if (touch.ended) return;
 		if (!open && tool === 'storeys' && !panning) return previewVertical(input);
 		if (!open && (tool === 'select' || panning)) return selectPointer(input);
 		const read = pointer.read(input, strokeTool());
@@ -635,7 +643,7 @@
 		const command = event.ctrlKey || event.metaKey;
 		if (key === ' ' && !event.repeat) {
 			if (event.type === 'keydown' && verticalPointer.isOpen()) releaseVertical();
-			panning = event.type === 'keydown';
+			spacePanning = event.type === 'keydown';
 			if (event.target instanceof HTMLCanvasElement) event.preventDefault();
 			return;
 		}

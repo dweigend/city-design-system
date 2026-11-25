@@ -120,3 +120,39 @@ export function createVerticalPointer(
 
 	return { read, release, isOpen: () => held !== undefined };
 }
+
+/** Tracks multi-finger touch gestures so navigation cancels editing and clears on release or cancel. */
+export function createTouchNavigation() {
+	const touches = new Set<number>();
+	let panning = false;
+
+	function read(event: Pick<PointerEvent, 'type' | 'pointerType' | 'pointerId' | 'isPrimary'>) {
+		if (event.pointerType !== 'touch') return { panning, started: false, ended: false };
+		const wasPanning = panning;
+		if (event.type === 'pointerdown') {
+			if (event.isPrimary) {
+				touches.clear();
+				panning = false;
+			}
+			touches.add(event.pointerId);
+			if (!event.isPrimary && touches.size > 1) {
+				panning = true;
+				return { panning: true, started: !wasPanning, ended: false };
+			}
+			return { panning, started: false, ended: false };
+		}
+		if (
+			event.type === 'pointerup' ||
+			event.type === 'pointercancel' ||
+			event.type === 'lostpointercapture'
+		) {
+			if (event.type === 'pointercancel' && event.isPrimary) touches.clear();
+			else touches.delete(event.pointerId);
+			if (touches.size === 0) panning = false;
+			return { panning, started: false, ended: wasPanning };
+		}
+		return { panning, started: false, ended: false };
+	}
+
+	return { read, isPanning: () => panning };
+}

@@ -26,11 +26,13 @@
 		stage,
 		controls,
 		aspects,
+		resetKey,
 		onAspectStop
 	}: {
 		stage: StageProps;
 		controls?: Snippet;
 		aspects?: readonly ChapterAspect[];
+		resetKey?: string;
 		onAspectStop?: () => void;
 	} = $props();
 	let viewer: HTMLDivElement;
@@ -42,6 +44,7 @@
 	let failed = $state.raw<ChapterAspect>();
 	let requestId = 0;
 	let comparisonTimer: ReturnType<typeof setTimeout> | undefined;
+	let lastResetKey: string | undefined;
 	const comparisonDelayMs = 2500;
 	const metricFormat = new Intl.NumberFormat('en', { maximumFractionDigits: 3 });
 	const shown = $derived(
@@ -55,6 +58,17 @@
 	}
 
 	onDestroy(cancelAspect);
+
+	$effect(() => {
+		const current = resetKey;
+		if (lastResetKey !== undefined && current !== lastResetKey && (active || demo || failed)) {
+			cancelAspect();
+			active = undefined;
+			demo = undefined;
+			failed = undefined;
+		}
+		lastResetKey = current;
+	});
 
 	function stopAspect() {
 		cancelAspect();
@@ -102,9 +116,14 @@
 	});
 
 	function syncFullscreen() {
-		const active = document.fullscreenElement === viewer;
-		if (fullscreen && !active) trigger?.focus({ preventScroll: true });
-		fullscreen = active;
+		const isFullscreen = document.fullscreenElement === viewer;
+		if (fullscreen && !isFullscreen) {
+			fullscreen = false;
+			if (active || demo) stopAspect();
+			trigger?.focus({ preventScroll: true });
+			return;
+		}
+		fullscreen = isFullscreen;
 	}
 
 	async function toggleFullscreen() {
@@ -136,7 +155,7 @@
 			{:else}
 				<span class="small chapter-viewer-subject">{active.title}</span>
 				{#if fullscreen}
-					<Button label="Stop" onclick={stopAspect} />
+					<Button label="Stop" ariaLabel={`Stop ${active.title}`} onclick={stopAspect} />
 				{/if}
 			{/if}
 			{#if supported}
@@ -163,6 +182,7 @@
 					{#if !fullscreen || active !== aspect}
 						<Button
 							label={active === aspect ? 'Stop' : 'Play'}
+							ariaLabel={`${active === aspect ? 'Stop' : 'Play'} ${aspect.title}`}
 							onclick={() => void toggleAspect(aspect)}
 						/>
 					{/if}
@@ -192,13 +212,18 @@
 					</dd>
 				</div>
 			</dl>
-			<!-- svelte-ignore a11y_no_noninteractive_tabindex (Make the scrolling source reachable by keyboard.) -->
-			<pre
-				class="chapter-aspect-source"
-				role="region"
-				aria-label={`${active.title} source`}
-				tabindex="0"
-				translate="no"><code>{demo.source}</code></pre>
+			{#key active.title}
+				<details class="chapter-aspect-disclosure">
+					<summary class="label">Source · {active.title}</summary>
+					<!-- svelte-ignore a11y_no_noninteractive_tabindex (Make the scrolling source reachable by keyboard.) -->
+					<pre
+						class="chapter-aspect-source"
+						role="region"
+						aria-label={`${active.title} source`}
+						tabindex="0"
+						translate="no"><code>{demo.source}</code></pre>
+				</details>
+			{/key}
 		</div>
 	{/if}
 {/if}

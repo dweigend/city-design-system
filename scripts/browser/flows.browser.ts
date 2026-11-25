@@ -258,11 +258,15 @@ journeys('runs and stops lazy landscape aspects on one stage', async ({ page }) 
 	const tributary = 'Tributary runoff and side-lake';
 	const card = (name: string) =>
 		hero.getByRole('listitem').filter({ has: page.getByRole('heading', { name, exact: true }) });
-	const play = (name: string) => card(name).getByRole('button', { name: 'Play' });
+	const play = (name: string) => card(name).getByRole('button', { name: `Play ${name}` });
+	const disclosure = (name: string) =>
+		hero.locator('details.chapter-aspect-disclosure').filter({ hasText: `Source · ${name}` });
 	const source = (name: string) => page.getByRole('region', { name: `${name} source` });
+	const readAspectFile = (name: string) =>
+		readFile(new URL(`../../src/routes/landscape/aspects/${name}.ts`, import.meta.url), 'utf8');
 	const frames = async () => Number(await canvas.getAttribute('data-stage-frames'));
 
-	await expect(page.locator('.chapter-aspect-source')).toHaveCount(0);
+	await expect(page.locator('.chapter-aspect-disclosure')).toHaveCount(0);
 	await page.getByRole('button', { name: 'New terrain' }).click();
 	await page.getByRole('radio', { name: 'Plan' }).click();
 	await expect(hero.getByText('Seed 1301')).toBeVisible();
@@ -270,12 +274,14 @@ journeys('runs and stops lazy landscape aspects on one stage', async ({ page }) 
 	const beforePlay = await frames();
 	await play(meander).focus();
 	await page.keyboard.press('Enter');
+	await expect(disclosure(meander)).toBeVisible();
+	await expect(source(meander)).toBeHidden();
+	await disclosure(meander).locator('summary').focus();
+	await page.keyboard.press('Enter');
 	await expect(source(meander)).toBeVisible();
-	const file = await readFile(
-		new URL('../../src/routes/landscape/aspects/meander.ts', import.meta.url),
-		'utf8'
-	);
-	expect(await source(meander).locator('code').textContent()).toBe(file);
+	expect(await source(meander).locator('code').textContent()).toBe(await readAspectFile('meander'));
+	await page.keyboard.press('Space');
+	await expect(source(meander)).toBeHidden();
 	await expect(canvas).toHaveAttribute('aria-label', 'Plan of the isolated main river channel');
 	await expect(page.locator('canvas')).toHaveCount(1);
 	await expect(canvas).toHaveAttribute('data-stage-drawables', '1');
@@ -305,15 +311,21 @@ journeys('runs and stops lazy landscape aspects on one stage', async ({ page }) 
 		await expect.poll(() => held).toBe(true);
 		await expect(card(relief).getByRole('status')).toHaveText('Loading demo…');
 		await play(tributary).click();
-		await expect(source(tributary)).toBeVisible();
+		await expect(disclosure(tributary)).toBeVisible();
 		const loaded = page.waitForResponse((response) => reliefChunk(new URL(response.url())));
 		release.resolve();
 		await (await loaded).finished();
 	} finally {
 		release.resolve();
+		await page.unroute(reliefChunk);
 	}
+	await expect(disclosure(tributary)).toBeVisible();
+	await disclosure(tributary).locator('summary').click();
 	await expect(source(tributary)).toBeVisible();
-	await expect(source(relief)).toHaveCount(0);
+	expect(await source(tributary).locator('code').textContent()).toBe(
+		await readAspectFile('tributary')
+	);
+	await expect(disclosure(relief)).toHaveCount(0);
 	await expect(hero.getByText('Peak river discharge', { exact: true })).toBeVisible();
 
 	await page.setViewportSize({ width: 390, height: 844 });
@@ -321,23 +333,27 @@ journeys('runs and stops lazy landscape aspects on one stage', async ({ page }) 
 	await expect(canvas).toHaveAttribute('data-stage-theme', 'dark');
 	expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(390);
 	await hero.screenshot({ path: journeys.info().outputPath('landscape-aspect-mobile-dark.png') });
-	await expect(source(tributary)).toBeVisible();
-	await expect(source(relief)).toHaveCount(0);
+	await expect(disclosure(tributary)).toBeVisible();
+	await expect(disclosure(relief)).toHaveCount(0);
 	await page.setViewportSize({ width: 1366, height: 900 });
 	await expect(page.locator('canvas')).toHaveCount(1);
 
-	await card(tributary).getByRole('button', { name: 'Stop' }).click();
-	await expect(source(tributary)).toHaveCount(0);
+	await card(tributary)
+		.getByRole('button', { name: `Stop ${tributary}` })
+		.click();
+	await expect(disclosure(tributary)).toHaveCount(0);
 	await expect(hero.getByText('Seed 1201')).toBeVisible();
 	await page.getByRole('radio', { name: 'Plan' }).click();
 	await play(relief).click();
-	await expect(source(relief)).toBeVisible();
+	await expect(disclosure(relief)).toBeVisible();
+	await disclosure(relief).locator('summary').click();
+	expect(await source(relief).locator('code').textContent()).toBe(await readAspectFile('relief'));
 	await expect(hero.getByText('Contour interval', { exact: true })).toBeVisible();
+	// Exiting fullscreen via Escape directly while an aspect runs stops it and restores focus.
 	await enter.click();
 	const fullscreen = page.locator('.chapter-viewer:fullscreen');
 	await expect(fullscreen.locator('canvas')).toHaveCount(1);
-	await fullscreen.getByRole('button', { name: 'Stop' }).click();
-	await expect(fullscreen.getByRole('button', { name: 'Exit fullscreen' })).toBeFocused();
+	await expect(fullscreen.getByRole('button', { name: `Stop ${relief}` })).toBeVisible();
 	await page.keyboard.press('Escape');
 	await expect(enter).toHaveAccessibleName('Enter fullscreen');
 	await expect(enter).toBeFocused();
@@ -346,7 +362,7 @@ journeys('runs and stops lazy landscape aspects on one stage', async ({ page }) 
 	await expect(canvas).toHaveAttribute('data-stage-width', width ?? '');
 	await expect(canvas).toHaveAttribute('data-stage-drawables', drawableCount ?? '');
 	await expect(hero.getByText('Seed 1201')).toBeVisible();
-	await expect(page.locator('.chapter-aspect-source')).toHaveCount(0);
+	await expect(page.locator('.chapter-aspect-disclosure')).toHaveCount(0);
 	await expect(page.locator('canvas')).toHaveCount(1);
 	expect(await original.evaluate((element) => element === document.querySelector('canvas'))).toBe(
 		true
@@ -371,7 +387,42 @@ journeys('runs and stops lazy landscape aspects on one stage', async ({ page }) 
 	);
 	expect(idleRafs).toBe(0);
 	expect(await frames()).toBe(idleFrames);
-	await expect(page.locator('.chapter-aspect-source')).toHaveCount(0);
+	await expect(page.locator('.chapter-aspect-disclosure')).toHaveCount(0);
+
+	// Same-route query navigation cancels an active aspect and shows the requested seed-42 plan.
+	await play(meander).click();
+	await expect(disclosure(meander)).toBeVisible();
+	await page.getByRole('link', { name: 'Side-lake example', exact: true }).click();
+	await expect(page).toHaveURL(/seed=42&relief=1&view=plan/);
+	await expect(page.locator('.chapter-aspect-disclosure')).toHaveCount(0);
+	await expect(hero.getByText('Seed 42')).toBeVisible();
+	await expect(canvas).toHaveAttribute('data-stage-view', 'plan');
+	expect(await original.evaluate((element) => element === document.querySelector('canvas'))).toBe(
+		true
+	);
+
+	// Navigating away mid-aspect cleans up timers and stage resources with zero leaked frames.
+	await play(tributary).click();
+	await expect(disclosure(tributary)).toBeVisible();
+	await page.getByRole('link', { name: 'City Design System', exact: true }).click();
+	await expect(page).toHaveURL(/\/$/);
+	await expect(page.locator('canvas')).toHaveCount(0);
+	const postNavRafs = await page.evaluate(
+		() =>
+			new Promise<number>((resolve) => {
+				const original = window.requestAnimationFrame.bind(window);
+				let scheduled = 0;
+				window.requestAnimationFrame = (callback) => {
+					scheduled++;
+					return original(callback);
+				};
+				window.setTimeout(() => {
+					window.requestAnimationFrame = original;
+					resolve(scheduled);
+				}, 200);
+			})
+	);
+	expect(postNavRafs).toBe(0);
 });
 
 // City tabs and focus must change the displayed subject. This catches dead controls
@@ -637,11 +688,32 @@ journeys(
 	async ({ page }) => {
 		await open(page, '/sandbox');
 		const canvas = (await readyStages(page, 1)).first();
+		const stage = page.locator('[data-sandbox-placements]');
 		const status = page.getByRole('status');
-		await page.getByRole('radio', { name: 'Preview storeys', exact: true }).click();
 		await canvas.scrollIntoViewIfNeeded();
 		const box = await canvas.boundingBox();
 		if (!box) throw new Error('The sandbox canvas has no bounds');
+
+		// Paint existing stock first so both preview modes run over a populated town and
+		// preserve the complete saved sandbox/3 document verbatim.
+		await page.getByRole('radio', { name: 'Plan', exact: true }).click();
+		await expect(canvas).toHaveAttribute('data-stage-view', 'plan');
+		const paintY = box.y + box.height * 0.52;
+		await page.mouse.move(box.x + box.width * 0.35, paintY);
+		await page.mouse.down();
+		await page.mouse.move(box.x + box.width * 0.65, paintY, { steps: 12 });
+		await page.mouse.up();
+		await expect
+			.poll(async () => Number(await stage.getAttribute('data-sandbox-placements')))
+			.toBeGreaterThan(0);
+		await expect(stage).toHaveAttribute('data-sandbox-waiting', '0');
+		const beforeFile = await saveSandbox(page, 'sandbox-before-preview.json');
+		const beforeDoc = JSON.parse(await readFile(beforeFile, 'utf8'));
+		expect(beforeDoc.strokes.length).toBeGreaterThan(0);
+
+		await page.getByRole('radio', { name: '3D', exact: true }).click();
+		await expect(canvas).toHaveAttribute('data-stage-view', 'iso');
+		await page.getByRole('radio', { name: 'Preview storeys', exact: true }).click();
 		const baseCount = Number(await canvas.getAttribute('data-stage-drawables'));
 		const x = box.x + box.width * 0.46;
 		const y = box.y + box.height * 0.52;
@@ -670,9 +742,8 @@ journeys(
 		await choose(page, 'Storey', '2');
 		await expect(status).toContainText('Previewing storey 2');
 		await expect(canvas).toHaveAttribute('data-stage-drawables', String(baseCount + 1));
-		await expect(page.getByRole('button', { name: 'Undo', exact: true })).toBeDisabled();
-		const saved = await saveSandbox(page, 'sandbox.json');
-		expect(JSON.parse(await readFile(saved, 'utf8')).strokes).toEqual([]);
+		const afterFile = await saveSandbox(page, 'sandbox-after-preview.json');
+		expect(JSON.parse(await readFile(afterFile, 'utf8'))).toEqual(beforeDoc);
 		await page.getByRole('radio', { name: '3D', exact: true }).click();
 		await expect(page.getByRole('combobox', { name: 'Storey', exact: true })).toHaveCount(0);
 		await expect(canvas).toHaveAttribute('data-stage-drawables', String(baseCount));

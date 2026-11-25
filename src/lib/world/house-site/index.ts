@@ -12,6 +12,8 @@ export {
 	createParcelHouse,
 	/** Builds a placed house. */
 	createParcelHouseObject,
+	/** Builds a private parcel's fine-cell and storey space before house occupancy validation. */
+	createParcelSpace,
 	/** Selects vertical sizing and the plan subdivision of a parcel house. */
 	type ParcelHouseRecipe,
 	/** A city parcel's occupied house or named reason why it remains garden. */

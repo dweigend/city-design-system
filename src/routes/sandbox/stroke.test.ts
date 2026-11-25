@@ -2,7 +2,7 @@ import { expect, test } from 'bun:test';
 import { createCellSpace } from '../../lib/domain/cell-space';
 import type { Parcel } from '../../lib/domain/parcels';
 import type { GroundPointer } from '../../lib/scene/stage-view';
-import { createStrokePointer, createVerticalPointer } from './stroke';
+import { createStrokePointer, createTouchNavigation, createVerticalPointer } from './stroke';
 
 const parcel = (id: string): Parcel => ({
 	id,
@@ -126,4 +126,24 @@ test('Plan exposes discrete choices for the clicked cell and discards an interru
 	expect(choice?.target.storeys.map(({ storey }) => storey)).toEqual([0, 1, 2]);
 	expect(isOpen()).toBe(false);
 	expect(input('lostpointercapture', 1, 1, 'plan')).toBeUndefined();
+});
+
+test('clears two-finger touch panning after a cancelled primary touch so the next preview starts', () => {
+	const navigation = createTouchNavigation();
+	const { input } = verticalFixture();
+	const touch = (type: string, pointerId: number, isPrimary: boolean) =>
+		navigation.read({ type, pointerType: 'touch', pointerId, isPrimary });
+
+	expect(touch('pointerdown', 1, true)).toEqual({ panning: false, started: false, ended: false });
+	expect(input('pointerdown', 1, 1)).toMatchObject({ kind: 'drag', storeys: [{ storey: 0 }] });
+	expect(touch('pointerdown', 2, false)).toEqual({ panning: true, started: true, ended: false });
+	expect(input('pointercancel', 1, 1)).toBeNull();
+	expect(touch('pointercancel', 1, true)).toEqual({ panning: false, started: false, ended: true });
+	expect(navigation.isPanning()).toBe(false);
+
+	// A fresh one-finger press starts vertical picking immediately without getting stuck in pan mode.
+	expect(touch('pointerdown', 3, true)).toEqual({ panning: false, started: false, ended: false });
+	expect(input('pointerdown', 1, 3)).toMatchObject({ kind: 'drag', storeys: [{ storey: 0 }] });
+	expect(input('pointerup', 1, 3)).toBeNull();
+	expect(touch('pointerup', 3, true)).toEqual({ panning: false, started: false, ended: false });
 });

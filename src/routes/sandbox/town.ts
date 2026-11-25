@@ -16,6 +16,7 @@ import { createSandboxProjection } from '../../lib/scene/sandbox-projection';
 import type { Drawable, ModelTone } from '../../lib/scene/surface';
 import { groveLawnLiftM } from '../../lib/world/asset-registry';
 import {
+	createParcelSpace,
 	createTownHouseStudy,
 	townHouseRecipe,
 	type PlacedParcelHouse
@@ -86,18 +87,15 @@ export function createTownSandbox() {
 		projection.projectBody(parcel, isHouse(assetId) ? height : groveLawnLiftM, id, toneOf(assetId));
 	const previewSpaces = new Map<string, CellSpace | undefined>();
 
-	/** Uses the same parcel subdivision and datum as a house without editing the open document. */
+	/** Uses the parcel's terrain-clipped cell space directly, even before or without a buildable house. */
 	function readPreviewSpace(parcel: Parcel): CellSpace | undefined {
 		if (parcel.publicUse) return undefined;
 		if (previewSpaces.has(parcel.id)) return previewSpaces.get(parcel.id);
-		const host = { kind: 'parcel', id: parcel.id } as const;
-		const scratch = world.createDocument();
 		let space: CellSpace | undefined;
 		try {
-			scratch.apply([world.place('house/court-neutral', host, brushParams)]);
-			const placement = scratch.readPlacement(host);
-			const house = placement && world.resolveHouse(placement);
-			space = house?.status === 'placed' ? house.space : undefined;
+			const resolved = world.resolveHost({ kind: 'parcel', id: parcel.id });
+			if (resolved.kind === 'parcel' && 'site' in resolved)
+				space = createParcelSpace(resolved.site);
 		} catch (error) {
 			if (!(error instanceof UnavailableHostError)) throw error;
 		}

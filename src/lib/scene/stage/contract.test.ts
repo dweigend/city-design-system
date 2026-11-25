@@ -49,9 +49,106 @@ import { shadowPolygon } from './ground';
 import { readDisplay } from './material';
 import { stageState } from './state';
 import { openDemandRenderer } from './renderer';
+import { createStage, type StageGpu } from './lifecycle';
 
 test('has no camera ray before a frame is displayed', () => {
 	expect(readRay(undefined, [15, -20])).toBeUndefined();
+});
+
+test('Stage.readRay tracks the last rendered fit until the queued fit renders', async () => {
+	const previousRaf = globalThis.requestAnimationFrame;
+	const previousCancel = globalThis.cancelAnimationFrame;
+	const previousObserver = globalThis.MutationObserver;
+	const previousStyle = globalThis.getComputedStyle;
+	const previousDpr = globalThis.devicePixelRatio;
+	const callbacks = new Map<number, FrameRequestCallback>();
+	let nextId = 1;
+	globalThis.requestAnimationFrame = (cb) => {
+		const id = nextId++;
+		callbacks.set(id, cb);
+		return id;
+	};
+	globalThis.cancelAnimationFrame = (id) => {
+		callbacks.delete(id);
+	};
+	globalThis.MutationObserver = class {
+		observe() {}
+		disconnect() {}
+	} as unknown as typeof MutationObserver;
+	globalThis.getComputedStyle = (() => ({
+		getPropertyValue: (name: string) => (name === '--alpha-hull' ? '0.3' : '#ffffff')
+	})) as unknown as typeof getComputedStyle;
+	Object.defineProperty(globalThis, 'devicePixelRatio', { value: 1, configurable: true });
+	const flushFrame = () => {
+		const [[id, cb] = []] = callbacks;
+		if (!cb || id === undefined) throw new Error('Expected a queued frame');
+		callbacks.delete(id);
+		cb(0);
+	};
+	const canvas = {
+		dataset: {} as Record<string, string>,
+		ownerDocument: {
+			documentElement: { dataset: { theme: 'light' } },
+			createElement: () => ({
+				width: 1,
+				height: 1,
+				getContext: () => ({
+					clearRect() {},
+					fillStyle: '',
+					fillRect() {},
+					getImageData: () => ({ data: [255, 255, 255, 255] })
+				})
+			})
+		}
+	} as unknown as HTMLCanvasElement;
+	const stage = await createStage(
+		{ canvas, landscape: true, fit: { zoom: 1, offset: [0, 0] } },
+		async () => ({
+			hardware: false,
+			adapterName: 'Test',
+			renderer: {
+				render() {},
+				setDrawingBufferSize() {},
+				info: { render: { drawCalls: 1 } }
+			} as unknown as StageGpu['renderer'],
+			stop() {},
+			delete: async () => {}
+		})
+	);
+	try {
+		stage.resize(400, 200);
+		stage.show([
+			{
+				id: 'ground',
+				color: '--paper',
+				finish: 'terrain',
+				shape: { kind: 'mesh', positions: [-20, -20, 2, 20, -20, 2, 0, 20, 2], indices: [0, 1, 2] }
+			}
+		]);
+		// Before the first frame renders, Stage.readRay() has no displayedFrame.
+		expect(stage.readRay([40, -20])).toBeUndefined();
+		flushFrame();
+		const firstRay = required(stage.readRay([40, -20]), 'first rendered ray');
+
+		// Queueing a new fit must not alter Stage.readRay() before the next frame renders.
+		stage.setFit({ zoom: 2, offset: [0, 0] });
+		expect(stage.readRay([40, -20])).toEqual(firstRay);
+
+		flushFrame();
+		const zoomedRay = required(stage.readRay([40, -20]), 'zoomed rendered ray');
+		expect(zoomedRay.direction).toEqual(firstRay.direction);
+		expect(zoomedRay.origin).not.toEqual(firstRay.origin);
+	} finally {
+		await stage.delete();
+		globalThis.requestAnimationFrame = previousRaf;
+		globalThis.cancelAnimationFrame = previousCancel;
+		globalThis.MutationObserver = previousObserver;
+		globalThis.getComputedStyle = previousStyle;
+		Object.defineProperty(globalThis, 'devicePixelRatio', {
+			value: previousDpr,
+			configurable: true
+		});
+	}
 });
 
 test.each(['iso', 'plan'] as const)('casts the %s ray through the ground hit', (view) => {

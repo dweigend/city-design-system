@@ -12,7 +12,12 @@ import {
 import { columnRoof, levelHeight } from '../../domain/city-volume';
 import { houseFigures, houseStyles } from '../../domain/house-court';
 import { example } from './example';
-import { createParcelHouse, createParcelHouseObject, createTownHouseStudy } from './index';
+import {
+	createParcelHouse,
+	createParcelHouseObject,
+	createParcelSpace,
+	createTownHouseStudy
+} from './index';
 
 test('the parcel example stays on its common lattice base', () => {
 	const placed = example();
@@ -299,4 +304,23 @@ test('keeps exact intra-cycle heights when a distant cycle lands near elevation 
 	if (placed.status !== 'placed') throw new Error(placed.reason);
 	expect(placed.space.datumIndex).toBe(200_000_000);
 	expect(placed.space.storeyElevationsM).toEqual([0, 4.2, 7, 11.2, 14]);
+});
+
+test('exposes a parcel cell space with valid storeys even when house occupancy is unbuildable', () => {
+	const town = createTownHouseStudy();
+	const unbuildable = town.holdings.parcels.find((parcel) => {
+		if (parcel.publicUse) return false;
+		const site = town.readParcelSite(parcel.id);
+		if (!site) return false;
+		const result = createParcelHouse(site, { seed: 3 });
+		return result.status === 'unbuildable' && result.reason !== 'no-common-bay';
+	});
+	const parcel = required(unbuildable, 'unbuildable private town parcel');
+	const site = required(town.readParcelSite(parcel.id), 'unbuildable parcel site');
+	const house = createParcelHouse(site, { seed: 3 });
+	expect(house.status).toBe('unbuildable');
+	const space = createParcelSpace(site);
+	expect(space).toBeDefined();
+	expect(space?.cells.length).toBeGreaterThan(0);
+	expect(space?.storeys.length).toBeGreaterThan(0);
 });

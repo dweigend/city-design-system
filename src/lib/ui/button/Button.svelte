@@ -4,6 +4,8 @@
 	interface Props {
 		/** Visible action name, such as "Apply". */
 		label: string;
+		/** Optional accessible name when the visible label repeats across siblings. */
+		ariaLabel?: string;
 		/** Use "primary" for the main action. */
 		variant?: 'default' | 'primary';
 		/** Use "s" in a compact row. */
@@ -14,7 +16,14 @@
 		onclick?: () => void;
 	}
 
-	let { label, variant = 'default', size = 'm', disabled = false, onclick }: Props = $props();
+	let {
+		label,
+		ariaLabel,
+		variant = 'default',
+		size = 'm',
+		disabled = false,
+		onclick
+	}: Props = $props();
 </script>
 
 <Primitive.Root
@@ -22,6 +31,7 @@
 	data-size={size}
 	data-variant={variant}
 	type="button"
+	aria-label={ariaLabel}
 	{disabled}
 	{onclick}
 >

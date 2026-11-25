@@ -119,18 +119,15 @@ function frontageCorners(parcel: AddressedParcel, [from, to]: ParcelPortal['side
 	return corners;
 }
 
-/** Places one seeded house in an addressed private parcel. The portal identifies its CCW
- * frontage edge and the block's court tags identify the sides that open onto a shared court.
- * The highest common base and lowest roof of the member bays define the vertical range.
- * When given, `groundAt` samples the parcel footprint for the plinth and the chosen entrance
- * midpoint for access. `scale` defaults to regular. The town requests area-based scale.
- * A parcel that cannot take a house returns `unbuildable` with its reason, leaving the ground
- * available as garden. Throws for a public holding, mismatched frontage or missing members. */
-export function createParcelHouse(
-	{ parcel, portal, block, columns, datumZ, groundAt, scale, recipe }: ParcelHouseSite,
-	inputs: HouseInputs,
-	style: HouseStyle = houseStyles.neutral
-) {
+function prepareParcelSpace({
+	parcel,
+	portal,
+	block,
+	columns,
+	datumZ,
+	groundAt,
+	recipe
+}: ParcelHouseSite) {
 	if (parcel.publicUse) throw new RangeError('A public holding cannot take a house');
 	if (parcel.blockId !== block.id || portal.parcelId !== parcel.id || portal.id !== parcel.portalId)
 		throw new RangeError('Parcel, block and portal must belong to the same holding');
@@ -144,13 +141,7 @@ export function createParcelHouse(
 	const bases = members.map((member) => readBaseLevel(member, datumZ, levelHeightM));
 	const baseLevel = Math.max(...bases);
 	const roofLevel = Math.min(...members.map(({ levels }, i) => bases[i] + levels));
-	if (!(roofLevel > baseLevel))
-		return Object.freeze({
-			status: 'unbuildable',
-			reason: 'no-common-bay',
-			parcel,
-			portal
-		} as const);
+	if (!(roofLevel > baseLevel)) return undefined;
 
 	const corners = frontageCorners(parcel, portal.side);
 	const ring = corners.map(({ position }) => position);
@@ -186,6 +177,37 @@ export function createParcelHouse(
 				createParcelStoreySizing(vertical, datumZ, baseLevel, roofLevel, terrain.high)
 			)
 		: bay;
+	return { space, baseLevel, ring, edge, sizing, terrain };
+}
+
+/** Builds a private parcel's fine-cell and storey space from its common bay and terrain datum,
+ * without validating house occupancy. Returns undefined only when member bays share no vertical overlap. */
+export function createParcelSpace(site: ParcelHouseSite) {
+	return prepareParcelSpace(site)?.space;
+}
+
+/** Places one seeded house in an addressed private parcel. The portal identifies its CCW
+ * frontage edge and the block's court tags identify the sides that open onto a shared court.
+ * The highest common base and lowest roof of the member bays define the vertical range.
+ * When given, `groundAt` samples the parcel footprint for the plinth and the chosen entrance
+ * midpoint for access. `scale` defaults to regular. The town requests area-based scale.
+ * A parcel that cannot take a house returns `unbuildable` with its reason, leaving the ground
+ * available as garden. Throws for a public holding, mismatched frontage or missing members. */
+export function createParcelHouse(
+	site: ParcelHouseSite,
+	inputs: HouseInputs,
+	style: HouseStyle = houseStyles.neutral
+) {
+	const { parcel, portal, block, groundAt, scale, recipe } = site;
+	const prepared = prepareParcelSpace(site);
+	if (!prepared)
+		return Object.freeze({
+			status: 'unbuildable',
+			reason: 'no-common-bay',
+			parcel,
+			portal
+		} as const);
+	const { space, baseLevel, ring, edge, sizing, terrain } = prepared;
 	const house = createHouseCourt(
 		space,
 		{ ...inputs, seed: Random.create({ seed: inputs.seed }).derive(parcel.id).seed },

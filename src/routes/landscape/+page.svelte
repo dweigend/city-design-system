@@ -107,6 +107,7 @@
 >
 	<ChapterViewer
 		{aspects}
+		resetKey={page.url.search}
 		onAspectStop={resetHero}
 		stage={{
 			drawables: model.drawables,
