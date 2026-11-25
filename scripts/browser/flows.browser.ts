@@ -128,6 +128,85 @@ journeys('switches landscape camera without rebuilding drawables', async ({ page
 	}
 });
 
+for (const viewport of [
+	{ width: 1440, height: 900 },
+	{ width: 390, height: 844 }
+]) {
+	journeys(
+		`shows the landscape hero and controls above the fold at ${viewport.width}px`,
+		async ({ page }) => {
+			await page.setViewportSize(viewport);
+			await open(page, '/landscape');
+			const canvas = (await readyStages(page, 1)).first();
+			const heroElements = [
+				page.getByRole('heading', { name: 'Landscape and typography', level: 1 }),
+				canvas,
+				...['Meander', 'Relief', 'Runoff'].map((name) => page.getByRole('slider', { name })),
+				page.getByRole('button', { name: 'New terrain' }),
+				...['Iso', 'Plan'].map((name) => page.getByRole('radio', { name }))
+			];
+			for (const element of heroElements) {
+				await expect(element).toBeInViewport({ ratio: 1 });
+			}
+			expect((await canvas.boundingBox())?.width).toBeGreaterThan(viewport.width * 0.85);
+			await expect(page.getByRole('button', { name: 'Enter fullscreen' })).toBeInViewport({
+				ratio: 1
+			});
+			expect(await page.evaluate(() => window.scrollY)).toBe(0);
+			expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(viewport.width);
+		}
+	);
+}
+
+journeys('keeps the landscape stage and controls through fullscreen and exit', async ({ page }) => {
+	await open(page, '/landscape');
+	const canvas = (await readyStages(page, 1)).first();
+	const original = await canvas.elementHandle();
+	const builds = await canvas.getAttribute('data-stage-drawable-builds');
+	expect(Number(builds)).toBeGreaterThan(0);
+	const enter = page.getByRole('button', { name: 'Enter fullscreen' });
+	const exit = page.getByRole('button', { name: 'Exit fullscreen' });
+	const plan = page.getByRole('radio', { name: 'Plan' });
+
+	async function expectSameStage(fullscreen: boolean, previousFrame: number) {
+		await expect
+			.poll(async () => Number(await canvas.getAttribute('data-stage-frames')))
+			.toBeGreaterThan(previousFrame);
+		await expect(page.locator('canvas')).toHaveCount(1);
+		expect(await original.evaluate((element) => element === document.querySelector('canvas'))).toBe(
+			true
+		);
+		await expect(canvas).toHaveAttribute('data-stage-drawable-builds', builds ?? '');
+		expect(
+			await canvas.evaluate((element) => document.fullscreenElement?.contains(element) ?? false)
+		).toBe(fullscreen);
+	}
+
+	let previousFrame = Number(await canvas.getAttribute('data-stage-frames'));
+	await enter.click();
+	await expect(exit).toBeVisible();
+	await expectSameStage(true, previousFrame);
+	await expect(plan).toBeInViewport({ ratio: 1 });
+	await plan.click();
+	await expect(canvas).toHaveAttribute('data-stage-view', 'plan');
+	previousFrame = Number(await canvas.getAttribute('data-stage-frames'));
+	await exit.click();
+	await expect(enter).toBeFocused();
+	await expectSameStage(false, previousFrame);
+
+	previousFrame = Number(await canvas.getAttribute('data-stage-frames'));
+	await enter.click();
+	await expect(exit).toBeVisible();
+	await expectSameStage(true, previousFrame);
+	await plan.focus();
+	previousFrame = Number(await canvas.getAttribute('data-stage-frames'));
+	await page.keyboard.press('Escape');
+	await expect(enter).toBeFocused();
+	await expectSameStage(false, previousFrame);
+	await expect(plan).toBeChecked();
+	await expect(canvas).toHaveAttribute('data-stage-view', 'plan');
+});
+
 // City tabs and focus must change the displayed subject. This catches dead controls
 // and stale renders in the page wiring. Module tests cover the focus policy. No hooks are added.
 journeys('switches city steps and focuses on parcels', async ({ page }) => {

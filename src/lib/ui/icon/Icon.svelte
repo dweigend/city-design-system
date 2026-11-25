@@ -6,6 +6,8 @@
 		Download,
 		Eraser,
 		LocateFixed,
+		Maximize,
+		Minimize,
 		MousePointer2,
 		Paintbrush,
 		Redo2,
@@ -19,6 +21,8 @@
 	const icons = {
 		'chevron-down': ChevronDown,
 		'locate-fixed': LocateFixed,
+		maximize: Maximize,
+		minimize: Minimize,
 		x: X,
 		paintbrush: Paintbrush,
 		eraser: Eraser,

@@ -2,6 +2,8 @@
 export type IconName =
 	| 'chevron-down'
 	| 'locate-fixed'
+	| 'maximize'
+	| 'minimize'
 	| 'x'
 	| 'paintbrush'
 	| 'eraser'

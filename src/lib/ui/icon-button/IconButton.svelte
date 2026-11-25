@@ -13,9 +13,18 @@
 		disabled?: boolean;
 		/** Run the action on activation, for example onclick={clear}. */
 		onclick?: () => void;
+		/** Bind the button element to restore focus after a temporary change of context. */
+		ref?: HTMLElement | null;
 	}
 
-	let { label, icon, size = 'm', disabled = false, onclick }: Props = $props();
+	let {
+		label,
+		icon,
+		size = 'm',
+		disabled = false,
+		onclick,
+		ref = $bindable(null)
+	}: Props = $props();
 </script>
 
 <Primitive.Root
@@ -24,6 +33,7 @@
 	type="button"
 	aria-label={label}
 	title={label}
+	bind:ref
 	{disabled}
 	{onclick}
 >

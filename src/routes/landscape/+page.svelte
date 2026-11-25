@@ -9,12 +9,12 @@
 	import { surveyValley, Valley, valleyParams } from '../../lib/domain/valley';
 	import { measureRiver } from '../../lib/domain/river-metrics';
 	import { projectValley } from '../../lib/scene/valley-projection';
-	import { StageView } from '../../lib/scene/stage-view';
 	import type { View } from '../../lib/scene/stage';
 	import { Button } from '../../lib/ui/button';
 	import { Slider } from '../../lib/ui/slider';
 	import { ToggleGroup } from '../../lib/ui/toggle-group';
 	import ChapterHeader from '../ChapterHeader.svelte';
+	import ChapterViewer from '../ChapterViewer.svelte';
 	import { chapterAt } from '../chapters';
 
 	const chapter = chapterAt('/landscape');
@@ -80,59 +80,71 @@
 	<title>{chapter.title} · City Design System</title>
 </svelte:head>
 
-<ChapterHeader number={chapter.number} title={chapter.title} {lead} />
+<ChapterHeader title={chapter.title} />
 
 <section
-	class="grid grid-aside"
+	class="chapter-hero"
 	aria-label="River valley"
 	data-generation-ms={model.generationMs.toFixed(2)}
 	data-projection-ms={model.projectionMs.toFixed(2)}
 	data-triangles={model.triangleCount}
 >
-	<StageView
-		drawables={model.drawables}
-		{view}
-		display="normal"
-		label="Relief map of the river valley with its floodplain, terraces, slopes and any mountains or lake"
-		landscape
-		{fit}
-	/>
+	<ChapterViewer
+		stage={{
+			drawables: model.drawables,
+			view,
+			display: 'normal',
+			label:
+				'Relief map of the river valley with its floodplain, terraces, slopes and any mountains or lake',
+			landscape: true,
+			fit
+		}}
+	>
+		{#snippet controls()}
+			<div class="valley-sliders">
+				<Slider {label} {min} {max} {step} bind:value={sinuosity} />
+				<Slider
+					label={reliefParam.label}
+					min={reliefParam.min}
+					max={reliefParam.max}
+					step={reliefParam.step}
+					bind:value={relief}
+				/>
+				<Slider
+					label={runoffParam.label}
+					min={runoffParam.min}
+					max={runoffParam.max}
+					step={runoffParam.step}
+					bind:value={runoff}
+				/>
+			</div>
+			<div class="cluster valley-controls">
+				<Button label="New terrain" onclick={nextValley} />
+				<span class="data">Seed {seed}</span>
+				<ToggleGroup label="View" items={views} bind:value={() => view, selectView} />
+			</div>
+		{/snippet}
+	</ChapterViewer>
+</section>
+
+<div class="grid grid-aside chapter-notes">
 	<div class="stack">
-		<div class="stack">
-			<p>
-				The river cuts its course through the valley, leaving a floodplain below and terraces along
-				the slopes.
-			</p>
-			<p>
-				Runoff gathers in tributaries and widens the river downstream. Where the ground traps water,
-				a lake fills to its lowest outlet.
-			</p>
-			<p>The first settlement, its paths and the city that follows all stand on that ground.</p>
-			<p>
-				The same typeface names the river, marks elevations on the map and labels the controls in
-				the game.
-			</p>
-		</div>
-		<Slider {label} {min} {max} {step} bind:value={sinuosity} />
-		<Slider
-			label={reliefParam.label}
-			min={reliefParam.min}
-			max={reliefParam.max}
-			step={reliefParam.step}
-			bind:value={relief}
-		/>
-		<Slider
-			label={runoffParam.label}
-			min={runoffParam.min}
-			max={runoffParam.max}
-			step={runoffParam.step}
-			bind:value={runoff}
-		/>
-		<div class="cluster valley-controls">
-			<Button label="New terrain" onclick={nextValley} />
-			<span class="data">Seed {seed}</span>
-			<ToggleGroup label="View" items={views} bind:value={() => view, selectView} />
-		</div>
+		<p class="lead">{lead}</p>
+		<p>
+			The river cuts its course through the valley, leaving a floodplain below and terraces along
+			the slopes.
+		</p>
+		<p>
+			Runoff gathers in tributaries and widens the river downstream. Where the ground traps water, a
+			lake fills to its lowest outlet.
+		</p>
+		<p>The first settlement, its paths and the city that follows all stand on that ground.</p>
+		<p>
+			The same typeface names the river, marks elevations on the map and labels the controls in the
+			game.
+		</p>
+	</div>
+	<div class="stack">
 		<a href={resolve('/landscape?seed=42&relief=1&view=plan')}>Side-lake example</a>
 		<div class="stack valley-observations">
 			<p class="caption">
@@ -173,4 +185,4 @@
 			</dl>
 		</div>
 	</div>
-</section>
+</div>

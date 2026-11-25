@@ -660,10 +660,10 @@ const ui: DesignPrinciple[] = [
 		id: 'UI-3',
 		page: 'interface',
 		title: 'Lead demo, then single demos',
-		rule: 'Every bible page opens with one combined lead demo, followed by small demos of one aspect each, all in the same viewer.',
+		rule: 'Each chapter opens with a combined lead demo on one persistent StageView, with optional chapter controls and a floating HUD in fullscreen, followed by two to five lazy-loaded single-aspect demos with only Play and Stop and at most one running at a time.',
 		reason:
-			'A demo starts still. Play and Stop are the only controls, Stop returns to the start state, and only one demo runs per page.',
-		decided: '2026-11-17'
+			'Readers can explore the chapter as a whole before isolating one aspect. Each single-aspect demo starts still and returns to that state when stopped.',
+		decided: '2026-11-25'
 	},
 	{
 		id: 'UI-4',
