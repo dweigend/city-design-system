@@ -13,6 +13,7 @@ import {
 import {
 	createCitySlider,
 	readCityFit,
+	readCityPlanDrawables,
 	readCityStep,
 	readCityStepFocus,
 	readCitySubject
@@ -87,8 +88,11 @@ test('city slider drafts generate once on commit and match direct query inputs',
 		lattice
 	}: ReturnType<typeof readGeometry>) => {
 		const terrain = projectCityTerrain(site, plan.grid, plan.plan);
-		const planLines = terrain.projectWetPlan(plan.selectedCrossings, holdings.mergedUnits);
-		const parcelDrawables = terrain.projectParcels(holdings);
+		const { planLines, parcelDrawables } = readCityPlanDrawables(
+			terrain,
+			plan.selectedCrossings,
+			holdings
+		);
 		const focus = readCityStepFocus('03', districts.shares, [...planLines, ...parcelDrawables]);
 		return {
 			gridCells: plan.grid.cells,
@@ -110,13 +114,29 @@ test('city slider drafts generate once on commit and match direct query inputs',
 
 	const committed = generated[generated.length - 1];
 	expect(committed.holdings.mergedUnits.length).toBeGreaterThan(0);
+	const committedOutput = readOutput(committed);
+	const unmergedPlanLines = projectCityTerrain(
+		committed.site,
+		committed.plan.grid,
+		committed.plan.plan
+	).projectWetPlan(committed.plan.selectedCrossings);
+	const linePoints = (drawables: typeof committedOutput.planLines) =>
+		drawables.reduce(
+			(sum, drawable) =>
+				sum +
+				(drawable.strokeSegments?.length ??
+					(drawable.shape.kind === 'mesh' ? drawable.shape.positions.length : 0)),
+			0
+		);
+	expect(linePoints(committedOutput.planLines)).toBeLessThan(linePoints(unmergedPlanLines));
+	expect(committedOutput.parcelDrawables.length).toBeGreaterThan(0);
 	const query = readGeometry(
 		createCitySite(undefined, { seed }),
 		get(createCitySlider(sizeParam, 4000)),
 		get(createCitySlider(heightParam, 63)),
 		get(createCitySlider(complexityParam, 0.57))
 	);
-	expect(JSON.stringify(readOutput(committed))).toBe(JSON.stringify(readOutput(query)));
+	expect(JSON.stringify(committedOutput)).toBe(JSON.stringify(readOutput(query)));
 }, 30_000);
 
 test('fits the city with relief-dependent fill and preserves explicit navigation', () => {

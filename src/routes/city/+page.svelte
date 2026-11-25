@@ -30,6 +30,7 @@
 	import {
 		createCitySlider,
 		readCityFit,
+		readCityPlanDrawables,
 		readCityStep,
 		readCityStepFocus,
 		readCitySubject
@@ -177,8 +178,9 @@
 	const lattice = $derived(createCityLattice(columns, plan.datumZ, latticeVariant, recipe));
 	const members = $derived(projectCityLattice(lattice, terrain, taperField));
 	const holdings = $derived(readCityParcels(city, plan));
-	const planLines = $derived(terrain.projectWetPlan(plan.selectedCrossings, holdings.mergedUnits));
-	const parcelDrawables = $derived(terrain.projectParcels(holdings));
+	const { planLines, parcelDrawables } = $derived(
+		readCityPlanDrawables(terrain, plan.selectedCrossings, holdings)
+	);
 	const focusState = $derived(
 		readCityStepFocus(step, districts.shares, [...planLines, ...parcelDrawables], focus)
 	);

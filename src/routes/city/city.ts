@@ -9,9 +9,24 @@ import {
 	cityFrameFillFlat,
 	cityFrameFillPerRelief,
 	type CityContent,
-	type FocusChoice
+	type FocusChoice,
+	type projectCityTerrain
 } from '../../lib/scene/city-volume-projection';
 import { projectFocus, type View, type ViewFit } from '../../lib/scene/stage';
+
+type CityTerrainProjection = ReturnType<typeof projectCityTerrain>;
+
+/** Composes the route's wet-plan lines (omitting merged interior edges) and parcel drawables. */
+export function readCityPlanDrawables(
+	terrain: Pick<CityTerrainProjection, 'projectWetPlan' | 'projectParcels'>,
+	selectedCrossings: Parameters<CityTerrainProjection['projectWetPlan']>[0],
+	holdings: Parameters<CityTerrainProjection['projectParcels']>[0]
+) {
+	return {
+		planLines: terrain.projectWetPlan(selectedCrossings, holdings.mergedUnits),
+		parcelDrawables: terrain.projectParcels(holdings)
+	};
+}
 
 type CityStep = '01' | '02' | '03';
 type CitySlider = Readable<number> & {

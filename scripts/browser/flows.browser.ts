@@ -112,7 +112,7 @@ journeys('commits city geometry sliders and previews taper live', async ({ page 
 	await open(page, '/city?seed=42&city=1000&height=21&complexity=0&taper=-1');
 	const canvas = (await readyStages(page, 1)).first();
 	const paint = () => page.screenshot();
-	const stageCount = async (name: 'drawable-builds' | 'frames') =>
+	const stageCount = async (name: 'builds' | 'drawable-builds' | 'frames') =>
 		Number(await canvas.getAttribute(`data-stage-${name}`));
 	const inputs = [
 		{ label: 'City size', values: ['1600', '2800', '3800'] },
@@ -124,23 +124,8 @@ journeys('commits city geometry sliders and previews taper live', async ({ page 
 		const slider = page.getByRole('slider', { name: label, exact: true });
 		await slider.scrollIntoViewIfNeeded();
 		await paint();
+		const initialBatches = await stageCount('builds');
 		const initialBuilds = await stageCount('drawable-builds');
-		// One rendered update can build several individual drawables.
-		const finishCounting = await canvas.evaluateHandle((element) => {
-			const attribute = 'data-stage-drawable-builds';
-			let previous = element.getAttribute(attribute);
-			let updates = 0;
-			const observer = new MutationObserver(() => {
-				const current = element.getAttribute(attribute);
-				if (current !== previous) updates++;
-				previous = current;
-			});
-			observer.observe(element, { attributeFilter: [attribute] });
-			return () => {
-				observer.disconnect();
-				return updates;
-			};
-		});
 		const track = await slider.locator('..').boundingBox();
 		const thumb = await slider.boundingBox();
 		if (!track || !thumb) throw new Error(`Cannot locate the ${label} slider`);
@@ -158,16 +143,25 @@ journeys('commits city geometry sliders and previews taper live', async ({ page 
 				await expect.poll(() => stageCount('frames')).toBeGreaterThan(frames);
 			}
 			await paint();
+			expect(await stageCount('builds'), `${label} build batches while dragging`).toBe(
+				initialBatches
+			);
 			expect(await stageCount('drawable-builds'), `${label} while dragging`).toBe(initialBuilds);
 		}
 		await page.mouse.up();
 		if (label !== 'Taper') {
-			await expect.poll(() => stageCount('drawable-builds')).toBeGreaterThan(initialBuilds);
+			await expect.poll(() => stageCount('builds')).toBe(initialBatches + 1);
+			expect(await stageCount('drawable-builds')).toBeGreaterThan(initialBuilds);
 		}
 		await paint();
-		const updates = await finishCounting.evaluate((finish) => finish());
-		await finishCounting.dispose();
-		expect(updates, `${label} drawable updates for one gesture`).toBe(label === 'Taper' ? 0 : 1);
+		expect(await stageCount('builds'), `${label} cumulative stage builds for one gesture`).toBe(
+			label === 'Taper' ? initialBatches : initialBatches + 1
+		);
+		if (label === 'Taper') {
+			expect(await stageCount('drawable-builds'), 'Taper must reuse existing drawables').toBe(
+				initialBuilds
+			);
+		}
 	}
 
 	const size = page.getByRole('slider', { name: 'City size', exact: true });
