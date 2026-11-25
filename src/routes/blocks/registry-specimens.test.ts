@@ -7,7 +7,7 @@ import { specimenHost } from './hosts';
 
 test('builds every registered specimen at defaults and every combination of parameter bounds', () => {
 	const assets = listAssets();
-	expect(assets).toHaveLength(23);
+	expect(assets).toHaveLength(24);
 	for (const entry of assets) {
 		const host = specimenHost(entry);
 		const edges = Object.entries(entry.params).reduce<Record<string, number>[]>(
@@ -22,7 +22,7 @@ test('builds every registered specimen at defaults and every combination of para
 			const object = buildAsset(entry.id, host, overrides, 37);
 			expect(object).toEqual(buildAsset(entry.id, host, overrides, 37));
 			expect(object.parts.length).toBeGreaterThan(0);
-			expect(object.anchors.length).toBeGreaterThan(0);
+			if (entry.kind !== 'park') expect(object.anchors.length).toBeGreaterThan(0);
 			for (const { slot, shape } of object.parts) {
 				expect(object.slots).toContain(slot);
 				expect(JSON.stringify(shape)).not.toMatch(
@@ -40,7 +40,7 @@ test('places a frame on a resolved lattice bay', () => {
 	expect(frame.anchors.length).toBeGreaterThan(0);
 });
 
-test('spaces the 23 specimen plinths on the configured metric grid', () => {
+test('spaces the 24 specimen plinths on the configured metric grid', () => {
 	const { bases } = buildBoard(listAssets());
 	const {
 		boardMaximumColumns,
@@ -50,7 +50,7 @@ test('spaces the 23 specimen plinths on the configured metric grid', () => {
 		boardPlinthRimM,
 		boardPlinthHeightM
 	} = defaults;
-	expect(bases).toHaveLength(23);
+	expect(bases).toHaveLength(24);
 	const places = [
 		[1, [boardColumnPitchM, -0]],
 		[boardMaximumColumns, [0, -boardRowPitchM]]

@@ -1,5 +1,5 @@
 import { expect, test } from 'bun:test';
-import type { Vec3 } from '../../core/geometry';
+import type { Vec2, Vec3 } from '../../core/geometry';
 import { materialSettings } from '../../../config/material';
 import { cladExample } from './example';
 import {
@@ -243,4 +243,31 @@ test('the same inputs rebuild the same arrays; invalid patches and names throw R
 	).toThrow(RangeError);
 	expect(() => buildSurface('masonry' as never, patch)).toThrow(RangeError);
 	expect(() => buildSurface('board', patch, { level: 'relief2' as never })).toThrow(RangeError);
+});
+
+const crossingRings: Readonly<Record<string, readonly Vec2[]>> = {
+	// Visit alternate vertices of a regular pentagon. Each turn is +144°.
+	pentagram: Array.from({ length: 5 }, (_, i) => [
+		10 + 8 * Math.cos((4 * Math.PI * i) / 5),
+		10 + 8 * Math.sin((4 * Math.PI * i) / 5)
+	]),
+	bowtie: [
+		[0, 0],
+		[8, 8],
+		[0, 10],
+		[4, 0]
+	]
+};
+
+test.each(Object.entries(crossingRings))('Q-05 rejects the self-crossing %s', (_name, ring) => {
+	expect(() =>
+		buildSurface('board', {
+			origin: [0, 0, 0],
+			across: [1, 0, 0],
+			normal: [0, -1, 0],
+			size: [20, 20],
+			thickness: 0.1,
+			outline: ring
+		})
+	).toThrow(/simple ring/);
 });

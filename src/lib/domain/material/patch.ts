@@ -3,6 +3,7 @@ import {
 	crossProduct,
 	dotProduct,
 	isConvexCounterclockwise,
+	isSimpleRing,
 	length,
 	sum,
 	scaled,
@@ -75,6 +76,7 @@ export function readFrame(patch: Patch): Frame {
 			[size[0], size[1]],
 			[0, size[1]]
 		];
+	if (!isSimpleRing(outline)) throw new RangeError('Patch outline must form a simple ring');
 	if (!isConvexCounterclockwise(outline))
 		throw new RangeError('Patch outline must be convex and counter-clockwise');
 	const point = (u: number, v: number, w: number): Vec3 =>

@@ -1,5 +1,5 @@
 import { encodeKey } from '../../core/ref';
-import { measurePolygon, type Vec2 } from '../../core/geometry';
+import { isSimpleRing, measurePolygon, type Vec2 } from '../../core/geometry';
 import { required } from '../../core/invariant';
 import { readFaceUnionBoundary } from '../../core/topology';
 import { planEdgeId } from '../terrain-grid';
@@ -13,10 +13,11 @@ export function prepareBlocks(input: ParcelPlanInput, lanes: ReadonlyMap<string,
 	);
 	const point = (id: string): Vec2 => required(vertices.get(id), 'block corner');
 	const cells = new Map(
-		input.grid.cells.map(({ id, vertexIds }) => [
-			id,
-			measurePolygon(vertexIds.map(point)).area >= 0 ? vertexIds : [...vertexIds].reverse()
-		])
+		input.grid.cells.map(({ id, vertexIds }) => {
+			const outline = vertexIds.map(point);
+			if (!isSimpleRing(outline)) throw new RangeError('Block ' + id + ' must form a simple ring');
+			return [id, measurePolygon(outline).area >= 0 ? vertexIds : [...vertexIds].reverse()];
+		})
 	);
 	const byCell = new Map<string, BlockSeed>();
 
@@ -28,6 +29,7 @@ export function prepareBlocks(input: ParcelPlanInput, lanes: ReadonlyMap<string,
 		const nodeIds = readFaceUnionBoundary(faces, canJoin);
 		if (!nodeIds) return;
 		const outline = Object.freeze(nodeIds.map(point));
+		if (members.length > 1 && !isSimpleRing(outline)) return;
 		const frontage = nodeIds.flatMap((from, sideIndex) => {
 			const to = nodeIds[(sideIndex + 1) % nodeIds.length];
 			const lane = lanes.get(planEdgeId(from, to));

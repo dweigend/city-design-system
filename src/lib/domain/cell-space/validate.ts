@@ -1,5 +1,5 @@
 import { defaults } from '../../../config/cell-space';
-import { isFiniteVector } from '../../core/geometry';
+import { isFiniteVector, isSimpleRing } from '../../core/geometry';
 import { encodeKey } from '../../core/ref';
 import { doubleArea } from './split';
 import type { Parcel } from './types';
@@ -24,6 +24,7 @@ function validateRing({ corners }: Parcel) {
 		if (Math.hypot(bx - ax, by - ay) < minimumEdgeM)
 			throw new DegenerateParcelError(`Parcel edge ${i} is shorter than ${minimumEdgeM} m`);
 	});
+	if (!isSimpleRing(points)) throw new RangeError('Parcel corners must form a simple ring');
 	const area = doubleArea(points);
 	if (Math.abs(area) < minimumEdgeM * minimumEdgeM)
 		throw new DegenerateParcelError('Parcel area vanishes');

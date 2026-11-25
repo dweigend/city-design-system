@@ -21,6 +21,7 @@ const configOwners = {
 	'lib/domain/valley': 'hydrology',
 	'lib/world/city-site': 'city-site|lanes|parcels',
 	'lib/world/house-site': 'house-site',
+	'lib/world/asset-registry': 'grove',
 	'lib/domain/transit-line': 'transit-line',
 	'lib/world/city-movement': 'city-movement',
 	'lib/world/city-structure': 'city-structure',
@@ -36,6 +37,7 @@ const configOwners = {
 	'routes/surfaces': 'surface-specimens',
 	'routes/blocks': 'blocks-board',
 	'routes/sandbox': 'sandbox-brush',
+	'routes/town': 'town-parks',
 	'lib/world/valley-protocol': 'valley-measurement'
 };
 const allowedConfigEntries = Object.values(configOwners).join('|');

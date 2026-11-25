@@ -31,7 +31,7 @@
 	import { ToolBar } from '../../lib/ui/tool-bar';
 	import { UnavailableHostError } from '../../lib/world/sandbox-world';
 	import { createStrokePointer } from './stroke';
-	import { createTownSandbox, type Detail, type HouseRequest } from './town';
+	import { createTownSandbox, type Detail, type PlacementRequest } from './town';
 
 	type Town = ReturnType<typeof createTownSandbox>;
 	type Tool = 'paint' | 'erase' | 'reseed' | 'select';
@@ -41,7 +41,8 @@
 		'house/court-neutral': 'Neutral',
 		'house/court-memphis': 'Memphis',
 		'house/court-archigram': 'Archigram',
-		'house/court-organic': 'Organic'
+		'house/court-organic': 'Organic',
+		'park/grove': 'Grove'
 	};
 	const reasons: Readonly<Record<string, string>> = {
 		'no-common-bay': 'too narrow',
@@ -57,10 +58,10 @@
 	] as const;
 	const toolKeys = new Map<string, Tool>(tools.map(({ value, shortcut }) => [shortcut, value]));
 	const hints: Readonly<Record<Tool, string>> = {
-		paint: 'Drag to paint houses',
+		paint: 'Drag to paint',
 		erase: 'Drag to erase',
-		reseed: 'Drag to reseed houses',
-		select: 'Click a house to edit it'
+		reseed: 'Drag to reseed',
+		select: 'Click a placement to edit it'
 	};
 	const views = [
 		{ value: 'iso', label: '3D' },
@@ -78,10 +79,10 @@
 	let pointer: ReturnType<typeof createStrokePointer>;
 	const stroke = createStrokeState<Parcel>();
 	const queue = createBuildQueue<readonly Drawable[]>(() => performance.now());
-	const serials = new WeakMap<HouseRequest, number>();
+	const serials = new WeakMap<PlacementRequest, number>();
 	let serial = 0;
-	let requests = new Map<string, HouseRequest>();
-	const bodies = new WeakMap<HouseRequest, Drawable>();
+	let requests = new Map<string, PlacementRequest>();
+	const bodies = new WeakMap<PlacementRequest, Drawable>();
 
 	let history = $state({ placements: 0, strokes: 0, position: 0 });
 	let placed = $state.raw<readonly Drawable[]>([]);
@@ -144,11 +145,11 @@
 		return placement && requests.get(placement.id);
 	}
 
-	function describeHover(parcel: Parcel | undefined, request: HouseRequest | undefined) {
+	function describeHover(parcel: Parcel | undefined, request: PlacementRequest | undefined) {
 		if (!parcel) return undefined;
 		if (parcel.publicUse) return 'Public ground: streets and squares stay open';
 		if (request?.reason) return `Kept as garden: ${reasons[request.reason] ?? request.reason}`;
-		if (request && tool === 'select') return `${styleNames[request.placement.assetId]} house`;
+		if (request && tool === 'select') return styleNames[request.placement.assetId];
 		return undefined;
 	}
 
@@ -216,7 +217,6 @@
 		if (!town) return;
 		shownAt = performance.now();
 		unshown = false;
-		const projection = town.projection;
 		const shown: Drawable[] = [];
 		for (const [id, request] of requests) {
 			if (open?.drawing.overrides.has(id)) continue;
@@ -229,7 +229,7 @@
 			let body = bodies.get(request);
 			if (!body) {
 				const height = readPreviewHeight(Number(request.placement.params.height ?? 0));
-				body = projection.projectBody(request.parcel, height, id + '/body', request.tone);
+				body = town.previewBody(request.parcel, id + '/body', request.placement.assetId, height);
 				bodies.set(request, body);
 			}
 			shown.push(body);
@@ -269,7 +269,7 @@
 
 	function preview(parcels: readonly Parcel[], draft: Draft) {
 		if (!town) return;
-		const { world, projection, brushParams, toneOf } = town;
+		const { world, readBrushParams, previewBody } = town;
 		const { tool: active, tally, skipped, drawing } = draft;
 		for (const parcel of parcels) {
 			const host = address(parcel.id);
@@ -296,10 +296,10 @@
 				continue;
 			}
 			try {
-				const edit = world.place(active, host, brushParams);
+				const edit = world.place(active, host, readBrushParams(active));
 				const id = readPlacementId(documentModel.world, host);
 				const height = readPreviewHeight(Number(edit.params.height ?? 0));
-				const body = projection.projectBody(parcel, height, id + '/body', toneOf(active));
+				const body = previewBody(parcel, id + '/body', active, height);
 				drawing.add(edit, { id, body });
 				tally.placed++;
 			} catch (error) {
@@ -365,12 +365,17 @@
 		const why = [
 			...new Set(gardens.map(({ id }) => reasons[requests.get(id)?.reason ?? ''] ?? ''))
 		];
+		const noun = (field: 'before' | 'after') => {
+			const assets = changes.flatMap((change) => change[field]?.assetId ?? []);
+			if (assets.every((id) => town?.isHouse(id))) return 'house';
+			return assets.every((id) => !town?.isHouse(id)) ? 'grove' : 'placement';
+		};
 		const parts = [
 			tally.placed - gardens.length > 0 &&
-				plural(tally.placed - gardens.length, 'house') + ' placed',
+				plural(tally.placed - gardens.length, noun('after')) + ' placed',
 			gardens.length && `${plural(gardens.length, 'parcel')} kept as garden: ${why.join(', ')}`,
-			tally.removed && plural(tally.removed, 'house') + ' erased',
-			tally.reseeded && plural(tally.reseeded, 'house') + ' reseeded',
+			tally.removed && plural(tally.removed, noun('before')) + ' erased',
+			tally.reseeded && plural(tally.reseeded, noun('after')) + ' reseeded',
 			tally.occupied && `${tally.occupied} already built`,
 			tally.off && `${tally.off} public`
 		].filter(Boolean);
@@ -442,7 +447,7 @@
 		const all = documentModel.readPlacements();
 		apply(
 			all.map(({ id }) => ({ kind: 'remove', id })),
-			`Cleared ${plural(all.length, 'house')}.`
+			`Cleared ${plural(all.length, 'placement')}.`
 		);
 	}
 
@@ -465,7 +470,16 @@
 		apply(
 			[
 				{ kind: 'remove', id },
-				{ kind: 'place', assetId, host, params, seed }
+				{
+					kind: 'place',
+					assetId,
+					host,
+					seed,
+					params:
+						town.isHouse(assetId) === town.isHouse(selected.assetId)
+							? params
+							: town.readBrushParams(assetId)
+				}
 			],
 			`Restyled as ${styleNames[assetId]}.`
 		);
@@ -549,7 +563,7 @@
 			selectedId = undefined;
 			lastSkipped = new Map();
 			sync();
-			status = `Loaded ${plural(next.readHistory().placements, 'house')}.`;
+			status = `Loaded ${plural(next.readHistory().placements, 'placement')}.`;
 		} catch (error) {
 			fail(error);
 		} finally {
@@ -620,12 +634,12 @@
 						data-inspector={tool === 'select' && selected ? '' : undefined}
 					>
 						{#if tool === 'select' && selected && asset}
-							<p class="label">{styleNames[selected.assetId]} house</p>
+							<p class="label">{styleNames[selected.assetId]}</p>
 						{:else}
-							<p class="label">Style</p>
+							<p class="label">Brush</p>
 						{/if}
 						<SpecimenPicker
-							label="House style"
+							label="Parcel brush"
 							items={specimens}
 							bind:value={
 								() => (tool === 'select' && selected ? selected.assetId : style), setStyle
@@ -652,7 +666,7 @@
 				<p class="sandbox-hud-status small" role="status">
 					<span
 						>{status ||
-							`${plural(history.placements, 'house')} on ${history.strokes ? plural(history.position, 'stroke') : 'an empty town'}.`}</span
+							`${plural(history.placements, 'placement')} on ${history.strokes ? plural(history.position, 'stroke') : 'an empty town'}.`}</span
 					>
 					{#if waiting}<span class="data">Building {waiting}…</span>{/if}
 					<span class="sandbox-hint"

@@ -170,3 +170,71 @@ test('platform validation and build accept a horizontal edge', () => {
 	const object = buildAsset('rail/platform', edge, {}, 1);
 	expect(object.anchors[0].position).toEqual([2, 3, 1]);
 });
+
+test('replays a three-role model grove within the parcel and triangle budget', () => {
+	const id = 'park/grove';
+	expect(listAssets({ kind: 'park' })).toEqual([readAsset(id)]);
+	expect(readAsset(id).hostKinds).toEqual(['parcel']);
+	const grove = buildAsset(id, host, { density: 6, height: 8 }, 42);
+	expect(grove).toEqual(buildAsset(id, host, { density: 6, height: 8 }, 42));
+	expect(grove).not.toEqual(buildAsset(id, host, { density: 6, height: 8 }, 43));
+	expect(grove.parts.map(({ slot }) => slot)).toEqual(['lawn', 'trunk', 'canopy']);
+	const extent = bounds(grove);
+	expect(extent.min).toEqual([4, 7, 3]);
+	expect(extent.max.slice(0, 2)).toEqual([20, 23]);
+	const triangles = grove.parts
+		.flatMap(({ shape }) => (shape.kind === 'mesh' ? [shape.indices.length / 3] : []))
+		.reduce((total, count) => total + count, 0);
+	const sparse = buildAsset(id, host, { density: 2, height: 8 }, 42);
+	expect(sparse.parts[2].shape).not.toEqual(grove.parts[2].shape);
+	expect(triangles).toBeGreaterThan(90);
+	expect(triangles).toBeLessThan(400);
+	expect(() => buildAsset(id, host, { width: 4 }, 42)).toThrow(InvalidAssetParamsError);
+});
+
+test('grove lawn and trees leave a hole in a complex holding', () => {
+	const grove = buildAsset(
+		'park/grove',
+		{
+			kind: 'parcel',
+			parcel: {
+				id: 'court',
+				outline: [
+					[0, 0],
+					[40, 0],
+					[40, 40],
+					[0, 40]
+				]
+			},
+			groundAt: ([x]) => x / 20,
+			holes: [
+				[
+					[10, 10],
+					[10, 30],
+					[30, 30],
+					[30, 10]
+				]
+			]
+		},
+		{},
+		19
+	);
+	const lawn = grove.parts.find(({ slot }) => slot === 'lawn')?.shape;
+	if (lawn?.kind !== 'mesh') throw new Error('Expected a grove lawn mesh');
+	let area = 0;
+	for (let i = 0; i < lawn.indices.length; i += 3) {
+		const [a, b, c] = lawn.indices.slice(i, i + 3).map((vertex) => 3 * vertex);
+		const [ax, ay] = lawn.positions.slice(a, a + 2);
+		const [bx, by] = lawn.positions.slice(b, b + 2);
+		const [cx, cy] = lawn.positions.slice(c, c + 2);
+		area += ((bx - ax) * (cy - ay) - (by - ay) * (cx - ax)) / 2;
+	}
+	expect(area).toBe(1200);
+	for (const { slot, shape } of grove.parts) {
+		if (slot === 'lawn' || shape.kind !== 'mesh') continue;
+		for (let i = 0; i < shape.positions.length; i += 3) {
+			const [x, y] = shape.positions.slice(i, i + 2);
+			expect(x > 10 && x < 30 && y > 10 && y < 30).toBe(false);
+		}
+	}
+});

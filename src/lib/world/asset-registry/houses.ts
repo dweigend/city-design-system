@@ -32,6 +32,9 @@ function courtHouse(style: HouseStyle): AssetEntry<CityAssetHost> {
 		tags: ['court', style.id],
 		params: blockInputs,
 		hostKinds: ['parcel', 'cell-space'],
+		validateHost(host) {
+			if ('groundAt' in host) throw new RangeError('A house needs a structural parcel');
+		},
 		build(host, params, seed) {
 			if (host.kind === 'parcel' && 'site' in host) {
 				if (host.site.parcel.id !== host.parcel.id)
@@ -42,7 +45,7 @@ function courtHouse(style: HouseStyle): AssetEntry<CityAssetHost> {
 				return createParcelHouseObject(placed, 'full');
 			}
 			const space =
-				host.kind === 'parcel'
+				host.kind === 'parcel' && !('groundAt' in host)
 					? createSubgridSpace(
 							host.parcel,
 							host.subgridId ?? 'corner-quad',

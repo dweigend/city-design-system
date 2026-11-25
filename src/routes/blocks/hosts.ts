@@ -57,6 +57,7 @@ function parcel(id: string): CityAssetHost {
 /** Supplies the fixed geometric hosts for the chapter's registry specimens. */
 export function specimenHost({ id, kind }: AssetDefinition): CityAssetHost {
 	switch (kind) {
+		case 'park':
 		case 'house':
 			return parcel(id);
 		case 'access':

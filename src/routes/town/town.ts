@@ -20,10 +20,11 @@ import { createCityStructure } from '../../lib/world/city-structure';
 import { readQuery } from '../architecture/query';
 import { townSheet, townStage } from '../architecture/town';
 import { crossingHeads, railDemo } from '../paths/demo';
+import { createTownParks } from './parks';
 
 const choices = {
 	town: { label: 'Everything', subject: [] },
-	plan: { label: 'Ground plan', subject: ['ground'] },
+	plan: { label: 'Ground plan', subject: ['ground', 'parks'] },
 	houses: { label: 'Houses', subject: ['houses'] },
 	paths: { label: 'Paths and rail', subject: ['walkways', 'transit'] },
 	structure: { label: 'Structure', subject: ['structure'] }
@@ -31,6 +32,13 @@ const choices = {
 
 const policy = {
 	ground: { town: 'full', plan: 'full', houses: 'full', paths: 'full', structure: 'full' },
+	parks: {
+		town: 'full',
+		plan: 'full',
+		houses: 'full',
+		paths: 'silhouette',
+		structure: 'silhouette'
+	},
 	houses: {
 		town: 'full',
 		plan: 'hidden',
@@ -75,7 +83,9 @@ const movementDrawing: Record<CityMovementKind, MovementDrawing> = {
 export function createTownReview() {
 	const town = townStage();
 	const { setup } = readQuery(new URLSearchParams());
-	const sheet = townSheet(town, 'all', setup);
+	const parkPlan = createTownParks(town);
+	const sheet = townSheet({ ...town, parcelsByBlock: parkPlan.parcelsByBlock }, 'all', setup);
+	const parks = parkPlan.draw(sheet.unbuildable);
 	const ground = new Set(town.context('all').drawables);
 	const columns = [...town.columns.values()];
 	const { site, layout, terrain } = town;
@@ -89,6 +99,7 @@ export function createTownReview() {
 	const parts: [Subsystem, readonly Drawable[]][] = [
 		['ground', sheet.drawables.filter((part) => ground.has(part))],
 		['houses', sheet.drawables.filter((part) => !ground.has(part))],
+		['parks', parks.drawables],
 		['walkways', paths],
 		['transit', transit]
 	];
@@ -137,6 +148,7 @@ export function createTownReview() {
 		subjects,
 		figures: {
 			houses: sheet.count,
+			parks: parks.figures,
 			unbuildable: sheet.unbuildable.length,
 			triangles: sheet.triangles,
 			walkwaysKm: kilometres('walkway'),

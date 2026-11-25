@@ -6,6 +6,7 @@ import {
 	distance,
 	dotProduct,
 	interpolation,
+	isSimpleRing,
 	length,
 	measurePointSegmentDistance,
 	measurePolygon,
@@ -14,6 +15,7 @@ import {
 	size,
 	sum,
 	unitVector,
+	type Vec2,
 	type Vec3
 } from './index';
 
@@ -87,4 +89,69 @@ test('averages vertices in order with either division policy', () => {
 	expect(readVertexMean(points, 'before-sum')).toEqual([0.5, 1]);
 	expect(readVertexMean([])).toEqual([NaN, NaN]);
 	expect(readVertexMean([], 'before-sum')).toEqual([0, 0]);
+});
+
+const crossingRings: Readonly<Record<string, readonly Vec2[]>> = {
+	// Visit alternate vertices of a regular pentagon. Each turn is +144°.
+	pentagram: Array.from({ length: 5 }, (_, i) => [
+		10 + 8 * Math.cos((4 * Math.PI * i) / 5),
+		10 + 8 * Math.sin((4 * Math.PI * i) / 5)
+	]),
+	bowtie: [
+		[0, 0],
+		[8, 8],
+		[0, 10],
+		[4, 0]
+	]
+};
+
+test.each(Object.entries(crossingRings))('Q-05 rejects the self-crossing %s', (_name, ring) => {
+	expect(isSimpleRing(ring)).toBe(false);
+});
+
+test('Q-05 permits a concave ring with a straight run but rejects retracing and repeated vertices', () => {
+	expect(
+		isSimpleRing([
+			[0, 0],
+			[2, 0],
+			[4, 0],
+			[4, 4],
+			[2, 2],
+			[0, 4]
+		])
+	).toBe(true);
+	expect(
+		isSimpleRing([
+			[0, 0],
+			[4, 0],
+			[2, 0],
+			[4, 4],
+			[0, 4]
+		])
+	).toBe(false);
+	expect(
+		isSimpleRing([
+			[0, 0],
+			[4, 0],
+			[2, 2],
+			[4, 4],
+			[2, 2],
+			[0, 4]
+		])
+	).toBe(false);
+	expect(
+		isSimpleRing([
+			[0, 0],
+			[4, 0],
+			[4, 4],
+			[2, 0],
+			[0, 4]
+		])
+	).toBe(false);
+	expect(
+		isSimpleRing([
+			[0, 0],
+			[4, 0]
+		])
+	).toBe(false);
 });

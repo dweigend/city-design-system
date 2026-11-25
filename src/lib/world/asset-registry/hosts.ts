@@ -1,3 +1,4 @@
+import type { Vec2 } from '../../core/geometry';
 import type { Catalog } from '../../core/catalog';
 import type { AssetHost } from '../../core/asset-registry';
 import type {
@@ -27,6 +28,12 @@ export type CityAssetHost =
 	| Edge
 	| ParcelHost
 	| Readonly<{ kind: 'parcel'; parcel: PlanParcel; site: ParcelHouseSite }>
+	| Readonly<{
+			kind: 'parcel';
+			parcel: Pick<PlanParcel, 'id' | 'outline'>;
+			groundAt: (point: Vec2) => number;
+			holes?: readonly (readonly Vec2[])[];
+	  }>
 	| Readonly<{
 			kind: 'lattice-bay';
 			id: string;

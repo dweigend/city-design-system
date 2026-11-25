@@ -6,6 +6,7 @@ import {
 	type FamilySlot
 } from '../../domain/material';
 import { modelGrain, pencilStroke } from '../material';
+import type { PlaceableObject } from '../../core/object';
 import { resolveSurfaces, type Drawable, type Surface, type SurfaceAssignment } from './surfaces';
 
 /** The two surface displays: authored material colours, or the grey see-through bodies of the
@@ -25,7 +26,9 @@ export const modelTones = Object.freeze([
 	'pink',
 	'orange',
 	'red',
-	'roof'
+	'roof',
+	'lawn',
+	'canopy'
 ] as const);
 /** One tone of the model palette. */
 export type ModelTone = (typeof modelTones)[number];
@@ -173,4 +176,13 @@ export function paintClad(
 		});
 	}
 	return drawables;
+}
+
+/** Paints the grove's three role slots as quiet matte model materials. */
+export function projectGrove(object: PlaceableObject): Drawable[] {
+	return resolveSurfaces(object, {
+		lawn: { ...matte('--model-lawn'), flat: true },
+		trunk: matte('--model-cork'),
+		canopy: matte('--model-canopy')
+	}).map((part) => (part.id === 'lawn' ? { ...part, strokeSegments: [] } : part));
 }

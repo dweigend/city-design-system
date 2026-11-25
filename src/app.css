@@ -64,6 +64,8 @@
 	--model-acrylic: oklch(0.95 0.012 85);
 	--model-glow: oklch(0.985 0.05 88);
 	--model-ground: oklch(0.95 0.006 90);
+	--model-lawn: oklch(0.82 0.045 114);
+	--model-canopy: oklch(0.62 0.047 135);
 	--alpha-acrylic: 0.72;
 	/* Ramp: L moves toward the paper (1–3) or toward the ink (5), chroma drops along */
 	--step-1: calc(l + (0.955 - l) * 1) min(calc(c * 0.14), 0.016) h;
@@ -184,6 +186,8 @@
 	--model-acrylic: oklch(0.7 0.01 85);
 	--model-glow: oklch(0.93 0.07 85);
 	--model-ground: oklch(0.3 0.008 265);
+	--model-lawn: oklch(0.67 0.04 115);
+	--model-canopy: oklch(0.49 0.052 135);
 	--cat-hazard: oklch(0.52 0.17 8);
 	--step-1: calc(l + (0.25 - l) * 1) calc(c * 0.3) h;
 	--step-2: calc(l + (0.25 - l) * 0.7) calc(c * 0.5) h;

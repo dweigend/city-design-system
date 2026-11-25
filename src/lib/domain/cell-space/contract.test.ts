@@ -373,3 +373,21 @@ test('rejects invalid storey arrays and keeps the uniform shorthand', () => {
 	expect(uniform.storeyHeightsM).toEqual([2.5, 2.5, 2.5, 2.5]);
 	expect(uniform.storeyElevationsM).toEqual([0, 2.5, 5, 7.5, 10]);
 });
+
+const crossingRings: Readonly<Record<string, readonly Vec2[]>> = {
+	// Visit alternate vertices of a regular pentagon. Each turn is +144°.
+	pentagram: Array.from({ length: 5 }, (_, i) => [
+		10 + 8 * Math.cos((4 * Math.PI * i) / 5),
+		10 + 8 * Math.sin((4 * Math.PI * i) / 5)
+	]),
+	bowtie: [
+		[0, 0],
+		[8, 8],
+		[0, 10],
+		[4, 0]
+	]
+};
+
+test.each(Object.entries(crossingRings))('Q-05 rejects the self-crossing %s', (name, ring) => {
+	expect(() => createCellSpace(parcel(name, ring))).toThrow(/simple ring/);
+});

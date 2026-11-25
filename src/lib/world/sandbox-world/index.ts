@@ -213,7 +213,10 @@ export function createSandboxWorld(
 		},
 		/** Restores a same-world document against this snapshot, retaining unavailable hosts as orphans. */
 		restore(json: string) {
-			return restoreSandboxDocument(json, identity, prepare);
+			return restoreSandboxDocument(json, identity, prepare, [
+				// The grove adds a row without changing any of the earlier builders or schemas.
+				'city-assets/2'
+			]);
 		}
 	});
 }

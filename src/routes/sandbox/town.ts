@@ -12,6 +12,7 @@ import type { SurfaceLevel } from '../../lib/domain/material';
 import { projectSketch } from '../../lib/scene/sketch';
 import { createSandboxProjection } from '../../lib/scene/sandbox-projection';
 import type { Drawable, ModelTone } from '../../lib/scene/surface';
+import { groveLawnLiftM } from '../../lib/world/asset-registry';
 import { createTownHouseStudy } from '../../lib/world/house-site';
 import { createPlacementCache, createSandboxWorld } from '../../lib/world/sandbox-world';
 
@@ -33,11 +34,10 @@ export type Detail = Readonly<{ level: SurfaceLevel; budget: number }>;
 
 /** What the cache hands the build queue for one placement: everything a build needs, read at
  * commit time, and a pure build that runs later at any detail. */
-export type HouseRequest = Readonly<{
+export type PlacementRequest = Readonly<{
 	placement: SandboxPlacement;
 	parcel?: Parcel;
 	salience?: Readonly<{ block: string; features: HouseFeatures }>;
-	tone: ModelTone;
 	reason?: string;
 	build?: (detail: Detail) => readonly Drawable[];
 }>;
@@ -51,7 +51,7 @@ export function createTownSandbox() {
 		...projection.toLocal(x, y),
 		site.sampleGround(x, y).height
 	]);
-	const assets = world.listAssets('parcel').filter(({ kind }) => kind === 'house');
+	const assets = world.listAssets('parcel');
 	const kinds = new Map(
 		world
 			.listAssets('graph-edge')
@@ -59,44 +59,49 @@ export function createTownSandbox() {
 			.map(({ id, kind }) => [id, kind])
 	);
 	const parcels = new Map(world.holdings.parcels.map((parcel) => [parcel.id, parcel]));
-	const toneOf = (assetId: string) =>
-		styleTones[assetId.replace('house/court-', '') as keyof typeof styleTones] ?? 'white';
-	/** Draws each house style on the first parcel every style can build, as a small sketch. */
+	const isHouse = (id: string) => kinds.get(id) === 'house';
+	const toneOf = (id: string) =>
+		isHouse(id) ? styleTones[id.replace('house/court-', '') as HouseStyleName] : 'lawn';
+	const readBrushParams = (id: string) => (isHouse(id) ? brushParams : {});
+	const previewBody = (parcel: Parcel, id: string, assetId: string, height: number) =>
+		projection.projectBody(parcel, isHouse(assetId) ? height : groveLawnLiftM, id, toneOf(assetId));
+	/** Draws the brushes on the first parcel every house style can build. */
 	function createSpecimens() {
-		const host = (id: string) => ({ kind: 'parcel', id }) as const;
-		const resolve = (assetId: string, parcel: Parcel) => {
-			const scratch = world.createDocument();
-			const edit = world.place(assetId, host(parcel.id), brushParams);
-			scratch.apply([{ ...edit, seed: defaults.sandboxSpecimenSeed }]);
-			const placement = scratch.readPlacement(host(parcel.id));
-			return placement && world.resolveHouse(placement);
+		const sketchOptions = {
+			marginRatio: defaults.sandboxSpecimenMarginRatio,
+			decimals: defaults.sandboxSpecimenDecimals
 		};
 		for (const parcel of world.holdings.parcels) {
 			if (parcel.publicUse) continue;
-			let houses;
-			try {
-				houses = assets.map(({ id }) => resolve(id, parcel));
-			} catch {
-				continue;
-			}
-			if (!houses.every((house) => house?.status === 'placed')) continue;
+			const host = { kind: 'parcel', id: parcel.id } as const;
+			const scratch = world.createDocument();
+			const placements = assets.map(({ id }) => {
+				scratch.apply([
+					{ ...world.place(id, host, readBrushParams(id)), seed: defaults.sandboxSpecimenSeed }
+				]);
+				const placement = scratch.readPlacement(host);
+				scratch.undo();
+				return { id, placement, house: placement && world.resolveHouse(placement) };
+			});
+			if (placements.some(({ id, house }) => isHouse(id) && house?.status !== 'placed')) continue;
 			return new Map(
-				houses.map((house, index) => [
-					assets[index].id,
-					projectSketch(
+				placements.flatMap(({ placement, house }) => {
+					if (!placement) return [];
+					const { assetId } = placement;
+					const drawables =
 						house?.status === 'placed'
-							? projection.projectParcelHouse(house, [], assets[index].id, {
+							? projection.projectParcelHouse(house, [], assetId, {
 									level: 'plain',
 									budget: blockTriangleBudget,
-									tone: toneOf(assets[index].id)
+									tone: toneOf(assetId)
 								})
-							: [],
-						{
-							marginRatio: defaults.sandboxSpecimenMarginRatio,
-							decimals: defaults.sandboxSpecimenDecimals
-						}
-					)
-				])
+							: projection.projectPlacement(
+									world.build(placement),
+									kinds.get(assetId) ?? '',
+									assetId
+								);
+					return [[assetId, projectSketch(drawables, sketchOptions)] as const];
+				})
 			);
 		}
 		return new Map<string, ReturnType<typeof projectSketch>>();
@@ -110,19 +115,20 @@ export function createTownSandbox() {
 		viewContextFill: defaults.sandboxViewContextFill,
 		assets,
 		brushParams,
+		isHouse,
+		readBrushParams,
+		previewBody,
 		parcels,
-		toneOf,
 		/** Turns the current placements and their party walls into deferred build requests. */
 		createCache: (document: ReturnType<typeof createSandboxDocument>) =>
-			createPlacementCache<HouseRequest>(
+			createPlacementCache<PlacementRequest>(
 				document,
-				(placement, house, adjoining): HouseRequest => {
+				(placement, house, adjoining): PlacementRequest => {
 					const tone = toneOf(placement.assetId);
 					const parcel =
 						placement.host.kind === 'parcel' ? parcels.get(placement.host.id) : undefined;
 					const where = parcel && { parcel };
-					if (house?.status === 'unbuildable')
-						return { placement, ...where, tone, reason: house.reason };
+					if (house?.status === 'unbuildable') return { placement, ...where, reason: house.reason };
 					if (house)
 						return {
 							placement,
@@ -131,14 +137,13 @@ export function createTownSandbox() {
 								block: house.parcel.blockId,
 								features: readHouseFeatures(house.space, house.house)
 							},
-							tone,
 							build: (detail) =>
 								projection.projectParcelHouse(house, adjoining, placement.id, { ...detail, tone })
 						};
 					const object = world.build(placement);
 					return {
 						placement,
-						tone,
+						...where,
 						build: () =>
 							projection.projectPlacement(object, kinds.get(placement.assetId) ?? '', placement.id)
 					};

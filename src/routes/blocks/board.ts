@@ -6,6 +6,7 @@ import { houseLevels, projectHouse } from '../../lib/scene/house-projection';
 import { projectPathAsset } from '../../lib/scene/paths-projection';
 import {
 	existing,
+	projectGrove,
 	readMaterialSurface,
 	resolveSurfaces,
 	type Drawable,
@@ -33,6 +34,7 @@ const {
 } = defaults;
 
 function paint(object: PlaceableObject, kind: string, materials?: SpecimenMaterials): Drawable[] {
+	if (kind === 'park') return projectGrove(object);
 	if (kind === 'house') return projectHouse(object, 'full');
 	const path = projectPathAsset(object, kind);
 	if (path) return path;

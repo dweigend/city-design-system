@@ -202,3 +202,50 @@ export function convexHull(points: readonly Vec2[]): readonly Vec2[] {
 	if (first[0] === last[0] && first[1] === last[1]) return [first];
 	return [...half(sorted), ...half(sorted.reverse())];
 }
+
+function turn([ax, ay]: Vec2, [bx, by]: Vec2, [cx, cy]: Vec2): number {
+	return (bx - ax) * (cy - ay) - (by - ay) * (cx - ax);
+}
+
+function inSegmentBounds([x, y]: Vec2, [ax, ay]: Vec2, [bx, by]: Vec2): boolean {
+	return (
+		x >= Math.min(ax, bx) && x <= Math.max(ax, bx) && y >= Math.min(ay, by) && y <= Math.max(ay, by)
+	);
+}
+
+function segmentsMeet(a: Vec2, b: Vec2, c: Vec2, d: Vec2): boolean {
+	const abC = turn(a, b, c);
+	const abD = turn(a, b, d);
+	const cdA = turn(c, d, a);
+	const cdB = turn(c, d, b);
+	if (abC === 0 && inSegmentBounds(c, a, b)) return true;
+	if (abD === 0 && inSegmentBounds(d, a, b)) return true;
+	if (cdA === 0 && inSegmentBounds(a, c, d)) return true;
+	if (cdB === 0 && inSegmentBounds(b, c, d)) return true;
+	return Math.sign(abC) * Math.sign(abD) < 0 && Math.sign(cdA) * Math.sign(cdB) < 0;
+}
+
+function retraces(previous: Vec2, a: Vec2, b: Vec2): boolean {
+	return (
+		turn(previous, a, b) === 0 &&
+		(inSegmentBounds(previous, a, b) || inSegmentBounds(b, previous, a))
+	);
+}
+
+/** Tests an implicitly closed ring of finite XY points in meters, in either winding.
+ * Permits straight runs. Rejects duplicate vertices, retraced edges and all intersections
+ * except the shared ends of consecutive edges. Does not modify the input. */
+export function isSimpleRing(ring: readonly Vec2[]): boolean {
+	const count = ring.length;
+	if (ring.length < 3 || !Array.from(ring).every((point) => isFiniteVector(point, 2))) return false;
+	for (let i = 0; i < count; i++) {
+		const a = ring[i];
+		const b = ring[(i + 1) % count];
+		if (retraces(ring[(i + count - 1) % count], a, b)) return false;
+		const last = i === 0 ? count - 1 : count;
+		for (let j = i + /* Exact arithmetic: skip the adjacent edge. */ 2; j < last; j++) {
+			if (segmentsMeet(a, b, ring[j], ring[(j + 1) % count])) return false;
+		}
+	}
+	return true;
+}

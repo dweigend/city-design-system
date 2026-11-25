@@ -1,5 +1,6 @@
 /** Module: Composes the city library’s public object builders into one placeable asset registry. */
 import { createAssetRegistry } from '../../core/asset-registry';
+import { groveAsset } from './grove';
 import { courtHouses } from './houses';
 import { accessAssets } from './access';
 import { structuralAssets } from './structures';
@@ -18,12 +19,15 @@ export {
 export type { CityAssetHost } from './hosts';
 export type { SpecimenMaterials } from './plates';
 export { placeParcelHouseAsset } from './houses';
+/** The shared lawn elevation above its sampled ground in meters. */
+export { groveLawnLiftM } from './grove';
 
 /** Replay revision for the installed asset IDs, parameter schemas and builders. */
-export const cityAssetRegistryRevision = 'city-assets/2';
+export const cityAssetRegistryRevision = 'city-assets/3';
 
 const registry = createAssetRegistry<CityAssetHost, SpecimenMaterials>([
 	...courtHouses,
+	groveAsset,
 	...accessAssets,
 	...surfaceAssets,
 	...structuralAssets

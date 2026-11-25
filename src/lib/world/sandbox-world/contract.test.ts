@@ -198,7 +198,7 @@ test('derives snapshot identity from the resolved city size, terrain and topolog
 	expect(world.world).toMatchObject({
 		terrainRevision: '["valley",4,1201,{"sinuosity":1.15,"relief":0,"runoff":1}]',
 		topologyRevision: '2992ab70a4f9fad2',
-		registryRevision: 'city-assets/2'
+		registryRevision: 'city-assets/3'
 	});
 	const other = createSandboxWorld(site, readCityGrid(site, 600), columns);
 	expect(other.world.id).toBe(world.world.id);
@@ -396,4 +396,45 @@ test('passes adjoining walls to the builder in code-unit placement order', () =>
 		...readParcelHouseWalls(upper),
 		...readParcelHouseWalls(lower)
 	]);
+});
+
+test('persists mixed house and grove placement geometry through erasure and sandbox/3 replay', () => {
+	const { world, parcels } = example();
+	const document = world.createDocument();
+	const host = (id: string) => ({ kind: 'parcel', id }) as const;
+	const houses = parcels.map(({ id }) => world.place('house/court-neutral', host(id)));
+	for (const edit of houses) {
+		document.apply([edit]);
+		const placed = document.readPlacement(edit.host);
+		if (placed && world.resolveHouse(placed)?.status === 'placed') break;
+		document.undo();
+	}
+	const house = document.readPlacements()[0];
+	if (house?.host.kind !== 'parcel') throw new Error('Expected a built house');
+	const oldSave = document.serialize().replace('"city-assets/3"', '"city-assets/2"');
+	const upgraded = world.restore(oldSave);
+	expect(upgraded.world.registryRevision).toBe('city-assets/3');
+	expect(upgraded.readPlacements().map(world.build)).toEqual([world.build(house)]);
+	const houseParcel = house.host.id;
+	const garden = parcels.find(({ id }) => id !== houseParcel);
+	if (!garden) throw new Error('Expected a second parcel');
+	const groveHost = host(garden.id);
+	document.apply([world.place('park/grove', groveHost, { density: 5, height: 8 })]);
+	const both = document.readPlacements().map(world.build);
+	expect(both.map(({ id }) => id)).toContain('park/grove');
+	document.apply([{ kind: 'remove', id: readPlacementId(world.world, groveHost) }]);
+	expect(document.readPlacement(groveHost)).toBeUndefined();
+	document.undo();
+	expect(document.readPlacements().map(world.build)).toEqual(both);
+
+	const saved = document.serialize();
+	expect(JSON.parse(saved).format).toBe('sandbox/3');
+	const restored = world.restore(saved);
+	expect(restored.serialize()).toBe(saved);
+	expect(restored.readPlacements().map(world.build)).toEqual(both);
+	expect(restored.world.topologyRevision).toBe('2992ab70a4f9fad2');
+	restored.redo();
+	expect(restored.readPlacements()).toEqual([house]);
+	restored.undo();
+	expect(restored.readPlacements().map(world.build)).toEqual(both);
 });

@@ -284,12 +284,14 @@ function createDocument(
 }
 
 /** Restores a versioned document by replaying every stroke, then moving to the saved position.
- * Rejects malformed data, invalid strokes, a different world or a different registry.
+ * Rejects malformed data, invalid strokes, a different world or an incompatible registry.
+ * The caller may list earlier registry revisions whose builders are compatible with this world.
  * An unavailable host becomes an orphan that stays in history and is omitted from projection. */
 export function restoreSandboxDocument(
 	json: string,
 	expectedWorld?: WorldIdentity,
-	resolveParams?: ResolveParams
+	resolveParams?: ResolveParams,
+	compatibleRegistryRevisions: readonly string[] = []
 ) {
 	const { format: version, world, strokes, position } = record(JSON.parse(json) as unknown);
 	if (version === 'sandbox/1')
@@ -311,7 +313,10 @@ export function restoreSandboxDocument(
 	const identity = expectedWorld ? worldIdentity(expectedWorld) : saved;
 	if (saved.id !== identity.id)
 		throw new SandboxDataError('This document belongs to a different world');
-	if (saved.registryRevision !== identity.registryRevision)
+	if (
+		saved.registryRevision !== identity.registryRevision &&
+		!compatibleRegistryRevisions.includes(saved.registryRevision)
+	)
 		throw new SandboxDataError('This document uses a different asset registry revision');
 	let replaying = true;
 	const document = createDocument(identity, resolveParams, () => replaying);

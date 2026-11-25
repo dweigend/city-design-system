@@ -213,3 +213,11 @@ test('zero-width lanes keep frontage and reserve no area', () => {
 	expect(result.parcels[0].areaM2).toBe(3600);
 	expect(result.portals[0].frontageM).toBe(60);
 });
+
+test('Q-05 rejects a self-crossing caller-supplied block outline', () => {
+	const input = exampleGround();
+	const [cell] = input.grid.cells;
+	const [a, b, c, d] = cell.vertexIds;
+	const grid = { ...input.grid, cells: [{ ...cell, vertexIds: [a, c, b, d] }] };
+	expect(() => createParcelPlan({ ...input, lanes: [], grid })).toThrow(/simple ring/);
+});

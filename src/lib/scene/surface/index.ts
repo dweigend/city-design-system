@@ -19,6 +19,7 @@ export { accent, resolveSurfaces, validateTokens } from './surfaces';
 export {
 	modelTones,
 	paintClad,
+	projectGrove,
 	readMaterialSurface,
 	readModelSurface,
 	type MaterialDisplay,

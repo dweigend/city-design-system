@@ -12,6 +12,7 @@
 	} from '../../lib/scene/city-volume-projection';
 	import { projectFocus, type View } from '../../lib/scene/stage';
 	import { StageView } from '../../lib/scene/stage-view';
+	import { Switch } from '../../lib/ui/switch';
 	import { Select } from '../../lib/ui/select';
 	import { ToggleGroup } from '../../lib/ui/toggle-group';
 	import { createTownReview, townFocus, townFrames, type TownFrame } from './town';
@@ -44,6 +45,7 @@
 	const focus = $derived(townFocus.choices.find((value) => value === query('focus')) ?? 'town');
 	const frame = $derived(townFrames.find((value) => value === query('frame')) ?? 'whole');
 	const view = $derived<View>(query('view') === 'plan' ? 'plan' : 'iso');
+	const transparent = $derived(query('display') === 'transparency');
 	const drawables = $derived(review?.draw(focus) ?? []);
 	const fit = $derived(
 		review && {
@@ -99,8 +101,8 @@
 	<h1>Town review</h1>
 	<p class="small">
 		The default town in one picture: terrain and water, lanes and parcels, every house as a plain
-		volume with detail where the salience rule grants it, walkways, bridges, the elevated rail with
-		its stations, and the primary structure.
+		volume with detail where the salience rule grants it, parks, walkways, bridges, the elevated
+		rail with its stations, and the primary structure.
 	</p>
 </header>
 
@@ -121,6 +123,12 @@
 			items={views}
 			bind:value={() => view, (value: string) => select('view', value === 'plan' ? 'plan' : 'iso')}
 		/>
+		<Switch
+			label="Transparency"
+			bind:checked={
+				() => transparent, (checked) => select('display', checked ? 'transparency' : 'normal')
+			}
+		/>
 	</div>
 	{#if review && fit}
 		<div class="city-stage">
@@ -128,10 +136,10 @@
 				{drawables}
 				{view}
 				{fit}
-				display="normal"
+				display={transparent ? 'transparency' : 'normal'}
 				landscape
 				interactive
-				label="The whole default town with its houses, paths, rail and structure"
+				label="The whole default town with its houses, parks, paths, rail and structure"
 			/>
 		</div>
 		<dl class="data cluster city-measurements" aria-live="polite">

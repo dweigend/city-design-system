@@ -148,6 +148,8 @@ journeys('filters the specimen list and restores all assets', async ({ page }) =
 	expect(houses.length).toBeGreaterThan(0);
 	expect(houses.length).toBeLessThan(all.length);
 	for (const item of houses) expect(item).toMatch(/\bhouse\/\S+/);
+	await choose(page, 'Asset kind', 'Parks');
+	await expect(specimens).toHaveText([/Grove.*park\/grove/s]);
 	await choose(page, 'Asset kind', 'All kinds');
 	await expect(specimens).toHaveText(all, { useInnerText: true });
 });
@@ -160,7 +162,7 @@ journeys('saves the default town with engine-portable revisions', async ({ page 
 	expect(JSON.parse(await readFile(saved, 'utf8')).world).toMatchObject({
 		terrainRevision: '["valley",4,1201,{"sinuosity":1.15,"relief":0,"runoff":1}]',
 		topologyRevision: '2992ab70a4f9fad2',
-		registryRevision: 'city-assets/2'
+		registryRevision: 'city-assets/3'
 	});
 });
 
@@ -182,8 +184,8 @@ journeys('paints, erases, uses history and reloads the saved sandbox', async ({ 
 	await canvas.scrollIntoViewIfNeeded();
 	const box = await canvas.boundingBox();
 	if (!box) throw new Error('The sandbox canvas has no bounds');
-	const stroke = async () => {
-		const y = box.y + box.height * 0.52;
+	const stroke = async (row = 0.52) => {
+		const y = box.y + box.height * row;
 		await page.mouse.move(box.x + box.width * 0.35, y);
 		await page.mouse.down();
 		await page.mouse.move(box.x + box.width * 0.65, y, { steps: 16 });
@@ -213,6 +215,19 @@ journeys('paints, erases, uses history and reloads the saved sandbox', async ({ 
 	await page.getByRole('button', { name: 'Undo', exact: true }).click();
 	await expect(stage).toHaveAttribute('data-sandbox-placements', String(painted));
 	await expect(stage).toHaveAttribute('data-sandbox-waiting', '0');
+
+	await page.getByRole('radio', { name: 'Paint', exact: true }).click();
+	const grove = page.getByRole('radio', { name: 'Grove', exact: true });
+	await grove.click();
+	await expect(grove).toBeChecked();
+	for (const row of [0.59, 0.45, 0.66]) {
+		await stroke(row);
+		if ((await placements()) > painted) break;
+	}
+	await expect.poll(placements).toBeGreaterThan(painted);
+	await expect(page.getByRole('status')).toContainText(/\b[1-9]\d* groves? placed\b/);
+	await expect(stage).toHaveAttribute('data-sandbox-waiting', '0');
+	const mixed = await placements();
 	const saved = await saveSandbox(page, 'sandbox.json');
 
 	await page.getByRole('button', { name: 'Clear', exact: true }).click();
@@ -220,13 +235,15 @@ journeys('paints, erases, uses history and reloads the saved sandbox', async ({ 
 	const chooserEvent = page.waitForEvent('filechooser');
 	await page.getByRole('button', { name: 'Load', exact: true }).click();
 	await (await chooserEvent).setFiles(saved);
-	await expect(stage).toHaveAttribute('data-sandbox-placements', String(painted));
+	await expect(stage).toHaveAttribute('data-sandbox-placements', String(mixed));
 	await expect(stage).toHaveAttribute('data-sandbox-waiting', '0');
 	const resaved = await saveSandbox(page, 'sandbox-restored.json');
 	// The public format stores an edit log and its position. Equality preserves the
 	// placement addresses, assets, parameters and seeds, including the redo history.
 	const original = JSON.parse(await readFile(saved, 'utf8'));
-	expect(original.strokes.length).toBeGreaterThan(0);
+	const saveText = JSON.stringify(original.strokes);
+	expect(saveText).toContain('house/court-neutral');
+	expect(saveText).toContain('park/grove');
 	expect(JSON.parse(await readFile(resaved, 'utf8'))).toEqual(original);
 });
 
@@ -254,11 +271,16 @@ journeys('preserves town review focus, frame and view across reloads', async ({ 
 	await expect(page).toHaveURL(/focus=paths/);
 	await expect(page).toHaveURL(/frame=quarter/);
 	await expect(page).toHaveURL(/view=plan/);
+	await page.getByRole('switch', { name: 'Transparency' }).click();
+	await expect(canvas).toHaveAttribute('data-stage-display', 'transparency');
+	await expect(canvas).toHaveAttribute('data-stage-drawable-builds', builds ?? '');
+	await expect(page).toHaveURL(/display=transparency/);
 
 	await page.reload();
 	await expect(page.getByRole('status')).toHaveCount(0, { timeout: 60_000 });
 	const reloaded = (await readyStages(page, 1)).first();
 	await expect(reloaded).toHaveAttribute('data-stage-view', 'plan');
+	await expect(reloaded).toHaveAttribute('data-stage-display', 'transparency');
 	await expect(page.getByRole('combobox', { name: 'Focus', exact: true })).toHaveText(
 		'Paths and rail'
 	);

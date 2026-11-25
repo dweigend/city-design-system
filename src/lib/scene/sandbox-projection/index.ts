@@ -11,7 +11,13 @@ import { createParcelHouseObject, type PlacedParcelHouse } from '../../world/hou
 import { projectCityTerrain } from '../city-volume-projection';
 import { houseMaterials, projectCladHouse, projectHouse } from '../house-projection';
 import { projectPathAsset } from '../paths-projection';
-import { readModelSurface, resolveSurfaces, type Drawable, type ModelTone } from '../surface';
+import {
+	projectGrove,
+	readModelSurface,
+	resolveSurfaces,
+	type Drawable,
+	type ModelTone
+} from '../surface';
 import { createTerrainDrape } from '../terrain-grid-projection';
 
 type Holdings = ReturnType<typeof createSandboxWorld>['holdings'];
@@ -74,6 +80,7 @@ export function createSandboxProjection(site: CitySite, layout: CityGrid, holdin
 		/** Projects one object's registry geometry with its slot surfaces. */
 		projectPlacement(object: PlaceableObject, kind: string, placementId: string): Drawable[] {
 			const local = move(object, offset, -bearing);
+			if (kind === 'park') return address(projectGrove(local), placementId);
 			const parts =
 				kind === 'house'
 					? projectHouse(local, 'full')

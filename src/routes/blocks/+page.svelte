@@ -20,6 +20,7 @@
 	const allBoard = buildBoard(allAssets);
 	const kindLabels: Record<string, string> = {
 		house: 'Houses',
+		park: 'Parks',
 		access: 'Access',
 		rail: 'Rail',
 		surface: 'Surfaces',
@@ -38,6 +39,7 @@
 		'house/court-memphis': 'Memphis',
 		'house/court-archigram': 'Archigram',
 		'house/court-organic': 'Organic',
+		'park/grove': 'Grove',
 		'structure/frame-bay': 'Frame bay',
 		'rail/platform': 'Station platform'
 	};
