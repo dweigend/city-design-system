@@ -45,10 +45,17 @@
 		createVerticalPointer,
 		type VerticalPreview
 	} from './stroke';
-	import { createTownSandbox, type Detail, type PlacementRequest } from './town';
+	import {
+		collectPlacedDrawables,
+		createTownSandbox,
+		submitPlacementRequests,
+		type Detail,
+		type PlacementRequest
+	} from './town';
 
 	type Town = ReturnType<typeof createTownSandbox>;
 	type Tool = 'paint' | 'erase' | 'reseed' | 'select' | 'storeys';
+	type SettleMode = 'stream' | 'together';
 	type Tally = { placed: number; removed: number; reseeded: number; occupied: number; off: number };
 
 	const styleNames: Readonly<Record<string, string>> = {
@@ -133,6 +140,8 @@
 	};
 	let open: Draft | undefined;
 	let press: { x: number; y: number } | undefined;
+	let mounted = true;
+	let loadToken = 0;
 
 	const fit = $derived(
 		town && { fill: town.viewContextFill, subject: projectFocus(view, {}, town.points) }
@@ -181,6 +190,10 @@
 		} catch (error) {
 			fail(error);
 		}
+		return () => {
+			mounted = false;
+			loadToken++;
+		};
 	});
 
 	function fail(error: unknown) {
@@ -298,31 +311,26 @@
 	}
 
 	/** Brings the queue in line with the document: new requests wait, removed ones are cancelled. */
-	function sync(previews?: ReadonlyMap<string, Drawable | undefined>, settleTogether = false) {
+	function sync(options?: {
+		previews?: ReadonlyMap<string, Drawable | undefined>;
+		settle?: SettleMode;
+	}) {
 		const next = new Map(cache.read().map((request) => [request.placement.id, request]));
 		for (const id of requests.keys()) if (!next.has(id)) queue.cancel(id);
 		requests = next;
-		if (previews)
-			for (const [id, body] of previews) {
+		if (options?.previews)
+			for (const [id, body] of options.previews) {
 				const request = next.get(id);
 				if (request && body) bodies.set(request, body);
 			}
-		submit(settleTogether);
+		submit(options?.settle ?? 'stream');
 	}
 
-	function submit(settleTogether = false) {
+	function submit(settle: SettleMode = 'stream') {
 		if (open) return;
-		const details = readDetails();
-		for (const [id, request] of requests) {
-			const build = request.build;
-			const detail = details.get(id);
-			if (!build || !detail) continue;
-			if (!serials.has(request)) serials.set(request, serial++);
-			const key = `${serials.get(request)}/${detail.level}/${detail.budget}`;
-			queue.submit({ id, key, run: () => build(detail) });
-		}
+		submitPlacementRequests(queue, requests, readDetails(), serials, () => serial++);
 		compose();
-		frameWork = queue.readWaiting() ? { run: () => pump(settleTogether) } : undefined;
+		frameWork = queue.readWaiting() ? { run: () => pump(settle) } : undefined;
 	}
 
 	let shownAt = 0;
@@ -330,10 +338,10 @@
 
 	/** Builds within the frame budget. Restores publish detail together to avoid repacking the
 	 * same tiles as individual houses replace their silhouettes. */
-	function pump(settleTogether: boolean) {
+	function pump(settle: SettleMode) {
 		unshown = queue.advance().length > 0 || unshown;
 		const done = queue.readWaiting() === 0;
-		if (unshown && (done || (!settleTogether && performance.now() - shownAt >= showIntervalMs)))
+		if (unshown && (done || (settle === 'stream' && performance.now() - shownAt >= showIntervalMs)))
 			compose();
 		else waiting = queue.readWaiting();
 		return !done;
@@ -344,25 +352,13 @@
 		if (!town) return;
 		shownAt = performance.now();
 		unshown = false;
-		const shown: Drawable[] = [];
-		for (const [id, request] of requests) {
-			if (open?.drawing.overrides.has(id)) continue;
-			const product = queue.read(id);
-			if (product) {
-				shown.push(...product);
-				continue;
-			}
-			if (!request.build || !request.parcel) continue;
-			let body = bodies.get(request);
-			if (!body) {
-				const height = readPreviewHeight(Number(request.placement.params.height ?? 0));
-				body = town.previewBody(request.parcel, id + '/body', request.placement.assetId, height);
-				bodies.set(request, body);
-			}
-			shown.push(body);
-		}
-		if (open) for (const body of open.drawing.overrides.values()) if (body) shown.push(body);
-		placed = shown;
+		placed = collectPlacedDrawables(
+			requests,
+			queue,
+			bodies,
+			town.previewBody,
+			open?.drawing.overrides
+		);
 		waiting = queue.readWaiting();
 		history = documentModel.readHistory();
 		selected = selectedId ? requests.get(selectedId)?.placement : undefined;
@@ -476,7 +472,7 @@
 			let changes: readonly PlacementChange[] = [];
 			ended.drawing.finish(next.kind, (edits, previews) => {
 				changes = documentModel.apply(edits);
-				if (changes.length) sync(previews);
+				if (changes.length) sync({ previews });
 			});
 			if (next.kind === 'cancel') status = 'Stroke cancelled.';
 			else status = report(ended.tally, changes);
@@ -691,6 +687,7 @@
 
 	async function load(file: File) {
 		if (!town || loading) return;
+		const token = ++loadToken;
 		loading = true;
 		try {
 			stroke.reset();
@@ -699,7 +696,9 @@
 			open = undefined;
 			if (file.size > maxRestoreBytes)
 				throw new SandboxDataError('Sandbox save exceeds the restore byte limit');
-			const next = town.world.restore(await file.text());
+			const text = await file.text();
+			if (!mounted || token !== loadToken) return;
+			const next = town.world.restore(text);
 			const nextCache = town.createCache(next);
 			for (const id of requests.keys()) queue.cancel(id);
 			requests = new Map();
@@ -708,12 +707,12 @@
 			hovered = undefined;
 			selectedId = undefined;
 			lastSkipped = new Map();
-			sync(undefined, true);
+			sync({ settle: 'together' });
 			status = `Loaded ${plural(next.readHistory().placements, 'placement')}.`;
 		} catch (error) {
-			fail(error);
+			if (mounted && token === loadToken) fail(error);
 		} finally {
-			loading = false;
+			if (mounted && token === loadToken) loading = false;
 		}
 	}
 </script>

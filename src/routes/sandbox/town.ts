@@ -16,6 +16,7 @@ import type { HouseCell, HouseStorey } from '../../lib/domain/massing';
 import { blockTriangleBudget } from '../../lib/scene/house-projection';
 import type { SurfaceLevel } from '../../lib/domain/material';
 import { projectSketch } from '../../lib/scene/sketch';
+import { createBuildQueue, readPreviewHeight } from '../../lib/scene/sandbox-interaction';
 import { createSandboxProjection } from '../../lib/scene/sandbox-projection';
 import type { Drawable, ModelTone } from '../../lib/scene/surface';
 import { groveLawnLiftM } from '../../lib/world/asset-registry';
@@ -228,4 +229,59 @@ function readStoreyProgram(cells: readonly HouseCell[]) {
 		for (const { storey, phase, use } of cell.program ?? [])
 			rows.set(JSON.stringify([storey, phase, use]), { storey, phase, use });
 	return [...rows.values()].sort((a, b) => a.storey - b.storey);
+}
+
+/** Keeps the build queue aligned with current requests, cancelling any slot that is no longer buildable. */
+export function submitPlacementRequests(
+	queue: ReturnType<typeof createBuildQueue<readonly Drawable[]>>,
+	requests: ReadonlyMap<string, PlacementRequest>,
+	details: ReadonlyMap<string, Detail>,
+	serials: WeakMap<PlacementRequest, number>,
+	nextSerial: () => number
+) {
+	for (const [id, request] of requests) {
+		const build = request.build;
+		const detail = details.get(id);
+		if (!build || !detail) {
+			queue.cancel(id);
+			continue;
+		}
+		let serial = serials.get(request);
+		if (serial === undefined) {
+			serial = nextSerial();
+			serials.set(request, serial);
+		}
+		const key = `${serial}/${detail.level}/${detail.budget}`;
+		queue.submit({ id, key, run: () => build(detail) });
+	}
+}
+
+/** Collects built drawables or plain silhouettes for buildable requests, skipping gardens and overrides. */
+export function collectPlacedDrawables(
+	requests: ReadonlyMap<string, PlacementRequest>,
+	queue: ReturnType<typeof createBuildQueue<readonly Drawable[]>>,
+	bodies: WeakMap<PlacementRequest, Drawable>,
+	previewBody: (parcel: Parcel, id: string, assetId: string, height: number) => Drawable,
+	overrides?: ReadonlyMap<string, Drawable | undefined>
+) {
+	const shown: Drawable[] = [];
+	for (const [id, request] of requests) {
+		if (overrides?.has(id)) continue;
+		if (!request.build) continue;
+		const product = queue.read(id);
+		if (product) {
+			shown.push(...product);
+			continue;
+		}
+		if (!request.parcel) continue;
+		let body = bodies.get(request);
+		if (!body) {
+			const height = readPreviewHeight(Number(request.placement.params.height ?? 0));
+			body = previewBody(request.parcel, id + '/body', request.placement.assetId, height);
+			bodies.set(request, body);
+		}
+		shown.push(body);
+	}
+	if (overrides) for (const body of overrides.values()) if (body) shown.push(body);
+	return shown;
 }
