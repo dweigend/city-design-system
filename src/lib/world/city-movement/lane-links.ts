@@ -9,12 +9,13 @@ export function drape(a: Vec3, b: Vec3, site: CitySite): Vec3[] {
 	const dx = b[0] - a[0];
 	const dy = b[1] - a[1];
 	const count = Math.ceil(Math.hypot(dx, dy) / defaults.groundTraceStepM);
-	const points: Vec3[] = [];
+	if (!(count > 1)) return [];
+	const points = new Array<Vec3>(count - 1);
 	for (let i = 1; i < count; i++) {
 		const t = i / count;
 		const x = a[0] + dx * t;
 		const y = a[1] + dy * t;
-		points.push([x, y, site.sampleGround(x, y).height]);
+		points[i - 1] = [x, y, site.sampleGround(x, y).height];
 	}
 	return points;
 }

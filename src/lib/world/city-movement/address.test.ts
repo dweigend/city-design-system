@@ -4,8 +4,19 @@ import { createMovementNetwork, type MovementNode } from '../../domain/movement-
 import { required } from '../../core/invariant';
 import { createWorldReference, readWorldReference } from '../../core/ref';
 import { createCitySite } from '../city-site';
-import { connectLane } from './lane-links';
+import { connectLane, drape } from './lane-links';
 import type { Link } from './links';
+
+test('drape rejects overflowing segment counts before sampling terrain', () => {
+	let samples = 0;
+	const site = createCitySite(() => {
+		samples++;
+		return { height: 0, waterClearance: 20, waterKind: null };
+	});
+	expect(() => drape([0, 0, 0], [Infinity, 0, 0], site)).toThrow(RangeError);
+	expect(() => drape([-1e308, 0, 0], [1e308, 0, 0], site)).toThrow(RangeError);
+	expect(samples).toBe(0);
+});
 
 test('a 10 nm frontage move updates lane geometry without renaming the tap or adjacent links', () => {
 	const site = createCitySite(() => ({ height: 0, waterClearance: 20, waterKind: null }));
