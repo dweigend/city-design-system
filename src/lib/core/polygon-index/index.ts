@@ -54,6 +54,13 @@ export function createPolygonIndex<T extends Polygon>(
 	}
 
 	return Object.freeze({
+		/** Reads polygons whose XY bounds overlap the bounds of the points, in input order.
+		 * Use this when the caller owns the exact geometry and boundary rules. */
+		readCandidates(points: readonly Vec2[]): readonly T[] {
+			return candidates(points)
+				.sort((a, b) => a.order - b.order)
+				.map(({ polygon }) => polygon);
+		},
 		/** Reads the first containing polygon, including its edge and corners. */
 		readPoint(point: Vec2): T | undefined {
 			return candidates([point])

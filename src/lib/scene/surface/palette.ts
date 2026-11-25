@@ -130,6 +130,13 @@ export function readModelSurface(
 
 const noStrokes: readonly number[] = Object.freeze([]);
 
+function cladSurface(family: Family, slot: FamilySlot, display: MaterialDisplay, tone?: ModelTone) {
+	// Recipes can print marks on a family whose default face is plain.
+	if (slot === 'mark' && !readFamily(family).slots.includes(slot))
+		return display === 'transparency' ? stock('--stock-line') : matte('--model-ink');
+	return readMaterialSurface(family, slot, display, tone);
+}
+
 /** Paints compatible cladding groups by family, tone, level and slot. Printed marks draw no
  * outline; grain shows only at levels that draw it. Plain slots take their surfaces from `plain`.
  * Throws RangeError for a missing surface. */
@@ -148,7 +155,7 @@ export function paintClad(
 				details.set(partSlot, { hatch: pencilStroke.hatch });
 				continue;
 			}
-			const { grain: own, ...surface } = readMaterialSurface(
+			const { grain: own, ...surface } = cladSurface(
 				group.family,
 				familySlot,
 				display,

@@ -106,6 +106,23 @@ const patch: Patch = {
 };
 const object = { id: 'wall-run', footprint: { width: 4, depth: 1 }, anchors: [] };
 
+test('paints marks added by a custom recipe on a plain family', () => {
+	const clad = createClad(object, [
+		{
+			role: 'panel',
+			family: 'board',
+			patch,
+			recipe: { pattern: 'stripe', params: { pitch: 1, share: 0.25 } }
+		}
+	]);
+	expect(paintClad(clad, 'normal').find(({ id }) => id === 'panel/mark')?.color).toBe(
+		'--model-ink'
+	);
+	expect(paintClad(clad, 'transparency').find(({ id }) => id === 'panel/mark')?.color).toBe(
+		'--stock-line'
+	);
+});
+
 test('one role paints tinted boards by tone and stripes with unoutlined marks', () => {
 	const clad = createClad(object, [
 		{ role: 'wall', family: 'board', tone: 'blue', patch },

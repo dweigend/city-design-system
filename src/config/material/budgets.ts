@@ -39,17 +39,10 @@ export const budgets = defineSettings({
 		bounds: { min: 1 },
 		rationale: 'Twelve steps grow the module about fourteenfold.'
 	},
-	faceWeldM: {
-		value: 1e-4,
-		unit: 'm',
-		meaning: 'Grid on which two side faces count as the same face',
-		bounds: positive,
-		rationale: 'Matches the stage edge weld, so a hidden face pair never draws a crease.'
-	},
 	planeToleranceM: {
 		value: 1e-6,
 		unit: 'm',
-		meaning: 'Distance below which a clipped edge or face counts as degenerate',
+		meaning: 'Patch-local grid for joining clipped side faces and minimum size of clipped edges',
 		bounds: positive,
 		rationale: 'Far below any joint, above float roundoff at city coordinates.'
 	}

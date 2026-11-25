@@ -40,3 +40,16 @@ test('specimens, controls and presentation adapters are outside the material ent
 	for (const family of material.familyNames)
 		expect(Object.hasOwn(material.readFamily(family), 'ground')).toBe(false);
 });
+
+test('R17-08 the sample roof meets at the center of the ridge on both slopes', () => {
+	const { object } = createSampleBody('board');
+	const roof = object.parts.find(({ id }) => id === 'roof/face')?.shape;
+	if (roof?.kind !== 'mesh') throw new Error('Expected a roof mesh');
+	const vertices = Array.from({ length: roof.positions.length / 3 }, (_, i) =>
+		roof.positions.slice(3 * i, 3 * i + 3)
+	);
+	const highest = Math.max(...vertices.map(([, , z]) => z));
+	const ridge = vertices.filter(([, , z]) => Math.abs(z - highest) < 1e-10);
+	expect(ridge.length).toBeGreaterThanOrEqual(4);
+	expect(Math.max(...ridge.map(([, y]) => Math.abs(y)))).toBeLessThan(1e-10);
+});

@@ -7,6 +7,12 @@ by ID. Both lists and all analysis output follow ascending string code-unit orde
 members with distinct IDs are allowed. Coincident endpoints, dangling endpoints and duplicate
 IDs raise a named validation error.
 
+Pass `definitions` to `createMemberGraph` to add member roles or supply square widths, metal
+areas and reference stresses. A section can supply its own reference stress. The graph-wide
+reference stress and built-in definitions come from `config/structure`. Members may set
+`primary` explicitly or inherit it from their section. The graph copies and freezes the values
+used by geometry and analysis.
+
 Supply nonnegative downward forces in kN, once per loaded joint. Missing entries carry zero
 applied force. A reverse walk from the supports finds routes that never climb. Pinned and fixed
 joints both collect vertical reactions. At a free joint, load splits among descending members
@@ -17,7 +23,9 @@ Unreachable joints, unreacted force and the relative balance check are reported 
 On a descending loaded member, axial demand is its routed vertical force divided by the
 vertical component of its unit direction. Utilization divides demand by section area times a
 nominal reference stress. Level members can transfer vertical load, with axial demand and
-utilization left undefined. Both fields are also undefined on unused members. This is a
+utilization left undefined. The result uses `null` for unavailable estimates, including on
+unused members and when the demand exceeds the representable range. Subnormal shares round
+in member order while conserving the applied force. This is a
 vertical routing model. It omits stiffness, horizontal equilibrium, moments, buckling, joint
 behavior and the distinction between pinned and fixed restraints. A routed result certifies
 reachability and vertical accounting only.

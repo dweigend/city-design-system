@@ -2,6 +2,9 @@ import { bounds, size, type Vec3 } from '../../core/geometry';
 import { PlaceableObject } from '../../core/object';
 import {
 	createFrameBayObject,
+	readMemberPrimary,
+	readMemberSection,
+	readMemberSlot,
 	type GravityResult,
 	type JointLoad,
 	type MemberGraph
@@ -9,13 +12,14 @@ import {
 import { resolveSurfaces, type SurfaceAssignment } from '../surface';
 import { markerSurfaces, memberAppearance, utilizationBand } from './appearance';
 import { structureFocusPreset, type StructureView } from './focus';
-import { markers } from './markers';
+import { markers, type MarkerSizing } from './markers';
 
 type Options = Readonly<{
 	view?: StructureView;
 	analysis?: GravityResult;
 	arrows?: readonly JointLoad[];
 	supports?: boolean;
+	markerSizing?: Partial<MarkerSizing>;
 	toLocal?: (position: Vec3) => Vec3;
 }>;
 
@@ -27,26 +31,30 @@ const emptyExtents = /* Exact arithmetic: empty extent along both axes. */ [0, 0
 function memberBatches(graph: MemberGraph, positions: ReadonlyMap<string, Vec3>, options: Options) {
 	const groups = new Map<
 		string,
-		{ memberIds: string[]; segments: number[]; heavy: boolean; band?: number }
+		{ memberIds: string[]; segments: number[]; primary: boolean; band?: number }
 	>();
 	const view = options.view ?? 'all';
 	const { readFocusChoice, readFocusLevel } = structureFocusPreset;
 	const levels = {
-		heavy: readFocusLevel(view, 'primary-members'),
-		light: readFocusLevel(view, 'secondary-members')
+		primary: readFocusLevel(view, 'primary-members'),
+		secondary: readFocusLevel(view, 'secondary-members')
 	};
 	const utilization =
 		readFocusChoice(view).analysis === 'utilization'
 			? new Map(options.analysis?.members.map(({ id, utilization }) => [id, utilization]))
 			: undefined;
-	for (const { id, from, to, role, section } of graph.members) {
-		const heavy = section === 'heavy';
-		if (levels[section] === 'hidden') continue;
+	for (const member of graph.members) {
+		const { id, from, to, section } = member;
+		const primary = readMemberPrimary(graph, member);
+		const classification = primary ? 'primary' : 'secondary';
+		if (levels[classification] === 'hidden') continue;
 		const band = utilizationBand(utilization?.get(id) ?? null);
-		const slot = `${role}/${section}/${band ?? 'neutral'}`;
+		const sectionPrimary = readMemberSection(graph, section).primary ?? false;
+		const suffix = primary === sectionPrimary ? '' : `/${classification}`;
+		const slot = `${readMemberSlot(member)}/${band ?? 'neutral'}${suffix}`;
 		let group = groups.get(slot);
 		if (!group) {
-			group = { memberIds: [], segments: [], heavy, band };
+			group = { memberIds: [], segments: [], primary, band };
 			groups.set(slot, group);
 		}
 		group.memberIds.push(id);
@@ -65,12 +73,14 @@ export function projectStructure(graph: MemberGraph, options: Options = {}) {
 	const extents = bounds([...positions.values()]);
 	const [width, depth] = extents ? size(extents) : emptyExtents;
 	const groups = memberBatches(graph, positions, options);
+	const arrows = options.arrows;
 	const markerParts = markers(
 		graph,
 		positions,
-		options.arrows,
-		options.arrows && options.analysis,
-		options.supports
+		arrows,
+		arrows && options.analysis,
+		options.supports,
+		options.markerSizing
 	);
 	const markersPresent = Object.entries(markerParts).flatMap(([slot, marker]) => {
 		const shape = marker.shape();
@@ -105,7 +115,7 @@ export function projectStructure(graph: MemberGraph, options: Options = {}) {
 	});
 	const assignment: SurfaceAssignment = {
 		...Object.fromEntries(
-			Array.from(groups, ([slot, { heavy, band }]) => [slot, memberAppearance(heavy, band)])
+			Array.from(groups, ([slot, { primary, band }]) => [slot, memberAppearance(primary, band)])
 		),
 		...Object.fromEntries(
 			markersPresent.map(([slot]) => [slot, markerSurfaces[slot as keyof typeof markerSurfaces]])

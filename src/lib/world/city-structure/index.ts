@@ -6,7 +6,7 @@ import { required } from '../../core/invariant';
 import { levelHeight, type CityLattice } from '../../domain/city-volume';
 import { createMemberGraph } from '../../domain/structure';
 import { tributaryForces } from './loads';
-import { primarySection, shellEdges } from './shell';
+import { isPrimaryEdge, shellEdges } from './shell';
 
 /** Density and shell selection settings, including units and reasons. */
 export { settings as cityStructureSettings } from '../../../config/city-structure';
@@ -50,12 +50,12 @@ export function createCityStructure(
 				b.position,
 				rank === 'chord' || (a.groundContact === true && b.groundContact === true)
 			);
-			const section = primarySection(shell.get(id), role, a.position[2], datumZ, levelHeightM);
-			return { id, from, to, role, section };
+			const primary = isPrimaryEdge(shell.get(id), role, a.position[2], datumZ, levelHeightM);
+			return { id, from, to, role, primary, section: primary ? 'heavy' : 'light' };
 		})
 	});
 	return Object.freeze({ graph, loads: Object.freeze(tributaryForces(lattice, nodes)) });
 }
 
-/** Fixed default-town and largest-city study inputs. */
-export { structureTownExample, largestStructureExample } from './city-structure-example';
+/** Selects a connected study area from the supplied city columns. */
+export { readStructureQuarter } from './quarter';

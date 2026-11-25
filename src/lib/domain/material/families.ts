@@ -13,6 +13,12 @@ export type PatternParams = Readonly<{
 	joint: readonly [number, number];
 }>;
 
+/** Caller-supplied pattern or parameter overrides for one build. The base family still
+ * names the paint treatment. Omitted fields use that family's defaults. */
+export type FamilyRecipe = Readonly<{ pattern?: PatternKind; params?: Partial<PatternParams> }>;
+
+const patternKinds: ReadonlySet<PatternKind> = new Set(['plain', 'stripe', 'dots']);
+
 // Exact arithmetic: a plain face has no period and no joint.
 const plain = /* Exact arithmetic: plain faces have no pattern or joint. */ {
 	pitch: 0,
@@ -56,10 +62,34 @@ export type FamilySlot = 'face' | 'mark';
 /** Families in table order. */
 export const familyNames = families.ids;
 
+function readRecipeParams(pattern: PatternKind, params: PatternParams) {
+	const { pitch, share, joint } = params;
+	if (
+		!patternKinds.has(pattern) ||
+		!Array.isArray(joint) ||
+		joint.length !== 2 ||
+		![pitch, share, ...joint].every(Number.isFinite) ||
+		pitch < 0 ||
+		share < 0 ||
+		share > 1 ||
+		joint.some((module) => module < 0) ||
+		(pattern !== 'plain' && (pitch === 0 || share === 0))
+	)
+		throw new RangeError('Invalid surface pattern dimensions');
+	return params;
+}
+
 /** Reads a family's pattern, slots and default parameters. Throws RangeError for an unknown
  * family. */
-export function readFamily(family: Family) {
-	const { pattern, params } = families.get(family);
+export function readFamily(family: Family, recipe?: FamilyRecipe) {
+	const base = families.get(family);
+	const pattern = recipe?.pattern ?? base.pattern;
+	const {
+		pitch = base.params.pitch,
+		share = base.params.share,
+		joint = base.params.joint
+	} = recipe?.params ?? {};
+	const params = recipe ? readRecipeParams(pattern, { pitch, share, joint }) : base.params;
 	const slots: readonly FamilySlot[] = pattern === 'plain' ? ['face'] : ['face', 'mark'];
-	return { pattern, slots, params: params as PatternParams };
+	return { pattern, slots, params };
 }

@@ -2,16 +2,16 @@ import { materialSettings } from '../../../config/material';
 import type { Vec2, Vec3 } from '../../core/geometry';
 import type { Frame } from './patch';
 
-const { planeToleranceM, faceWeldM } = materialSettings;
+const { planeToleranceM } = materialSettings;
 
 /** A face height above the patch plane, linear in u and v: w = at + perU·u + perV·v. */
 export type Plane = Readonly<{ at: number; perU?: number; perV?: number }>;
 
 /** Growing triangle soup for one slot, in world meters, with each face's vertices unshared.
- * Side faces are keyed by their rounded corners so a hidden pair can be dropped. */
+ * Side faces are keyed in patch coordinates so a hidden pair can be dropped. */
 export type MeshSink = {
 	positions: number[];
-	faces: [id: string | undefined, indices: number[]][];
+	faces: number[][];
 	sides: Map<string, number>;
 };
 
@@ -31,33 +31,30 @@ function height(
 	return at + perU * u + perV * v;
 }
 
-function key(points: readonly Vec3[]) {
-	return points
-		.map((point) => point.map((x) => Math.round(x / faceWeldM)).join(','))
-		.sort()
-		.join('/');
+function sideEndpoint([u, v]: Vec2, base: number, top: number) {
+	return [u, v, base, top].map((x) => Math.round(x / planeToleranceM)).join(',');
 }
 
-function addPolygon(sink: MeshSink, points: readonly Vec3[], id?: string) {
+function addPolygon(sink: MeshSink, points: readonly Vec3[]) {
 	const start = sink.positions.length / 3;
 	for (const point of points) sink.positions.push(...point);
 	const indices: number[] = [];
 	for (let i = 1; i + 1 < points.length; i++) indices.push(start, start + i, start + i + 1);
-	sink.faces.push([id, indices]);
+	sink.faces.push(indices);
 }
 
 /** Adds a side face, or drops it with an identical face from a neighbouring cell: the pair
  * would be hidden inside the solid and draw a false crease line. */
-function addSide(sink: MeshSink, points: readonly Vec3[]) {
-	const id = key(points);
-	const twin = sink.sides.get(id);
-	if (twin !== undefined) {
-		sink.faces[twin][1] = [];
-		sink.sides.delete(id);
+function addSide(sink: MeshSink, points: readonly Vec3[], start: string, end: string) {
+	const opposite = end + '/' + start;
+	const twin = sink.sides.get(opposite);
+	if (twin !== undefined && start !== end) {
+		sink.faces[twin] = [];
+		sink.sides.delete(opposite);
 		return;
 	}
-	sink.sides.set(id, sink.faces.length);
-	addPolygon(sink, points, id);
+	sink.sides.set(start + '/' + end, sink.faces.length);
+	addPolygon(sink, points);
 }
 
 /** Adds a raised convex cell: top face, optional bottom face and every side whose height is not
@@ -88,11 +85,16 @@ export function addCell(
 		const side = [frame.point(u0, v0, base), frame.point(u1, v1, base)];
 		if (rise[1] > planeToleranceM) side.push(frame.point(u1, v1, tops[next]));
 		if (rise[0] > planeToleranceM) side.push(frame.point(u0, v0, tops[i]));
-		addSide(sink, side);
+		addSide(
+			sink,
+			side,
+			sideEndpoint(polygon[i], base, tops[i]),
+			sideEndpoint(polygon[next], base, tops[next])
+		);
 	}
 }
 
 /** Flattened triangle indices of a sink. */
 export function readIndices(sink: MeshSink) {
-	return sink.faces.flatMap(([, indices]) => indices);
+	return sink.faces.flat();
 }

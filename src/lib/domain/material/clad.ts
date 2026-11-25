@@ -1,6 +1,6 @@
 import { PlaceableObject, type Part } from '../../core/object';
 import { buildSurface, type SurfaceMesh, type SurfaceOptions } from './build';
-import type { Family, FamilySlot } from './families';
+import type { Family, FamilyRecipe, FamilySlot } from './families';
 import type { SurfaceLevel, SurfaceLevelAlias } from './levels';
 import type { Patch } from './patch';
 import { createPatternFrame } from './pattern';
@@ -14,6 +14,7 @@ export type Cladding = Readonly<{
 	family: Family;
 	patch: Patch;
 	level?: SurfaceLevel | SurfaceLevelAlias;
+	recipe?: FamilyRecipe;
 	moduleScale?: number;
 	tone?: string;
 	body?: string;
@@ -106,11 +107,13 @@ export function createClad(
 			family,
 			patch,
 			level,
+			recipe,
 			tone,
 			moduleScale = /* Exact arithmetic: unity scale preserves physical dimensions. */ 1
 		}) => {
 			const surface = buildSurface(family, patch, {
 				...options,
+				recipe: recipe ?? options.recipe,
 				level: level ?? options.level,
 				moduleScale: (options.moduleScale ?? 1) * moduleScale
 			});

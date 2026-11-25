@@ -1,7 +1,7 @@
 import { required } from '../../core/invariant';
 import type { Vec3 } from '../../core/geometry';
 import { createMeshObject, mesh, squareSegment, type Mesh } from '../../core/mesh';
-import { memberSections, type MemberGraph } from './graph';
+import { readMemberSection, readMemberSlot, type MemberGraph } from './graph';
 
 /** An optional addressed subset and coordinate mapping for a frame object. */
 export type FrameBayOptions = Readonly<{
@@ -28,13 +28,14 @@ export function createFrameBayObject(
 	);
 	const layers: Record<string, Mesh> = {};
 	const joints = new Set(members.flatMap(({ from, to }) => [from, to]));
-	for (const { from, to, role, section } of members) {
-		const slot = `${role}/${section}`;
+	for (const member of members) {
+		const { from, to, section } = member;
+		const slot = readMemberSlot(member);
 		layers[slot] ??= mesh();
 		const a = positions.get(from);
 		const b = positions.get(to);
 		if (!a || !b) throw new RangeError('Missing member joint');
-		layers[slot].append(squareSegment(a, b, memberSections[section].widthM));
+		layers[slot].append(squareSegment(a, b, readMemberSection(graph, section).widthM));
 	}
 	const anchors = graph.joints
 		.filter(({ id, support }) => support !== 'free' && (!wanted || joints.has(id)))

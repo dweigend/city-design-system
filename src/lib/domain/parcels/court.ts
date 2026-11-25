@@ -33,7 +33,9 @@ export function reserveCourt(
 	const entrances = contacts.flatMap(({ points, laneId, edgeIndex }) => {
 		const frame = edgeFrame(...points);
 		const alongM = frame.lengthM / 2;
-		const hits = lineHits(court[0], frame, alongM).filter(({ left }) => left > linearToleranceM);
+		const hits = lineHits(court[0].map(frame.read), alongM).filter(
+			({ left }) => left > linearToleranceM
+		);
 		hits.sort((a, b) => a.left - b.left);
 		const [entry, exit] = hits;
 		if (!entry || !exit) return [];

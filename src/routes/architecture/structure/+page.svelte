@@ -98,7 +98,10 @@
 		...stock,
 		...projectStructure(graph, {
 			view: mode,
-			analysis,
+			// The projector reads analysis only for utilization bands or reaction arrows.
+			get analysis() {
+				return analysis;
+			},
 			arrows: scene === 'portal' ? loads : undefined,
 			supports: scene !== 'town' || mode !== 'primary',
 			toLocal: scene === 'portal' ? undefined : town.toLocal

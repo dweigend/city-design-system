@@ -1,7 +1,14 @@
 import { materialSettings } from '../../../config/material';
 import type { Vec2 } from '../../core/geometry';
 import { cutOpenings } from './cells';
-import { readFamily, type Family, type FamilySlot, type PatternParams } from './families';
+import {
+	readFamily,
+	type Family,
+	type FamilyRecipe,
+	type FamilySlot,
+	type PatternKind,
+	type PatternParams
+} from './families';
 import {
 	readLevelDetail,
 	readSurfaceLevelName,
@@ -33,6 +40,7 @@ export type SurfaceOptions = Readonly<{
 	seed?: number;
 	moduleScale?: number;
 	level?: SurfaceLevel | SurfaceLevelAlias;
+	recipe?: FamilyRecipe;
 }>;
 
 /** Meshes by family slot in world meters, joint lines as XYZ endpoint pairs, the triangle count,
@@ -54,7 +62,8 @@ function scaleParams(params: PatternParams, scale: number): PatternParams {
 	};
 	if (
 		![scaled.pitch, ...scaled.joint].every(Number.isFinite) ||
-		(params.pitch > 0 && scaled.pitch <= planeToleranceM)
+		(params.pitch > 0 && scaled.pitch <= planeToleranceM) ||
+		params.joint.some((module, i) => module > 0 && scaled.joint[i] <= planeToleranceM)
 	)
 		throw new RangeError('Scaled surface dimensions must be finite and exceed the plane tolerance');
 	return scaled;
@@ -71,8 +80,8 @@ function readOptions({
 }
 
 // Exact arithmetic: a triangle count cannot be negative.
-function readBudget(frame: Frame) {
-	const budget = frame.patch.budget ?? patchTrianglesPerSquareM * frameArea(frame);
+function readBudget(frame: Frame, area: number) {
+	const budget = frame.patch.budget ?? patchTrianglesPerSquareM * area;
 	if (!Number.isFinite(budget) || budget < 0)
 		throw new RangeError('Patch budget must be finite and nonnegative');
 	return budget;
@@ -90,7 +99,7 @@ function printFace(frame: Frame, openings: boolean): PrintFace {
 
 // Exact arithmetic: the face lies at zero and the backing behind it.
 function addFace(sink: MeshSink, frame: Frame, face: PrintFace) {
-	const back = frame.patch.backed !== false;
+	const back = frame.patch.backed !== false && frame.patch.thickness > 0;
 	const base = back ? -frame.patch.thickness : 0;
 	for (const cell of cutOpenings(face.outline, face.openings))
 		addCell(
@@ -115,9 +124,9 @@ function lines(frame: Frame, segments: readonly (readonly [Vec2, Vec2])[]) {
 	]);
 }
 
-function prints(family: Family, params: PatternParams, level: SurfaceLevel) {
+function prints(pattern: PatternKind, params: PatternParams, level: SurfaceLevel) {
 	const { marks } = readLevelDetail(level);
-	if (readFamily(family).pattern === 'plain' || marks === 'none') return false;
+	if (pattern === 'plain' || marks === 'none') return false;
 	return marks === 'all' || params.pitch >= farMarkPitchM;
 }
 
@@ -127,24 +136,30 @@ function prints(family: Family, params: PatternParams, level: SurfaceLevel) {
 export function printsMarks(
 	family: Family,
 	level: SurfaceLevel | SurfaceLevelAlias,
-	moduleScale = /* Exact arithmetic: unity scale preserves physical dimensions. */ 1
+	moduleScale = /* Exact arithmetic: unity scale preserves physical dimensions. */ 1,
+	recipe?: FamilyRecipe
 ): boolean {
-	return prints(
-		family,
-		scaleParams(readFamily(family).params, moduleScale),
-		readSurfaceLevelName(level)
-	);
+	const { pattern, params } = readFamily(family, recipe);
+	return prints(pattern, scaleParams(params, moduleScale), readSurfaceLevelName(level));
 }
 
-function marksOf(family: Family, face: PrintFace, params: PatternParams, level: SurfaceLevel) {
-	if (!prints(family, params, level)) return [];
-	return readFamily(family).pattern === 'stripe'
-		? stripeMarks(face, params)
-		: dotMarks(face, params);
+function marksOf(
+	pattern: PatternKind,
+	face: PrintFace,
+	params: PatternParams,
+	level: SurfaceLevel
+) {
+	if (!prints(pattern, params, level)) return [];
+	return pattern === 'stripe' ? stripeMarks(face, params) : dotMarks(face, params);
 }
 
-function stripeEdges(family: Family, face: PrintFace, params: PatternParams, level: SurfaceLevel) {
-	if (level !== 'pencil' || readFamily(family).pattern !== 'stripe') return [];
+function stripeEdges(
+	pattern: PatternKind,
+	face: PrintFace,
+	params: PatternParams,
+	level: SurfaceLevel
+) {
+	if (level !== 'pencil' || pattern !== 'stripe') return [];
 	return stripeMarks(face, params).flatMap((mark) =>
 		mark.map((a, i) => [a, mark[(i + 1) % mark.length]] as const)
 	);
@@ -185,20 +200,21 @@ function buildAt(
 	frame: Frame,
 	level: SurfaceLevel,
 	scale: number,
+	{ pattern, params }: ReturnType<typeof readFamily>,
 	withMarks: boolean
 ) {
 	const detail = readLevelDetail(level);
-	const params = scaleParams(readFamily(family).params, scale);
+	const scaled = scaleParams(params, scale);
 	const face = printFace(frame, detail.openings);
 	const sinks = new Map<FamilySlot, MeshSink>([['face', createSink()]]);
 	addFace(sinks.get('face') as MeshSink, frame, face);
 	if (withMarks) {
 		const mark = createSink();
-		addMarks(mark, frame, marksOf(family, face, params, level));
+		addMarks(mark, frame, marksOf(pattern, face, scaled, level));
 		sinks.set('mark', mark);
 	}
-	const segments = detail.joints ? jointSegments(face, params) : [];
-	const edges = withMarks ? stripeEdges(family, face, params, level) : [];
+	const segments = detail.joints ? jointSegments(face, scaled) : [];
+	const edges = withMarks ? stripeEdges(pattern, face, scaled, level) : [];
 	return collect(family, level, scale, sinks, lines(frame, [...segments, ...edges]));
 }
 
@@ -208,11 +224,11 @@ function buildAt(
 // Exact arithmetic: a stripe band is one quad of two triangles, a dot n − 2.
 export function fitModuleScale(family: Family, patch: Patch, options: SurfaceOptions = {}): number {
 	const frame = readFrame(patch);
-	const { pattern, params } = readFamily(family);
+	const { pattern, params } = readFamily(family, options.recipe);
 	const { moduleScale } = readOptions(options);
 	if (pattern === 'plain') return moduleScale;
-	const budget = readBudget(frame);
 	const area = frameArea(frame);
+	const budget = readBudget(frame, area);
 	const perMark =
 		pattern === 'dots'
 			? dotSides - /* Exact arithmetic: triangulated polygon loses two from its vertex count. */ 2
@@ -239,18 +255,19 @@ export function buildSurface(
 ): SurfaceMesh {
 	const frame = readFrame(patch);
 	const { moduleScale, level } = readOptions(options);
-	const budget = readBudget(frame);
-	if (budget < minimumMeshTriangles) return emptySurface(family, level, moduleScale);
-	const { pattern, params } = readFamily(family);
+	const recipe = readFamily(family, options.recipe);
+	const { pattern, params } = recipe;
 	const area = frameArea(frame);
+	const budget = readBudget(frame, area);
+	if (budget < minimumMeshTriangles) return emptySurface(family, level, moduleScale);
 	let scale = moduleScale;
 	for (let step = 0; pattern !== 'plain' && step <= coarsenStepLimit; step++) {
 		const estimate = estimateMarks(area, scaleParams(params, scale), pattern === 'dots');
 		const mesh =
-			estimate <= maxLayoutUnits ? buildAt(family, frame, level, scale, true) : undefined;
+			estimate <= maxLayoutUnits ? buildAt(family, frame, level, scale, recipe, true) : undefined;
 		if (mesh && mesh.triangles <= budget) return mesh;
 		scale *= coarsenStepRatio;
 	}
-	const plain = buildAt(family, frame, level, moduleScale, false);
+	const plain = buildAt(family, frame, level, moduleScale, recipe, false);
 	return plain.triangles <= budget ? plain : emptySurface(family, level, moduleScale);
 }

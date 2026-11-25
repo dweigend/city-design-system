@@ -65,14 +65,14 @@ function splitFrom(ring: Ring, { points, edgeIndex }: Contact, toleranceM: numbe
 	const frame = edgeFrame(...points);
 	const entry = midpoint(points);
 	const alongM = frame.lengthM / 2;
-	const [exit] = lineHits(ring, frame, alongM)
+	const projected = ring.map(frame.read);
+	const [exit] = lineHits(projected, alongM)
 		.filter(({ left, edge }) => edge !== edgeIndex && left > toleranceM)
 		.sort((a, b) => a.left - b.left || a.edge - b.edge);
 	if (!exit) return;
 	// A tangent vertex can be absent from lineHits, which counts crossings only.
 	// A cut between two edge interiors must avoid every intervening vertex.
-	for (const point of ring) {
-		const [along, left] = frame.read(point);
+	for (const [along, left] of projected) {
 		if (
 			left > toleranceM &&
 			left <= exit.left + toleranceM &&

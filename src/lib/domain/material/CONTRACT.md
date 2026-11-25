@@ -8,14 +8,20 @@ card grain is shading, not geometry.
 
 - `buildSurface(family, patch, options?)` builds a patch from its origin, unit across axis, unit
   outward normal, size and backing thickness. The up axis is normal × across. Supply a convex
-  outline for a gable and rectangular openings to cut. `backed: false` leaves out the back face of
-  a patch laid on a body.
+  outline for a gable and rectangular openings to cut. Openings cut their union within the outline.
+  Set `backed: false` or use zero thickness for a single skin. For a bevel or a miter, supply a
+  unit `backingDirection` with a positive component along the normal. Thickness is measured
+  perpendicular to the face.
 - Patterns are laid in the coordinates of a body box (`patch.pattern`, built by
   `createPatternFrame` from all faces of the body; default the patch's own box) and fitted to whole
   periods over the body. Stripes run across the body's long axis over every face that runs along
   it; dot grids use the two body axes in the face. So a pattern continues across the shared edge of
   two faces of one body (MAT-9). `createClad` builds the box for claddings that name the same
   `body`.
+- Set `options.recipe` or a cladding's `recipe` to choose a pattern and override its pitch,
+  printed share and joint spacing for that build. Omitted fields come from the named family.
+  Painting uses the named family's palette, with graphite marks if the recipe adds a pattern to
+  a plain family.
 - Levels come from the level table in `config/material`: `near` (marks, openings, joint hairlines,
   grain), `mid` (marks, openings), `far` (plain face, only marks with a pitch of at least
   `farMarkPitchM`, no openings) and `pencil` (face, openings, joints as pencil lines). `relief` and

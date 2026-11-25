@@ -1,6 +1,8 @@
 import { materialSettings } from '../../../config/material';
 import { readVertexMean, type Vec2 } from '../../core/geometry';
-import type { Rect } from './patch';
+
+/** An axis-aligned rectangle in patch meters: left, bottom, right, top. */
+export type Rect = readonly [u0: number, v0: number, u1: number, v1: number];
 
 const { planeToleranceM } = materialSettings;
 
@@ -89,8 +91,9 @@ export function cutOpenings(polygon: readonly Vec2[], openings: readonly Rect[])
 	for (let i = 0; i + 1 < us.length; i++) {
 		for (let j = 0; j + 1 < vs.length; j++) {
 			const cell = clipToOutline(polygon, rectPolygon([us[i], vs[j], us[i + 1], vs[j + 1]]));
-			if (cell.length && !overlapping.some((rect) => inside(readVertexMean(cell), rect)))
-				cells.push(cell);
+			if (!cell.length) continue;
+			const center = readVertexMean(cell);
+			if (!overlapping.some((rect) => inside(center, rect))) cells.push(cell);
 		}
 	}
 	return cells;

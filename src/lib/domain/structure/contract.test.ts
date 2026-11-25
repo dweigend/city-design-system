@@ -1,6 +1,7 @@
 import { describe, expect, test } from 'bun:test';
 import { defaults } from '../../../config/structure';
 import {
+	createFrameBayObject,
 	createMemberGraph,
 	gravityBalanceTolerance,
 	memberSections,
@@ -160,4 +161,61 @@ describe('member graph', () => {
 		});
 		expect(runGravity(permuted, [...loads].reverse())).toEqual(runGravity(graph, loads));
 	});
+});
+test('R15-05 unrepresentable axial demand is reported as unavailable', () => {
+	const graph = createMemberGraph({
+		joints: [
+			{ id: 'seat', position: [0, 0, 0], support: 'pinned' },
+			{ id: 'top', position: [1, 0, 1e-308], support: 'free' }
+		],
+		members: [{ id: 'slope', from: 'top', to: 'seat', role: 'brace', section: 'light' }]
+	});
+	const result = runGravity(graph, [{ joint: 'top', forceKN: 2 }]);
+	expect(result.members).toEqual([
+		{ id: 'slope', verticalKN: 2, axialKN: null, utilization: null }
+	]);
+	expect(result.reactedKN).toBe(2);
+});
+
+test('R15-05 preserves subnormal load across two exits', () => {
+	const graph = createMemberGraph({
+		joints: [
+			{ id: 'left', position: [-1, 0, 0], support: 'pinned' },
+			{ id: 'right', position: [1, 0, 0], support: 'pinned' },
+			{ id: 'top', position: [0, 0, 1], support: 'free' }
+		],
+		members: [
+			{ id: 'left', from: 'top', to: 'left', role: 'brace', section: 'light' },
+			{ id: 'right', from: 'top', to: 'right', role: 'brace', section: 'light' }
+		]
+	});
+	for (const forceKN of [Number.MIN_VALUE, 3 * Number.MIN_VALUE]) {
+		const result = runGravity(graph, [{ joint: 'top', forceKN }]);
+		expect(result.reactedKN).toBe(forceKN);
+		expect(result.balanceErrorKN).toBe(0);
+		expect(result.balanced).toBe(true);
+	}
+});
+
+test('R15-06 detached structural definitions provide widths, areas, roles and reference stress', () => {
+	const joints: StructuralJoint[] = [
+		{ id: 'foot', position: [0, 0, 0], support: 'pinned' },
+		{ id: 'head', position: [0, 0, 1], support: 'free' }
+	];
+	const section = { widthM: 0.4, areaM2: 0.05, referenceStressKPa: 100 };
+	const graph = createMemberGraph({
+		joints,
+		members: [{ id: 'post', from: 'foot', to: 'head', role: 'mast', section: 'tube' }],
+		definitions: { roles: ['mast'], sections: { tube: section }, referenceStressKPa: 250 }
+	});
+	section.areaM2 = 1;
+	const frame = createFrameBayObject('mast', graph);
+	expect(frame.parts[0]?.slot).toBe('mast/tube');
+	expect(frame.footprint.width).toBeCloseTo(0.4);
+	const load = [{ joint: 'head', forceKN: 5 }];
+	expect(runGravity(graph, load).members).toEqual([
+		{ id: 'post', verticalKN: 5, axialKN: 5, utilization: 1 }
+	]);
+	expect(runGravity(graph, [{ joint: 'head', forceKN: 10 }]).members[0].utilization).toBe(2);
+	expect(runGravity(graph, load).members[0].utilization).toBe(1);
 });

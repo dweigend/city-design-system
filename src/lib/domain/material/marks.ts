@@ -1,8 +1,7 @@
 import { materialSettings } from '../../../config/material';
 import type { Vec2 } from '../../core/geometry';
-import { clipHalfPlane, clipToOutline, cutOpenings, segmentOutside } from './cells';
+import { clipHalfPlane, clipToOutline, cutOpenings, segmentOutside, type Rect } from './cells';
 import type { PatternParams } from './families';
-import type { Rect } from './patch';
 import { fitPitch, type FaceMap, type PatternFrame } from './pattern';
 
 const { planeToleranceM, dotSides } = materialSettings;

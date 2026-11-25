@@ -96,22 +96,25 @@ export function frontageContacts(
 	sides: readonly Omit<Frontage, 'sideIndex'>[],
 	toleranceM: number
 ) {
-	return ring.flatMap((a, edgeIndex): Contact[] => {
-		const b = ring[(edgeIndex + 1) % ring.length];
-		return sides.flatMap(({ laneId, frame, depthM }) => {
-			const [u, leftA] = frame.read(a);
-			const [v, leftB] = frame.read(b);
-			if (Math.abs(leftA - depthM) > toleranceM || Math.abs(leftB - depthM) > toleranceM) return [];
+	const projected = sides.map(({ frame }) => ring.map(frame.read));
+	const contacts: Contact[] = [];
+	for (let edgeIndex = 0; edgeIndex < ring.length; edgeIndex++) {
+		const nextIndex = (edgeIndex + 1) % ring.length;
+		for (const [sideIndex, { laneId, frame, depthM }] of sides.entries()) {
+			const [u, leftA] = projected[sideIndex][edgeIndex];
+			const [v, leftB] = projected[sideIndex][nextIndex];
+			if (Math.abs(leftA - depthM) > toleranceM || Math.abs(leftB - depthM) > toleranceM) continue;
 			const lo = Math.max(0, Math.min(u, v));
 			const hi = Math.min(frame.lengthM, Math.max(u, v));
 			const lengthM = hi - lo;
-			if (lengthM <= toleranceM) return [];
+			if (lengthM <= toleranceM) continue;
 			const points = Object.freeze(
 				u < v
 					? ([frame.pointAt(lo, depthM), frame.pointAt(hi, depthM)] as const)
 					: ([frame.pointAt(hi, depthM), frame.pointAt(lo, depthM)] as const)
 			);
-			return [{ laneId, lengthM, points, edgeIndex }];
-		});
-	});
+			contacts.push({ laneId, lengthM, points, edgeIndex });
+		}
+	}
+	return contacts;
 }

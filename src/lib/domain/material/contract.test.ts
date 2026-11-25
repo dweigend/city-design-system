@@ -8,6 +8,7 @@ import {
 	createPatternFrame,
 	familyNames,
 	readFamily,
+	readPatchArea,
 	surfaceLevels,
 	type Patch
 } from './index';
@@ -270,4 +271,79 @@ test.each(Object.entries(crossingRings))('Q-05 rejects the self-crossing %s', (_
 			outline: ring
 		})
 	).toThrow(/simple ring/);
+});
+
+const regressionPatch: Patch = {
+	origin: [0, 0, 0],
+	across: [1, 0, 0],
+	normal: [0, 0, 1],
+	size: [2, 2],
+	thickness: 0.1,
+	budget: 1000
+};
+
+test('R17-09 rejects small clockwise rings even with a positive local turn', () => {
+	const size = 0.0005;
+	const corners: Vec2[] = [
+		[0, 0],
+		[0, size],
+		[size, size],
+		[size, 0]
+	];
+	expect(() => readPatchArea({ ...regressionPatch, outline: corners })).toThrow(RangeError);
+	const notched: Vec2[] = [corners[0], [size / 4, size / 2], ...corners.slice(1)];
+	expect(() => readPatchArea({ ...regressionPatch, outline: notched })).toThrow(RangeError);
+	expect(readPatchArea({ ...regressionPatch, outline: corners.toReversed() })).toBe(size ** 2);
+});
+
+test('R17-10 subtracts only the union of openings inside the outline', () => {
+	const patch: Patch = {
+		...regressionPatch,
+		openings: [
+			[-1, 0, 1, 1],
+			[0.5, 0.5, 1.5, 1.5]
+		]
+	};
+	expect(readPatchArea(patch)).toBe(2.25);
+	expect(readPatchArea({ ...patch, openings: [[-1, -1, 3, 3]] })).toBe(0);
+	expect(
+		readPatchArea({
+			...patch,
+			outline: [
+				[0, 0],
+				[2, 0],
+				[0, 2]
+			],
+			openings: [[1, 0, 2, 2]]
+		})
+	).toBe(1.5);
+});
+
+test('R17-11 preserves the faces of a 40 µm slab under a 40 µm translation', () => {
+	const width = 0.00004;
+	const patch: Patch = { ...regressionPatch, size: [width, 1], thickness: width };
+	const triangleCount = (u: number) =>
+		buildSurface('board', { ...patch, origin: [u, 0, 0] }).triangles;
+	expect([triangleCount(0), triangleCount(width)]).toEqual([12, 12]);
+});
+
+test('a zero-thickness skin emits a single face for every current family', () => {
+	for (const family of familyNames) {
+		const surface = buildSurface(family, { ...regressionPatch, thickness: 0 }, { moduleScale: 10 });
+		expect(surface.meshes.get('face')?.indices).toHaveLength(6);
+	}
+});
+
+test('caller-supplied material patterns and parameter overrides are local to the build', () => {
+	const patch: Patch = { ...regressionPatch, across: [1, 0, 0], normal: [0, -1, 0] };
+	const defaultBoard = buildSurface('board', patch);
+	const stripedBoard = buildSurface('board', patch, {
+		recipe: { pattern: 'stripe', params: { pitch: 1, share: 0.25 } }
+	});
+	expect(stripedBoard.meshes.get('mark')?.indices).toHaveLength(12);
+	expect(buildSurface('board', patch)).toEqual(defaultBoard);
+	expect(
+		buildSurface('stripe', patch, { recipe: { params: { pitch: 1 } } }).meshes.get('mark')?.indices
+	).toHaveLength(12);
+	expect(() => buildSurface('board', patch, { recipe: { pattern: 'dots' } })).toThrow(RangeError);
 });

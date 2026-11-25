@@ -1,5 +1,5 @@
 import { defaults } from '../../../config/structure';
-import { memberSections, type MemberGraph } from './graph';
+import { readMemberSection, type MemberGraph } from './graph';
 import { gravityRoutes } from './routes';
 
 /** Nonnegative downward force in kN, applied once per joint. */
@@ -8,39 +8,80 @@ export type JointLoad = Readonly<{ joint: string; forceKN: number }>;
 /** Relative tolerance for checking the vertical force balance. */
 export const gravityBalanceTolerance = defaults.balanceToleranceRatio;
 
-function jointForces(graph: MemberGraph, loads: readonly JointLoad[]) {
-	const jointIds = new Set(graph.joints.map(({ id }) => id));
-	const byJoint = new Map<string, number>();
+// Exact arithmetic: binary64 minimum normal positive number.
+const minimumNormal = /* Exact arithmetic: minimum binary64 normal exponent. */ 2 ** -1022;
+
+// A validated graph is detached and frozen, so its routing is valid for its lifetime.
+const routes = new WeakMap<MemberGraph, ReturnType<typeof gravityRoutes>>();
+
+function jointForces(
+	graph: MemberGraph,
+	loads: readonly JointLoad[],
+	jointIndices: ReadonlyMap<string, number>
+) {
+	const forces = graph.joints.map(() => /* Exact arithmetic: unloaded joints start at zero. */ 0);
+	const seen = new Set<number>();
 	for (const { joint, forceKN } of loads) {
-		if (!jointIds.has(joint)) throw new RangeError(`Unknown load joint "${joint}"`);
-		if (byJoint.has(joint)) throw new RangeError(`Duplicate load at joint "${joint}"`);
+		const index = jointIndices.get(joint);
+		if (index === undefined) throw new RangeError(`Unknown load joint "${joint}"`);
+		if (seen.has(index)) throw new RangeError(`Duplicate load at joint "${joint}"`);
 		if (!Number.isFinite(forceKN) || forceKN < 0)
 			throw new RangeError(`Invalid force at joint "${joint}"`);
-		byJoint.set(joint, forceKN);
+		seen.add(index);
+		forces[index] = forceKN;
 	}
-	return graph.joints.map(({ id }) => byJoint.get(id) ?? 0);
+	return forces;
+}
+
+function routeForces(
+	force: number[],
+	order: readonly number[],
+	exits: ReturnType<typeof gravityRoutes>['exits']
+) {
+	const transfers = new Map<number, { verticalKN: number; slope: number }>();
+	for (const joint of order) {
+		const load = force[joint];
+		if (!load) continue;
+		const links = exits[joint];
+		let fraction = 0;
+		let sentKN = 0;
+		for (let i = 0; i < links.length; i++) {
+			const { share, member, joint: receiver, slope } = links[i];
+			let verticalKN = load * share;
+			// Round cumulative subnormal shares so fractions of the last representable unit
+			// add up to the original load in graph order.
+			if (load < minimumNormal) {
+				fraction += share;
+				const throughKN = i + 1 === links.length ? load : load * Math.min(1, fraction);
+				verticalKN = throughKN - sentKN;
+				sentKN = throughKN;
+			}
+			force[receiver] += verticalKN;
+			transfers.set(member, { verticalKN, slope });
+		}
+	}
+	return transfers;
+}
+
+function finite(value: number) {
+	return Number.isFinite(value) ? value : null;
 }
 
 /** Routes nonnegative gravity loads to reachable supports. Outputs are detached in graph
  * order, with force in kN and unitless nominal utilization. Unsupported joints and unreacted
  * force are reported even for disconnected graphs. Invalid load cases throw RangeError. */
 export function runGravity(graph: MemberGraph, loads: readonly JointLoad[]) {
-	const force = jointForces(graph, loads);
+	let topology = routes.get(graph);
+	if (!topology) {
+		topology = gravityRoutes(graph);
+		routes.set(graph, topology);
+	}
+	const { hops, order, exits, jointIndices } = topology;
+	const force = jointForces(graph, loads, jointIndices);
 	const appliedKN = force.reduce((sum, value) => sum + value, 0);
 	if (!Number.isFinite(appliedKN)) throw new RangeError('Total applied force must be finite');
 
-	const { hops, order, exits } = gravityRoutes(graph);
-	const transfers = new Map<number, { verticalKN: number; slope: number }>();
-	for (const joint of order) {
-		if (!force[joint]) continue;
-		const links = exits[joint];
-		const weight = links.reduce((sum, link) => sum + link.area, 0);
-		for (const link of links) {
-			const verticalKN = force[joint] * (link.area / weight);
-			force[link.joint] += verticalKN;
-			transfers.set(link.member, { verticalKN, slope: link.slope });
-		}
-	}
+	const transfers = routeForces(force, order, exits);
 
 	const reactions = graph.joints.flatMap(({ id, support }, i) =>
 		support === 'free' ? [] : [Object.freeze({ joint: id, forceKN: force[i] })]
@@ -64,13 +105,16 @@ export function runGravity(graph: MemberGraph, loads: readonly JointLoad[]) {
 			graph.members.map(({ id, section }, i) => {
 				const transfer = transfers.get(i);
 				const verticalKN = transfer?.verticalKN ?? 0;
-				const capacityKN = memberSections[section].areaM2 * defaults.nominalStressKPa;
-				const axialKN = transfer && transfer.slope > 0 ? verticalKN / transfer.slope : null;
+				const { areaM2, referenceStressKPa } = readMemberSection(graph, section);
+				const stressKPa =
+					referenceStressKPa ?? graph.definitions?.referenceStressKPa ?? defaults.nominalStressKPa;
+				const capacityKN = areaM2 * stressKPa;
+				const axialKN = transfer && transfer.slope > 0 ? finite(verticalKN / transfer.slope) : null;
 				return Object.freeze({
 					id,
 					verticalKN,
 					axialKN,
-					utilization: axialKN === null ? null : axialKN / capacityKN
+					utilization: axialKN === null ? null : finite(axialKN / capacityKN)
 				});
 			})
 		)

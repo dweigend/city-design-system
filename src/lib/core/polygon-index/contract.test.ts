@@ -42,3 +42,17 @@ test('finds the exact diagonal of a non-axis-aligned ring at zero margin', () =>
 	expect(index.readPoint([15, 15.000001])?.id).toBe('triangle');
 	expect(index.readPoint([15, 14.999999])).toBeUndefined();
 });
+
+test('reads broad-phase bounds in input order and includes boundary contact', () => {
+	const index = example();
+	expect(index.readCandidates([[2, 2]]).map(({ id }) => id)).toEqual(['holding', 'neighbor']);
+	expect(
+		index
+			.readCandidates([
+				[3, 3],
+				[4, 4]
+			])
+			.map(({ id }) => id)
+	).toEqual(['holding', 'neighbor']);
+	expect(index.readCandidates([[4, 4]])).toEqual([]);
+});

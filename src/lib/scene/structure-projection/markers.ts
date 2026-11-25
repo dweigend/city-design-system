@@ -3,21 +3,34 @@ import type { Vec3 } from '../../core/geometry';
 import type { GravityResult, JointLoad, MemberGraph } from '../../domain/structure';
 import { addSegment, mesh } from './mesh';
 
+const markerDefaults = {
+	supportWidthM: defaults.supportWidthM,
+	supportHeightM: defaults.supportHeightM,
+	arrowBaseM: defaults.arrowBaseM,
+	arrowReferenceKN: defaults.arrowReferenceKN,
+	arrowHeadM: defaults.arrowHeadM,
+	arrowWidthM: defaults.arrowWidthM
+};
+
+/** Bearing and force marker dimensions in world meters, with a force scale in kN per meter. */
+export type MarkerSizing = Readonly<Record<keyof typeof markerDefaults, number>>;
+
 function addArrow(
 	shape: ReturnType<typeof mesh>,
 	[x, y, z]: Vec3,
 	force: number,
-	arrow: 'down' | 'up'
+	arrow: 'down' | 'up',
+	sizing: MarkerSizing
 ) {
 	const direction = arrow === 'up' ? 1 : -1;
-	const gap = defaults.arrowHeadM;
-	const length = defaults.arrowBaseM + force / defaults.arrowReferenceKN;
+	const gap = sizing.arrowHeadM;
+	const length = sizing.arrowBaseM + force / sizing.arrowReferenceKN;
 	const tip: Vec3 = [x, y, z - direction * gap];
-	const neck: Vec3 = [x, y, tip[2] - direction * defaults.arrowHeadM];
+	const neck: Vec3 = [x, y, tip[2] - direction * gap];
 	const tail: Vec3 = [x, y, tip[2] - direction * length];
-	addSegment(shape, tail, neck, defaults.arrowWidthM);
+	addSegment(shape, tail, neck, sizing.arrowWidthM);
 	for (const offset of [-gap, gap])
-		addSegment(shape, [x + offset, y, neck[2]], tip, defaults.arrowWidthM);
+		addSegment(shape, [x + offset, y, neck[2]], tip, sizing.arrowWidthM);
 }
 
 /** Builds bearing pads and, optionally, downward load and upward reaction arrows. */
@@ -26,8 +39,16 @@ export function markers(
 	positions: ReadonlyMap<string, Vec3>,
 	loads: readonly JointLoad[] = [],
 	result?: GravityResult,
-	showSupports = true
+	showSupports = true,
+	overrides?: Partial<MarkerSizing>
 ) {
+	const sizing = overrides ? { ...markerDefaults, ...overrides } : markerDefaults;
+	if (
+		overrides &&
+		(Object.values(sizing).some((value) => !Number.isFinite(value) || value <= 0) ||
+			sizing.arrowBaseM <= sizing.arrowHeadM)
+	)
+		throw new RangeError('Invalid structural marker dimensions');
 	const parts = {
 		'pinned-support': mesh(),
 		'fixed-support': mesh(),
@@ -42,15 +63,16 @@ export function markers(
 		if (showSupports && support !== 'free') {
 			addSegment(
 				parts[`${support}-support`],
-				[x, y, z - defaults.supportHeightM],
+				[x, y, z - sizing.supportHeightM],
 				point,
-				defaults.supportWidthM
+				sizing.supportWidthM
 			);
 		}
 		const load = applied.get(id);
-		if (load) addArrow(parts.load, point, load, 'down');
+		if (load) addArrow(parts.load, point, load, 'down', sizing);
 		const reaction = reactions.get(id);
-		if (reaction) addArrow(parts.reaction, [x, y, z - defaults.supportHeightM], reaction, 'up');
+		if (reaction)
+			addArrow(parts.reaction, [x, y, z - sizing.supportHeightM], reaction, 'up', sizing);
 	}
 	return parts;
 }

@@ -1,16 +1,29 @@
 import type { Vec3 } from '../../../lib/core/geometry';
-import { createCityLattice, type LatticeVariant } from '../../../lib/domain/city-volume';
+import {
+	createCityLattice,
+	readCityColumns,
+	type LatticeVariant
+} from '../../../lib/domain/city-volume';
 import {
 	projectCityDistricts,
 	projectCityTerrain
 } from '../../../lib/scene/city-volume-projection';
 import { structureProjectionDefaults } from '../../../lib/scene/structure-projection';
 import { stockSurfaces } from '../../../lib/scene/surface';
-import { riverCityRecipe } from '../../../lib/world/city-site';
-import { createCityStructure, structureTownExample } from '../../../lib/world/city-structure';
+import {
+	citySiteParams,
+	createCitySite,
+	readCityDistricts,
+	readCityGrid,
+	riverCityRecipe
+} from '../../../lib/world/city-site';
+import { createCityStructure, readStructureQuarter } from '../../../lib/world/city-structure';
 
 export function townStudy() {
-	const { city, layout, columns, quarter } = structureTownExample();
+	const city = createCitySite();
+	const layout = readCityGrid(city, citySiteParams.citySize.default);
+	const columns = readCityColumns(layout.grid, readCityDistricts(city, layout));
+	const quarter = readStructureQuarter(columns);
 	const recipe = city.recipe ?? riverCityRecipe;
 	const terrain = projectCityTerrain(city, layout.grid, layout.plan);
 	const toLocal = ([x, y, z]: Vec3): Vec3 => [...terrain.toLocal(x, y), z];

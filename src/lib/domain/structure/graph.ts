@@ -1,14 +1,13 @@
 import { distance, type Vec3 } from '../../core/geometry';
-import { defaults } from '../../../config/structure';
-
-/** Metric sections with a nominal metal area and a square outside profile. */
-export const memberSections = Object.freeze({
-	light: Object.freeze({ widthM: defaults.secondaryWidthM, areaM2: defaults.secondaryAreaM2 }),
-	heavy: Object.freeze({ widthM: defaults.primaryWidthM, areaM2: defaults.primaryAreaM2 })
-});
+import {
+	defaultDefinitions,
+	resolveDefinitions,
+	type MemberSection,
+	type ResolvedDefinitions,
+	type StructureDefinitions
+} from './definitions';
 
 type Support = 'free' | 'pinned' | 'fixed';
-type Role = 'column' | 'beam' | 'brace' | 'tie';
 
 /** A joint in world XYZ meters, with Z up. */
 export type StructuralJoint = Readonly<{ id: string; position: Vec3; support: Support }>;
@@ -18,22 +17,41 @@ export type StructuralMember = Readonly<{
 	id: string;
 	from: string;
 	to: string;
-	role: Role;
-	section: keyof typeof memberSections;
+	role: string;
+	section: string;
+	primary?: boolean;
 }>;
 
 type GraphInput = Readonly<{
 	joints: readonly StructuralJoint[];
 	members: readonly StructuralMember[];
+	definitions?: StructureDefinitions;
 }>;
 
 const validated: unique symbol = Symbol('MemberGraph');
 
 /** Detached, validated graph in ascending code-unit order by ID. */
-export type MemberGraph = GraphInput & { readonly [validated]: true };
+export type MemberGraph = Omit<GraphInput, 'definitions'> & {
+	readonly definitions?: ResolvedDefinitions;
+	readonly [validated]: true;
+};
 
 const supports: readonly Support[] = ['free', 'pinned', 'fixed'];
-const roles: readonly Role[] = ['column', 'beam', 'brace', 'tie'];
+
+/** Reads the validated section used by a member of this graph. */
+export function readMemberSection(graph: MemberGraph, key: string): MemberSection {
+	return (graph.definitions ?? defaultDefinitions).sections[key];
+}
+
+/** Resolves primary classification from the member and its section. */
+export function readMemberPrimary(graph: MemberGraph, member: StructuralMember): boolean {
+	return member.primary ?? readMemberSection(graph, member.section).primary ?? false;
+}
+
+/** Encodes a role and section as the member's geometry slot. */
+export function readMemberSlot({ role, section }: StructuralMember): string {
+	return `${encodeURIComponent(role)}/${encodeURIComponent(section)}`;
+}
 
 function compareId(a: { id: string }, b: { id: string }) {
 	return a.id < b.id ? -1 : Number(a.id !== b.id);
@@ -65,9 +83,10 @@ function copyJoint(joint: StructuralJoint, ids: Set<string>) {
 }
 
 function copyMember(
-	{ id, from, to, role, section }: StructuralMember,
+	{ id, from, to, role, section, primary }: StructuralMember,
 	ids: Set<string>,
-	positions: ReadonlyMap<string, Vec3>
+	positions: ReadonlyMap<string, Vec3>,
+	{ roles, sections }: ResolvedDefinitions
 ) {
 	register(ids, id, 'member');
 	const a = positions.get(from);
@@ -77,30 +96,35 @@ function copyMember(
 	if (span === 0) throw new RangeError(`Zero-length member "${id}"`);
 	if (!Number.isFinite(span)) throw new RangeError(`Invalid span at member "${id}"`);
 	if (!roles.includes(role)) throw new RangeError(`Unknown role at member "${id}"`);
-	if (typeof section !== 'string' || !Object.hasOwn(memberSections, section))
+	if (typeof section !== 'string' || !Object.hasOwn(sections, section))
 		throw new RangeError(`Unknown section at member "${id}"`);
+	if (primary !== undefined && typeof primary !== 'boolean')
+		throw new RangeError(`Invalid primary classification at member "${id}"`);
 	return Object.freeze({
 		id,
 		from: from < to ? from : to,
 		to: from < to ? to : from,
 		role,
-		section
+		section,
+		...(primary !== undefined && { primary })
 	});
 }
 
 /** Validates and detaches joints and members. IDs are nonblank strings without control
  * characters, unique within each list. Throws RangeError naming invalid joints or members. */
-export function createMemberGraph({ joints, members }: GraphInput): MemberGraph {
+export function createMemberGraph({ joints, members, definitions }: GraphInput): MemberGraph {
+	const resolved = definitions ? resolveDefinitions(definitions) : defaultDefinitions;
 	const jointIds = new Set<string>();
 	const memberIds = new Set<string>();
 	const copiedJoints = Array.from(joints, (joint) => copyJoint(joint, jointIds)).sort(compareId);
 	const positions = new Map(copiedJoints.map(({ id, position }) => [id, position]));
 	const copiedMembers = Array.from(members, (member) =>
-		copyMember(member, memberIds, positions)
+		copyMember(member, memberIds, positions, resolved)
 	).sort(compareId);
 	return Object.freeze({
 		joints: Object.freeze(copiedJoints),
 		members: Object.freeze(copiedMembers),
+		...(definitions && { definitions: resolved }),
 		[validated]: true as const
 	});
 }

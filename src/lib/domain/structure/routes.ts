@@ -1,20 +1,21 @@
 import { distance } from '../../core/geometry';
-import { memberSections, type MemberGraph } from './graph';
+import { readMemberSection, type MemberGraph } from './graph';
 
-type Neighbor = { joint: number; member: number; slope: number; area: number };
+type Neighbor = { joint: number; member: number; slope: number; area: number; riseM: number };
 
-function adjacency({ joints, members }: MemberGraph) {
+function adjacency(graph: MemberGraph, indexById: ReadonlyMap<string, number>) {
+	const { joints, members } = graph;
 	const neighbors: Neighbor[][] = joints.map(() => []);
-	const indexById = new Map(joints.map(({ id }, index) => [id, index]));
 	for (const [member, { from, to, section }] of members.entries()) {
 		const a = indexById.get(from) as number;
 		const b = indexById.get(to) as number;
 		const pointA = joints[a].position;
 		const pointB = joints[b].position;
-		const slope = (pointA[2] - pointB[2]) / distance(pointA, pointB);
-		const area = memberSections[section].areaM2;
-		neighbors[a].push({ joint: b, member, slope, area });
-		neighbors[b].push({ joint: a, member, slope: -slope, area });
+		const riseM = pointA[2] - pointB[2];
+		const slope = riseM / distance(pointA, pointB);
+		const { areaM2: area } = readMemberSection(graph, section);
+		neighbors[a].push({ joint: b, member, slope, area, riseM });
+		neighbors[b].push({ joint: a, member, slope: -slope, area, riseM: -riseM });
 	}
 	return neighbors;
 }
@@ -25,8 +26,8 @@ function supportDistance(graph: MemberGraph, neighbors: Neighbor[][]) {
 	const queue = hops.flatMap((distance, index) => (distance === 0 ? [index] : []));
 	for (let i = 0; i < queue.length; i++) {
 		const index = queue[i];
-		for (const { joint, slope } of neighbors[index]) {
-			if (slope > 0 || hops[joint] !== Infinity) continue;
+		for (const { joint, riseM } of neighbors[index]) {
+			if (riseM > 0 || hops[joint] !== Infinity) continue;
 			hops[joint] = hops[index] + 1;
 			queue.push(joint);
 		}
@@ -34,9 +35,25 @@ function supportDistance(graph: MemberGraph, neighbors: Neighbor[][]) {
 	return { hops, reachable: queue };
 }
 
+function weighted(links: readonly Neighbor[]) {
+	const weight = links.reduce((sum, link) => sum + link.area, 0);
+	// Scale by the largest area only when summing the supplied sections overflows.
+	const scale = Number.isFinite(weight)
+		? 1
+		: links.reduce((max, { area }) => Math.max(max, area), 0);
+	const total = scale === 1 ? weight : links.reduce((sum, { area }) => sum + area / scale, 0);
+	return links.map(({ joint, member, slope, area }) => ({
+		joint,
+		member,
+		slope,
+		share: area / scale / total
+	}));
+}
+
 /** Visits reachable joints in descending elevation and then descending support distance. */
 export function gravityRoutes(graph: MemberGraph) {
-	const neighbors = adjacency(graph);
+	const jointIndices = new Map(graph.joints.map(({ id }, index) => [id, index]));
+	const neighbors = adjacency(graph, jointIndices);
 	const { hops, reachable } = supportDistance(graph, neighbors);
 	const order = reachable.sort(
 		(a, b) =>
@@ -44,9 +61,9 @@ export function gravityRoutes(graph: MemberGraph) {
 	);
 	const exits = neighbors.map((list, index) => {
 		if (hops[index] === 0 || hops[index] === Infinity) return [];
-		const lower = list.filter(({ slope, joint }) => slope > 0 && hops[joint] < Infinity);
-		if (lower.length) return lower;
-		return list.filter(({ slope, joint }) => slope === 0 && hops[joint] < hops[index]);
+		const lower = list.filter(({ riseM, joint }) => riseM > 0 && hops[joint] < Infinity);
+		if (lower.length) return weighted(lower);
+		return weighted(list.filter(({ riseM, joint }) => riseM === 0 && hops[joint] < hops[index]));
 	});
-	return { hops, order, exits };
+	return { hops, order, exits, jointIndices };
 }

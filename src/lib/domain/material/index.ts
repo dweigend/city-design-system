@@ -1,7 +1,8 @@
 /** Module: Builds model-making materials on metric patches. */
 
 /** An axis-aligned opening or region in patch meters, a planar patch and a body's pattern box. */
-export { readPatchArea, type PatternFrame, type Patch, type Rect } from './patch';
+export { readPatchArea, type PatternFrame, type Patch } from './patch';
+export type { Rect } from './cells';
 /** The pattern box shared by the faces of one body. */
 export { createPatternFrame } from './pattern';
 /** Model material families as data, their role slots and the family table reader. */
@@ -9,8 +10,10 @@ export {
 	familyNames,
 	readFamily,
 	type Family,
+	type FamilyRecipe,
 	type FamilySlot,
-	type PatternKind
+	type PatternKind,
+	type PatternParams
 } from './families';
 /** Surface levels by distance, their aliases and what each draws. */
 export {

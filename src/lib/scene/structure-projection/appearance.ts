@@ -25,11 +25,11 @@ export function utilizationBand(ratio: number | null) {
 }
 
 export function memberAppearance(
-	heavy: boolean,
+	primary: boolean,
 	band?: number
 ): Pick<Drawable, 'stroke'> & Surface {
 	const token = band === undefined ? undefined : utilizationColors[band];
-	const color = token ?? (heavy ? '--ink' : '--ink-3');
+	const color = token ?? (primary ? '--ink' : '--ink-3');
 	return {
 		color,
 		finish: 'matte',
@@ -38,10 +38,10 @@ export function memberAppearance(
 			color,
 			width: token
 				? defaults.analysisStrokePx
-				: heavy
+				: primary
 					? defaults.primaryStrokePx
 					: defaults.secondaryStrokePx,
-			opacity: heavy || token ? 1 : defaults.secondaryOpacity
+			opacity: primary || token ? 1 : defaults.secondaryOpacity
 		}
 	};
 }

@@ -49,27 +49,24 @@ function roofSlopes(width: number, depth: number, eaves: number, ridge: number):
 	const size = [width + 2 * overhang, slope + overhang] as const;
 	const front: Vec3 = [0, run / slope, rise / slope];
 	const back: Vec3 = [0, -run / slope, rise / slope];
-	const lift = m.bodyRoofLiftM;
+	// Lift each plane by the configured normal distance and cut the backing vertically at the ridge.
+	const roofEaves = eaves + (m.bodyRoofLiftM * slope) / run;
 	return [
 		{
-			origin: sum(
-				sum([-width / 2 - overhang, -run, eaves], scaled(front, -overhang)),
-				scaled([0, -front[2], front[1]], lift)
-			),
+			origin: sum([-width / 2 - overhang, -run, roofEaves], scaled(front, -overhang)),
 			across: axes.east,
 			normal: [0, -front[2], front[1]],
 			size,
-			thickness: m.bodyWallM
+			thickness: m.bodyWallM,
+			backingDirection: axes.up
 		},
 		{
-			origin: sum(
-				sum([width / 2 + overhang, run, eaves], scaled(back, -overhang)),
-				scaled([0, back[2], -back[1]], lift)
-			),
+			origin: sum([width / 2 + overhang, run, roofEaves], scaled(back, -overhang)),
 			across: axes.west,
 			normal: [0, back[2], -back[1]],
 			size,
-			thickness: m.bodyWallM
+			thickness: m.bodyWallM,
+			backingDirection: axes.up
 		}
 	];
 }

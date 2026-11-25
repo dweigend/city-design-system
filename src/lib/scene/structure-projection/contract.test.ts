@@ -60,3 +60,58 @@ test('the structure focus separates primary filtering from utilization analysis'
 	expect(readFocusLevel('utilization', 'secondary-members')).toBe('full');
 	expect(readFocusChoice('utilization').analysis).toBe('utilization');
 });
+
+test('R15-07 primary classification is independent of the section key', () => {
+	const { graph } = portalExample();
+	const mixed = createMemberGraph({
+		...graph,
+		members: graph.members.map((member, index) => ({
+			...member,
+			section: index === 0 ? 'light' : 'heavy',
+			primary: index === 0
+		}))
+	});
+	const parts = projectStructure(mixed, { view: 'primary', supports: false });
+	expect(parts.length).toBeGreaterThan(0);
+	expect(parts.every(({ id }) => id.includes('/light/'))).toBe(true);
+});
+
+test('R15-03 neutral geometry reads analysis only when reactions are displayed', () => {
+	const { graph, loads } = portalExample();
+	let reads = 0;
+	const readAnalysis = () => {
+		reads++;
+		return runGravity(graph, loads);
+	};
+	projectStructure(graph, {
+		view: 'all',
+		get analysis() {
+			return readAnalysis();
+		}
+	});
+	expect(reads).toBe(0);
+	projectStructure(graph, {
+		arrows: loads,
+		get analysis() {
+			return readAnalysis();
+		}
+	});
+	expect(reads).toBe(1);
+});
+
+test('R15-07 bearing and force marker dimensions follow the supplied sizing', () => {
+	const { graph, loads } = portalExample();
+	const analysis = runGravity(graph, loads);
+	const ordinary = projectStructure(graph, { analysis, arrows: loads });
+	const sized = projectStructure(graph, {
+		analysis,
+		arrows: loads,
+		markerSizing: { supportWidthM: 1.5, supportHeightM: 0.5, arrowReferenceKN: 1000 }
+	});
+	for (const slot of ['fixed-support', 'load', 'reaction']) {
+		const shape = (parts: typeof sized) =>
+			parts.find(({ id }) => id === 'structure/' + slot)?.shape;
+		expect(shape(sized)).toBeDefined();
+		expect(shape(sized)).not.toEqual(shape(ordinary));
+	}
+});

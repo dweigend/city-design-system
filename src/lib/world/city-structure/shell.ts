@@ -89,20 +89,20 @@ export function shellEdges(lattice: CityLattice, nodes: ReadonlyMap<string, Latt
 }
 
 /** Retains spanning edges on the shell, roof rims, and regularly spaced shell chords. */
-export function primarySection(
+export function isPrimaryEdge(
 	boundary: Boundary | undefined,
 	role: 'beam' | 'column' | 'brace',
 	elevation: number,
 	datumZ: number,
 	levelHeightM = levelHeight
 ) {
-	if (!boundary) return 'light';
-	if (role === 'brace' && boundary.facadeDiagonal) return 'heavy';
-	if (!boundary.roof && !boundary.side) return 'light';
-	if (role !== 'beam') return 'heavy';
+	if (!boundary) return false;
+	if (role === 'brace' && boundary.facadeDiagonal) return true;
+	if (!boundary.roof && !boundary.side) return false;
+	if (role !== 'beam') return true;
 	const band = (elevation - datumZ) / levelHeightM;
 	const level = Math.round(band);
 	const onRing =
 		datumZ + level * levelHeightM === elevation && level % defaults.ringIntervalLevels === 0;
-	return boundary.side && (boundary.roof || onRing) ? 'heavy' : 'light';
+	return boundary.side && (boundary.roof || onRing);
 }

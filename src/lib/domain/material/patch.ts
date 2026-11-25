@@ -5,16 +5,15 @@ import {
 	isConvexCounterclockwise,
 	isSimpleRing,
 	length,
+	measurePolygon,
 	sum,
 	scaled,
 	type Vec2,
 	type Vec3
 } from '../../core/geometry';
+import { cutOpenings, type Rect } from './cells';
 
 const { planeToleranceM } = materialSettings;
-
-/** An axis-aligned rectangle in patch meters: left, bottom, right, top. */
-export type Rect = readonly [u0: number, v0: number, u1: number, v1: number];
 
 /** The box of one body that its pattern wraps (MAT-9): an origin, three unit axes (along the
  * body's long horizontal side, across it, up) and the extent in meters along each. Patterns are
@@ -30,7 +29,8 @@ export type PatternFrame = Readonly<{
  * outline is a convex counter-clockwise polygon in patch meters, e.g. a gable; the default is
  * the rectangle of `size`. Openings are holes cut through face and backing. `pattern` is the
  * box of the body the patch belongs to (default: the patch's own box); `backed: false` leaves out
- * the back face of a patch laid onto a body. */
+ * the back face of a patch laid onto a body. Supply a unit `backingDirection` pointing out of
+ * the patch to extrude the backing along that direction, keeping thickness normal to the face. */
 export type Patch = Readonly<{
 	origin: Vec3;
 	across: Vec3;
@@ -42,6 +42,7 @@ export type Patch = Readonly<{
 	budget?: number;
 	pattern?: PatternFrame;
 	backed?: boolean;
+	backingDirection?: Vec3;
 }>;
 
 /** A patch with its derived up axis and a point mapping from patch meters to world meters. */
@@ -51,6 +52,18 @@ export type Frame = Readonly<{
 	outline: readonly Vec2[];
 	point: (u: number, v: number, w: number) => Vec3;
 }>;
+
+function readBackingAxis({ backingDirection, normal }: Patch) {
+	if (!backingDirection) return normal;
+	const component = dotProduct(backingDirection, normal);
+	if (
+		!backingDirection.every(Number.isFinite) ||
+		Math.abs(length(backingDirection) - 1) > planeToleranceM ||
+		component <= planeToleranceM
+	)
+		throw new RangeError('Patch backing direction must be unit and point out of the face');
+	return scaled(backingDirection, 1 / component);
+}
 
 /** Validates the patch and returns its frame. Throws RangeError for a non-unit or non-orthogonal
  * axis, a non-positive size or thickness, or an outline that is not convex and counter-clockwise. */
@@ -77,29 +90,25 @@ export function readFrame(patch: Patch): Frame {
 			[0, size[1]]
 		];
 	if (!isSimpleRing(outline)) throw new RangeError('Patch outline must form a simple ring');
-	if (!isConvexCounterclockwise(outline))
+	if (measurePolygon(outline).area <= 0 || !isConvexCounterclockwise(outline))
 		throw new RangeError('Patch outline must be convex and counter-clockwise');
+	const depthAxis = readBackingAxis(patch);
 	const point = (u: number, v: number, w: number): Vec3 =>
-		sum(sum(origin, scaled(across, u)), sum(scaled(up, v), scaled(normal, w)));
+		sum(sum(origin, scaled(across, u)), sum(scaled(up, v), scaled(w < 0 ? depthAxis : normal, w)));
 	return { patch, up, outline, point };
 }
 
-/** Area of the outline minus the openings in square meters. */
+/** Area of the outline minus the union of its clipped openings, in square meters. */
 export function readPatchArea(patch: Patch) {
 	return frameArea(readFrame(patch));
 }
 
 /** Area of an already validated patch frame, in square meters. */
 export function frameArea(frame: Frame) {
-	const { outline } = frame;
-	let twice = 0;
-	for (const [i, [u0, v0]] of outline.entries()) {
-		const [u1, v1] = outline[(i + 1) % outline.length];
-		twice += u0 * v1 - u1 * v0;
-	}
-	const holes = (frame.patch.openings ?? []).reduce(
-		(total, [u0, v0, u1, v1]) => total + (u1 - u0) * (v1 - v0),
+	const openings = frame.patch.openings;
+	if (!openings?.length) return measurePolygon(frame.outline).area;
+	return cutOpenings(frame.outline, openings).reduce(
+		(area, cell) => area + measurePolygon(cell).area,
 		0
 	);
-	return Math.max(0, twice / 2 - holes);
 }

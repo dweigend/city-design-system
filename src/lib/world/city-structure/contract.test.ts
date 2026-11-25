@@ -6,10 +6,17 @@ import {
 	type CityColumn
 } from '../../domain/city-volume';
 import { gravityBalanceTolerance, runGravity } from '../../domain/structure';
-import { cityStructureSettings, createCityStructure, structureTownExample } from './index';
+import { structureTownExample } from './example';
+import { cityStructureSettings, createCityStructure } from './index';
+import * as cityStructure from './index';
 
 const { columns, layout, quarter } = structureTownExample();
 const { datumZ } = layout;
+
+test('R15-07 default-town fixtures stay outside the production entry', () => {
+	expect(Object.hasOwn(cityStructure, 'structureTownExample')).toBe(false);
+	expect(Object.hasOwn(cityStructure, 'largestStructureExample')).toBe(false);
+});
 
 test('uses a connected quarter of the default town', () => {
 	expect(quarter.length).toBe(Math.ceil(columns.length / 4));
