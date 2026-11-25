@@ -14,7 +14,7 @@ const routes = [
 	['/city', 1],
 	['/paths', 1],
 	['/paths/valley', 1],
-	['/supply', 0],
+	['/supply', 1],
 	['/architecture', 1],
 	['/architecture/structure', 1],
 	['/surfaces', 1],
@@ -106,6 +106,78 @@ async function renderedChange(canvas: Locator, change: () => Promise<void>) {
 		.toBeGreaterThan(frame);
 	await expect(canvas).toHaveAttribute('data-stage-ready', 'true');
 	await expect.poll(async () => (await canvas.screenshot(hideHud)).equals(before)).toBe(false);
+}
+
+for (const width of [1440, 390]) {
+	journeys(`compares supply states at ${width}px`, async ({ page }) => {
+		await page.setViewportSize({ width, height: width === 390 ? 844 : 900 });
+		await open(page, '/supply');
+		const hero = page.getByRole('region', { name: 'Sponge city comparison' });
+		const canvas = (await readyStages(page, 1)).first();
+		const original = await canvas.elementHandle();
+		const status = hero.getByRole('status');
+		const condition = hero.getByRole('radiogroup', { name: 'Condition' });
+		const measures = hero.getByRole('radiogroup', { name: 'Measures' });
+		const dry = condition.getByRole('radio', { name: 'Dry', exact: true });
+		const wet = condition.getByRole('radio', { name: 'Wet', exact: true });
+		const without = measures.getByRole('radio', { name: 'Without sponge city', exact: true });
+		const withSponge = measures.getByRole('radio', { name: 'With sponge city', exact: true });
+		const transparency = hero.getByRole('switch', { name: 'Transparency' });
+
+		for (const theme of ['Light', 'Dark']) {
+			await page.getByRole('radio', { name: theme, exact: true }).click();
+			await expect(canvas).toHaveAttribute('data-stage-theme', theme.toLowerCase());
+			await expect(dry).toBeChecked();
+			await expect(without).toBeChecked();
+			await expect(status).toHaveText('Cistern · Shortage');
+
+			const states = [
+				[wet, 'Overflowing', 'wet-baseline'],
+				[withSponge, 'Buffered', 'wet-sponge'],
+				[dry, 'Buffer available', 'dry-sponge'],
+				[without, 'Shortage', 'dry-baseline']
+			] as const;
+			for (const [option, label, frame] of states) {
+				await renderedChange(canvas, () => option.click());
+				await expect(option).toBeChecked();
+				await expect(status).toHaveText(`Cistern · ${label}`);
+				expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(width);
+				await hero.screenshot({ path: journeys.info().outputPath(`${theme}-${frame}.png`) });
+			}
+
+			const legend = hero.getByText('Legend', { exact: true });
+			await legend.click();
+			await expect(hero.getByText('Housing', { exact: true })).toBeVisible();
+			await renderedChange(canvas, () => transparency.click());
+			await expect(transparency).toBeChecked();
+			await expect(hero.getByText('Housing', { exact: true })).toHaveCount(0);
+			await expect(hero.getByText('Water', { exact: true })).toBeVisible();
+			await expect(hero.getByText('Power', { exact: true })).toBeVisible();
+			await hero.screenshot({ path: journeys.info().outputPath(`${theme}-transparency.png`) });
+			await renderedChange(canvas, () => transparency.click());
+			await legend.click();
+		}
+
+		const controls = hero.getByText('Comparison controls', { exact: true });
+		await controls.focus();
+		await page.keyboard.press('Enter');
+		await expect(condition).toBeHidden();
+		await expect(status).toBeVisible();
+		await page.keyboard.press('Enter');
+		await expect(condition).toBeVisible();
+
+		if (width === 1440) {
+			const fullscreen = hero.getByRole('button', { name: 'Enter fullscreen' });
+			await fullscreen.click();
+			await expect(hero.getByRole('button', { name: 'Exit fullscreen' })).toBeVisible();
+			await expect(transparency).toBeVisible();
+			await page.keyboard.press('Escape');
+			await expect(fullscreen).toBeFocused();
+		}
+
+		await expect(page.locator('canvas')).toHaveCount(1);
+		expect(await canvas.evaluate((element, initial) => element === initial, original)).toBe(true);
+	});
 }
 
 async function expectStageIdle(page: Page, canvas: Locator) {
