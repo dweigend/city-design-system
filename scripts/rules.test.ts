@@ -57,7 +57,10 @@ const probes = [
 	{ fixture: '05-domain-peers', fanout: 'domain-max-three:' },
 	{
 		fixture: '06-slots',
-		lint: Array<string>(6).fill('no-restricted-syntax: Use a slot name in headless geometry.')
+		lint: [
+			...Array<string>(5).fill('no-restricted-syntax: Use a slot name in headless geometry.'),
+			'architecture/no-restricted-constructor: Use a slot name in headless geometry.'
+		]
 	},
 	{
 		fixture: '07-styles',
@@ -81,8 +84,8 @@ const probes = [
 	{
 		fixture: '10-stage',
 		lint: [
-			...Array<string>(6).fill(
-				'no-restricted-syntax: Create renderers and cameras in src/lib/scene/stage.'
+			...Array<string>(7).fill(
+				'architecture/no-restricted-constructor: Create renderers and cameras in src/lib/scene/stage.'
 			),
 			...Array<string>(2).fill('no-restricted-syntax: Start frame loops in src/lib/scene/stage.')
 		]

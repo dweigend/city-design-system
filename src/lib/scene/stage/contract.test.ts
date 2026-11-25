@@ -61,6 +61,7 @@ test.each(['r187', 'hooks removed', 'stop changed'] as const)(
 						_animation: {
 							stop() {
 								tickPending = false;
+								events.push('stop');
 							}
 						}
 					}
@@ -76,7 +77,7 @@ test.each(['r187', 'hooks removed', 'stop changed'] as const)(
 			},
 			render(model: Scene, view: OrthographicCamera) {
 				submitted.push([model, view]);
-				tickPending = version === 'r187';
+				tickPending = true;
 				events.push('render');
 			},
 			dispose() {
@@ -87,10 +88,14 @@ test.each(['r187', 'hooks removed', 'stop changed'] as const)(
 		const gpu = await openDemandRenderer(renderer, () => events.push('release device'));
 		renderer.render(scene, camera);
 		gpu.stop();
-		expect(tickPending).toBe(false);
+		expect(tickPending).toBe(version !== 'r187');
 		expect(submitted).toEqual([[scene, camera]]);
 		await gpu.delete();
-		expect(events).toEqual(['init', 'render', 'dispose', 'release device']);
+		expect(events).toEqual(
+			version === 'r187'
+				? ['init', 'render', 'stop', 'dispose', 'release device']
+				: ['init', 'render', 'dispose', 'release device']
+		);
 	}
 );
 

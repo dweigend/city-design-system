@@ -79,6 +79,15 @@ test('fails the shoreline gate if either target misses or no shoreline was measu
 	expect(shoreFit([{ ...counts, alignedEdges: 8 }]).pass).toBe(false);
 	expect(shoreFit([{ ...counts, clipped: 2, alignedEdges: 8 }]).pass).toBe(true);
 	expect(shoreFit([]).pass).toBe(false);
+	const mixed = shoreFit([
+		{ plan: 'organic', seed: 1201, clipped: 0, occupiedShore: 0, shoreEdges: 0, alignedEdges: 0 },
+		{ plan: 'organic', seed: 42, ...counts, clipped: 2, alignedEdges: 8 }
+	]);
+	expect(mixed.pass).toBe(false);
+	expect(mixed.allCasesSampled).toBe(false);
+	expect(mixed.emptyCases).toEqual([
+		{ plan: 'organic', seed: 1201, occupiedShore: 0, shoreEdges: 0 }
+	]);
 });
 
 for (const variant of cityPlanVariants) {

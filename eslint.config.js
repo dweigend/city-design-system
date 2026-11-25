@@ -1,4 +1,5 @@
 import { noTunableNumber } from './scripts/config/no-tunable-number.js';
+import { noRestrictedConstructors } from './scripts/config/no-restricted-constructors.js';
 import prettier from 'eslint-config-prettier';
 import path from 'node:path';
 import js from '@eslint/js';
@@ -51,29 +52,19 @@ function namedCallee(expression, names) {
 	return `${expression} > :matches(Identifier[name=${pattern}], MemberExpression[property.name=${pattern}], MemberExpression[property.value=${pattern}]).callee`;
 }
 
-/** Matches value acquisition as well as member calls, so local aliases cannot hide a constructor.
- * @param {string} names
- */
-function threeConstructors(names) {
-	const name = `/^(${names})$/`;
-	const three = '/^three(?:\\x2f|$)/';
-	return [
-		`ImportDeclaration[source.value=${three}]:not([importKind="type"]) > ImportSpecifier:not([importKind="type"]):matches([imported.name=${name}], [imported.value=${name}])`,
-		`ExportNamedDeclaration[source.value=${three}]:not([exportKind="type"]) > ExportSpecifier:not([exportKind="type"]):matches([local.name=${name}], [local.value=${name}])`,
-		`MemberExpression:matches([property.name=${name}][computed=false], [property.value=${name}])`,
-		`ObjectPattern > Property:matches([key.name=${name}][computed=false], [key.value=${name}])`
-	].join(', ');
-}
-
 const palette = forbid(
-	`Literal[value=${color}], TemplateElement[value.cooked=${color}], ${threeConstructors('Color')}`,
+	`Literal[value=${color}], TemplateElement[value.cooked=${color}]`,
 	colorValues
 );
+const paletteConstructors = {
+	names: ['Color'],
+	message: colorValues
+};
+const stageConstructors = {
+	names: ['WebGPURenderer', 'WebGLRenderer', 'PerspectiveCamera', 'OrthographicCamera'],
+	message: 'Create renderers and cameras in src/lib/scene/stage.'
+};
 const stage = [
-	forbid(
-		threeConstructors('WebGPURenderer|WebGLRenderer|PerspectiveCamera|OrthographicCamera'),
-		'Create renderers and cameras in src/lib/scene/stage.'
-	),
 	forbid(
 		namedCallee('CallExpression', 'setAnimationLoop|requestAnimationFrame'),
 		'Start frame loops in src/lib/scene/stage.'
@@ -85,22 +76,41 @@ const scopes = [
 	{
 		files: [`**/*.${code}`],
 		ignores: [kitPath, stagePath, ...headless],
-		rules: [namedExports, kit, ...stage]
+		rules: [namedExports, kit, ...stage],
+		constructors: [stageConstructors]
 	},
-	{ files: [`${headlessLayers}/**/*.${code}`], rules: [namedExports, kit, ...stage, palette] },
-	{ files: [`${kitPath}/*.${code}`], rules: [namedExports, ...stage] },
-	{ files: [`${stagePath}/*.${code}`], rules: [namedExports, kit] },
+	{
+		files: [`${headlessLayers}/**/*.${code}`],
+		rules: [namedExports, kit, ...stage, palette],
+		constructors: [stageConstructors, paletteConstructors]
+	},
+	{
+		files: [`${kitPath}/*.${code}`],
+		rules: [namedExports, ...stage],
+		constructors: [stageConstructors]
+	},
+	{ files: [`${stagePath}/*.${code}`], rules: [namedExports, kit], constructors: [] },
 	{
 		files: ['**/*.svelte'],
 		ignores: [kitPath, stagePath, ...headless],
-		rules: [namedExports, kit, ...stage, ...styles, controls]
+		rules: [namedExports, kit, ...stage, ...styles, controls],
+		constructors: [stageConstructors]
 	},
 	{
 		files: [`${headlessLayers}/**/*.svelte`],
-		rules: [namedExports, kit, ...stage, palette, ...styles, controls]
+		rules: [namedExports, kit, ...stage, palette, ...styles, controls],
+		constructors: [stageConstructors, paletteConstructors]
 	},
-	{ files: ['src/lib/ui/**/*.svelte'], rules: [namedExports, ...stage, ...styles] },
-	{ files: ['src/lib/scene/stage/**/*.svelte'], rules: [namedExports, kit, ...styles, controls] }
+	{
+		files: ['src/lib/ui/**/*.svelte'],
+		rules: [namedExports, ...stage, ...styles],
+		constructors: [stageConstructors]
+	},
+	{
+		files: ['src/lib/scene/stage/**/*.svelte'],
+		rules: [namedExports, kit, ...styles, controls],
+		constructors: []
+	}
 ];
 /** @type {readonly string[]} Modules awaiting numeric settings migration. */
 const pendingConfigModules = [];
@@ -125,14 +135,32 @@ const typedRules = Object.fromEntries(
 /** @param {ReturnType<typeof forbid>[]} selectors @returns {['error', ...ReturnType<typeof forbid>[]]} */
 const restrict = (selectors) => ['error', ...selectors];
 
-const restrictedSyntax = scopes.flatMap(({ rules, files, ignores = [] }) => [
-	{ files, ignores, rules: { 'no-restricted-syntax': restrict(rules) } },
-	{
-		files: files.map((file) => [file, 'src/lib/**']),
-		ignores: [...ignores, `${library}/*/*`],
-		rules: { 'no-restricted-syntax': restrict([...rules, invalidLibraryPath]) }
-	}
-]);
+const architecturePlugin = {
+	rules: { 'no-restricted-constructor': noRestrictedConstructors }
+};
+const restrictedSyntax = scopes.flatMap(({ rules, constructors, files, ignores = [] }) => {
+	/** @type {Record<string, ['error', typeof constructors]>} */
+	const constructorRule = constructors.length
+		? { 'architecture/no-restricted-constructor': ['error', constructors] }
+		: {};
+	return [
+		{
+			files,
+			ignores,
+			plugins: { architecture: architecturePlugin },
+			rules: { 'no-restricted-syntax': restrict(rules), ...constructorRule }
+		},
+		{
+			files: files.map((file) => [file, 'src/lib/**']),
+			ignores: [...ignores, `${library}/*/*`],
+			plugins: { architecture: architecturePlugin },
+			rules: {
+				'no-restricted-syntax': restrict([...rules, invalidLibraryPath]),
+				...constructorRule
+			}
+		}
+	];
+});
 
 export default defineConfig(
 	includeIgnoreFile(gitignorePath),

@@ -20,27 +20,41 @@ type ShorePlan = Readonly<{
 }>;
 
 type ShoreCounts = Readonly<{
+	plan?: string;
+	seed?: number;
 	clipped: number;
 	occupiedShore: number;
 	shoreEdges: number;
 	alignedEdges: number;
 }>;
 
-/** Both measured shares must meet their targets. A missing sample cannot pass. */
+/** Both measured shares must meet their targets and every case must sample occupied shore and edges. */
 export function shoreFit(rows: readonly ShoreCounts[]) {
-	const sum = (key: keyof ShoreCounts) => rows.reduce((total, row) => total + row[key], 0);
+	const sum = (key: 'clipped' | 'occupiedShore' | 'shoreEdges' | 'alignedEdges') =>
+		rows.reduce((total, row) => total + row[key], 0);
+	const emptyCases = rows
+		.filter(({ occupiedShore, shoreEdges }) => occupiedShore <= 0 || shoreEdges <= 0)
+		.map(({ plan, seed, occupiedShore, shoreEdges }) => ({
+			...(plan !== undefined ? { plan } : {}),
+			...(seed !== undefined ? { seed } : {}),
+			occupiedShore,
+			shoreEdges
+		}));
 	const occupiedShore = sum('occupiedShore');
 	const shoreEdges = sum('shoreEdges');
 	const unclippedShare = occupiedShore ? 1 - sum('clipped') / occupiedShore : null;
 	const alignedShare = shoreEdges ? sum('alignedEdges') / shoreEdges : null;
 	const unclippedTargetMet = unclippedShare !== null && unclippedShare >= shoreStudyUnclippedTarget;
 	const alignedTargetMet = alignedShare !== null && alignedShare >= shoreStudyAlignedTarget;
+	const allCasesSampled = rows.length > 0 && emptyCases.length === 0;
 	return {
 		unclippedShare,
 		alignedShare,
 		unclippedTargetMet,
 		alignedTargetMet,
-		pass: unclippedTargetMet && alignedTargetMet
+		allCasesSampled,
+		emptyCases,
+		pass: allCasesSampled && unclippedTargetMet && alignedTargetMet
 	};
 }
 

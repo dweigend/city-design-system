@@ -318,6 +318,10 @@ writeFileSync(
 	) + '\n'
 );
 console.table(shoreAcceptance);
+for (const { plan, emptyCases } of shoreAcceptance) {
+	if (emptyCases.length)
+		console.error('Shoreline case had no measured samples', { plan, emptyCases });
+}
 if (!shoreFixtureClipped)
 	console.error('Organic lowland shoreline fixture did not exercise clipping');
 writeFileSync(resolve(out, 'results.json'), JSON.stringify(rows, null, 1) + '\n');

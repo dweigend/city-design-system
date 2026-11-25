@@ -291,6 +291,53 @@ journeys('preserves town review focus, frame and view across reloads', async ({ 
 	).toBeChecked();
 });
 
+// Protects the stage's three.js demand-render and teardown lifecycle on upgrades: a mounted stage
+// must render a frame, stay idle without spinning requestAnimationFrame, and release cleanly on unmount.
+journeys('renders on demand, stays idle and tears down cleanly after unmount', async ({ page }) => {
+	await open(page, '/landscape');
+	const canvas = (await readyStages(page, 1)).first();
+	const framesAtIdle = Number(await canvas.getAttribute('data-stage-frames'));
+	expect(framesAtIdle).toBeGreaterThan(0);
+
+	const idleRafs = await page.evaluate(
+		() =>
+			new Promise<number>((resolve) => {
+				const original = window.requestAnimationFrame.bind(window);
+				let scheduled = 0;
+				window.requestAnimationFrame = (callback) => {
+					scheduled++;
+					return original(callback);
+				};
+				window.setTimeout(() => {
+					window.requestAnimationFrame = original;
+					resolve(scheduled);
+				}, 250);
+			})
+	);
+	expect(idleRafs).toBe(0);
+	expect(Number(await canvas.getAttribute('data-stage-frames'))).toBe(framesAtIdle);
+
+	await page.getByRole('link', { name: 'City Design System', exact: true }).click();
+	await expect(page).toHaveURL(/\/$/);
+	await expect(page.locator('canvas[data-stage-ready]')).toHaveCount(0);
+	const postUnmountRafs = await page.evaluate(
+		() =>
+			new Promise<number>((resolve) => {
+				const original = window.requestAnimationFrame.bind(window);
+				let scheduled = 0;
+				window.requestAnimationFrame = (callback) => {
+					scheduled++;
+					return original(callback);
+				};
+				window.setTimeout(() => {
+					window.requestAnimationFrame = original;
+					resolve(scheduled);
+				}, 150);
+			})
+	);
+	expect(postUnmountRafs).toBe(0);
+});
+
 async function saveSandbox(page: Page, filename: string) {
 	const downloadEvent = page.waitForEvent('download');
 	await page.getByRole('button', { name: 'Save', exact: true }).click();
