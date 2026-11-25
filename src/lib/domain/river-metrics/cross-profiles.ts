@@ -27,15 +27,22 @@ function courseAt(xy: ArrayLike<number>, chain: Float64Array, target: number): P
 	return { x: a.x + t * (b.x - a.x), y: a.y + t * (b.y - a.y) };
 }
 
-/** Returns the inclusive upper bound on the number of offsets, within the sampling budget. */
+/** Returns the upper bound on the number of offsets, within the sampling budget. */
 export function offsetCount(
 	field: string,
 	first: number,
 	last: number,
 	spacing: number,
-	samplesPerOffset = /* Exact arithmetic: count one probe per offset by default. */ 1
+	samplesPerOffset = /* Exact arithmetic: count one probe per offset by default. */ 1,
+	includeLast = true
 ): number {
-	const count = Math.floor((last - first) / spacing) + 1;
+	const ratio = (last - first) / spacing;
+	let count = includeLast
+		? Math.floor(ratio) + 1
+		: Number.isInteger(ratio)
+			? ratio
+			: Math.floor(ratio) + 1;
+	if (!includeLast && first + count * spacing < last) count++;
 	if (!(count * samplesPerOffset <= defaults.maximumCrossProfileSampleCount))
 		throw new RangeError(`${field} exceeds the cross-profile sample budget`);
 	return count;
@@ -72,7 +79,7 @@ export function crossSections(
 	const end = chain[chain.length - 1];
 	if (first >= end) return stations;
 	const field = 'profileSpacingM';
-	const count = offsetCount(field, first, end, spacing, samplesPerProfile);
+	const count = offsetCount(field, first, end, spacing, samplesPerProfile, false);
 	for (const along of offsets(field, first, end, spacing, count, false)) {
 		const center = courseAt(xy, chain, along);
 		const a = courseAt(xy, chain, Math.max(0, along - tangentHalfLength));

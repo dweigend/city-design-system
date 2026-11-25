@@ -190,3 +190,81 @@ test.each(['fill', 'stroke'] as const)(
 		);
 	}
 );
+
+test('keeps a 100 m terrain anchor under the cursor across two wheel events before one draw', async () => {
+	await withHeadlessStage((stage, canvas, draw) => {
+		const initial: ViewFit = { width: 1600, elevation: Math.PI / 4 };
+		const terrain: Drawable = {
+			id: 'rapid-zoom-ground',
+			color: '--paper',
+			finish: 'terrain',
+			shape: {
+				kind: 'mesh',
+				positions: [-4000, -4000, 100, 4000, -4000, 100, 4000, 4000, 100, -4000, 4000, 100],
+				indices: [0, 1, 2, 0, 2, 3]
+			}
+		};
+		const offset = [0, 100] as const;
+		stage.setFit(initial);
+		stage.show([terrain], ({ width }) => [
+			{
+				...terrain,
+				vertical: { pivot: 0, scale: width >= 2500 ? 4.2 : width >= 2000 ? 3.61 : 1.69 }
+			}
+		]);
+		draw();
+		const ground = stage.pickGround(offset);
+		if (!ground) throw new Error('Expected a displayed terrain hit');
+		const navigation = stageNavigation(
+			canvas,
+			() => stage.readViewport().metersPerPixel,
+			(next) => stage.setFit({ ...initial, ...next }),
+			(next) => stage.readFrame({ ...initial, ...next })
+		);
+		try {
+			const wheel = (ratio: number) =>
+				canvas.dispatchEvent(
+					Object.assign(new Event('wheel', { cancelable: true }), {
+						clientX: 500,
+						clientY: 600,
+						deltaMode: 0,
+						deltaY: -Math.log(ratio) / 0.0017
+					})
+				);
+			wheel(1600 / 2200);
+			wheel(2200 / 2800);
+			draw();
+			expect(stage.readViewport().width).toBeCloseTo(2800);
+			const after = stage.pickGround(offset);
+			if (!after) throw new Error('Expected a displayed terrain hit after rapid zoom');
+			expect(after[0]).toBeCloseTo(ground[0]);
+			expect(after[1]).toBeCloseTo(ground[1]);
+			expect(after[2]).toBeCloseTo(420);
+		} finally {
+			navigation.delete();
+		}
+	});
+});
+
+test('clips a stroke-only 5 km presentation warp on the first draw', async () => {
+	const line = {
+		id: 'stroke-only-warp',
+		color: '--paper',
+		finish: 'matte',
+		shape: { kind: 'mesh', positions: [], indices: [] },
+		strokeSegments: [0, 0, 0, 0, 1, 0],
+		warp: { fill: [], stroke: [0, 0, 5000, 0], amount: 0 }
+	} satisfies Drawable;
+	const bounds = { min: [0, 0, 0], max: [0, 0, 0] } as const;
+	const clipping = { min: [0, 0, 0], max: [5000, 1, 0] } as const;
+	const expected = fitCamera('iso', bounds, 1, true, undefined, clipping).far;
+	let far: number | undefined;
+	await withHeadlessStage(
+		(stage, _canvas, draw) => {
+			stage.show([line], () => [{ ...line, warp: { ...line.warp, amount: 1 } }]);
+			draw();
+			expect(far).toBeCloseTo(expected);
+		},
+		(_scene, camera) => (far = camera.far)
+	);
+});

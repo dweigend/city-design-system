@@ -209,14 +209,33 @@ async function create({
 			const camera = cameraFrame(framing, widthPx);
 			const width = framing.halfWidth * 2;
 			const nextViewport = { width, metersPerPixel: camera.metersPerPixel, center: camera.center };
+			const nextPresentation = present?.(nextViewport);
+			const sameViewport =
+				presentAt !== undefined &&
+				presentAt.width === nextViewport.width &&
+				presentAt.metersPerPixel === nextViewport.metersPerPixel &&
+				presentAt.center.every((value, axis) => value === nextViewport.center[axis]);
 			return {
 				...camera,
 				hit: content.hit,
-				locateGround: content.locateGround,
+				locateGround: (point: Vec3, direction: Vec3) => {
+					if (!nextPresentation || sameViewport) return content.locateGround(point, direction);
+					const previous = presented ?? content.parts.map(({ drawable }) => drawable);
+					const { display } = state.read();
+					const dark = canvas.ownerDocument.documentElement.dataset.theme === 'dark';
+					content.style(nextPresentation);
+					styleContent(display, dark);
+					try {
+						return content.locateGround(point, direction);
+					} finally {
+						content.style(previous);
+						styleContent(display, dark);
+					}
+				},
 				displayGround: (anchor: TerrainAnchor) =>
 					displayTerrainAnchor(
 						anchor,
-						present?.(nextViewport)[anchor.index] ?? content.parts[anchor.index].drawable
+						nextPresentation?.[anchor.index] ?? content.parts[anchor.index].drawable
 					)
 			};
 		},

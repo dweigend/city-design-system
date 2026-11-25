@@ -237,3 +237,30 @@ test('inserts an earlier raised seam vertex into a later water face', () => {
 		[2, 0, 0]
 	]);
 });
+
+test('marks a later water face with an existing collinear seam vertex for interior fanning', () => {
+	const union = waterUnion();
+	union([
+		[0, -1, 0],
+		[1, 0, 1],
+		[0, 0, 0]
+	]);
+	union([
+		[2, -1, 0],
+		[2, 0, 0],
+		[1, 0, 1]
+	]);
+	const [joined] = union([
+		[0, 0, 0],
+		[1, 0, 0],
+		[2, 0, 0],
+		[2, 1, 0],
+		[0, 1, 0]
+	]);
+	expect(joined.split).toBe(true);
+	expect(joined.polygon.slice(0, 3)).toEqual([
+		[0, 0, 0],
+		[1, 0, 1],
+		[2, 0, 0]
+	]);
+});

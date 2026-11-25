@@ -276,3 +276,26 @@ test('rejects intersecting bridge chords even with separated crossing midpoints'
 	);
 	expect(crossings.map(({ span }) => span?.nodeIds)).toEqual([['a', 'b']]);
 });
+
+test('ignores a wet spur that revisits a dry junction in favor of a longer simple crossing', () => {
+	const crossings = crossingProbe(
+		{
+			a: [-20, 0],
+			j: [-14, 12],
+			w: [-11, 9],
+			s: [-14, 10],
+			k: [14, 12],
+			b: [20, 0],
+			d: [0, -25]
+		},
+		[
+			['a', 'j', 'k', 'b', 'd'],
+			['d', 'b', 'k', 'j', 'a'],
+			['j', 'w', 's'],
+			['s', 'w', 'j']
+		],
+		['a', 'b'],
+		(x, y) => Math.max(Math.abs(x) - 12, y - 10)
+	);
+	expect(crossings.map(({ path }) => path.nodeIds)).toEqual([['a', 'd', 'b']]);
+});

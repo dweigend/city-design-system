@@ -241,8 +241,8 @@ export function createContent(
 		const clipped = new Box3();
 		for (const part of parts) {
 			const { drawable, bounds } = part;
-			if (drawable.visible === false || bounds.isEmpty()) continue;
-			visible.union(bounds);
+			if (drawable.visible === false || (bounds.isEmpty() && !part.individual.length)) continue;
+			if (!bounds.isEmpty()) visible.union(bounds);
 			const scale = drawable.vertical?.scale ?? 1;
 			clipped.union(
 				displayedBounds(part, scratch, scale, (drawable.vertical?.pivot ?? 0) * (1 - scale))
@@ -348,6 +348,7 @@ export function createContent(
 			}
 			let builds = 0;
 			let groundChanged = false;
+			let boundsChanged = false;
 			const next = parts.slice(0, first);
 			for (let i = first; i < newEnd; i++) {
 				const drawable = drawables[i];
@@ -361,6 +362,7 @@ export function createContent(
 					const part = add(drawable);
 					next.push(part);
 					groundChanged ||= !part.bounds.isEmpty();
+					boundsChanged ||= !part.bounds.isEmpty() || part.individual.length > 0;
 					builds++;
 				}
 			}
@@ -368,13 +370,12 @@ export function createContent(
 			for (const matches of available.values())
 				for (const part of matches) {
 					groundChanged ||= !part.bounds.isEmpty();
+					boundsChanged ||= !part.bounds.isEmpty() || part.individual.length > 0;
 					remove(part);
 				}
 			parts = next;
-			if (groundChanged) {
-				fitGround();
-				boundsDirty = true;
-			}
+			if (groundChanged) fitGround();
+			if (groundChanged || boundsChanged) boundsDirty = true;
 			return builds;
 		},
 		update(read: (drawable: Drawable, hasFill: boolean) => PartLook, all: boolean) {

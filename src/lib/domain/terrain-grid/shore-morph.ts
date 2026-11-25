@@ -105,7 +105,13 @@ function wideEnough(point: Vec2, clearance: Clearance) {
 	const reach = limits.minimumWaterWidthM;
 	const probe = (depth: number) =>
 		clearance(point[0] - (bankDistance + depth) * n[0], point[1] - (bankDistance + depth) * n[1]);
-	return probe(reach * 0.5) <= -reach * limits.widthProbeDepthRatio && probe(reach) < 0;
+	if (!(probe(reach * 0.5) <= -reach * limits.widthProbeDepthRatio && probe(reach) < 0))
+		return false;
+	const steps = Math.ceil(reach / limits.clearanceSampleStepM);
+	for (let step = 1; step < steps; step++) {
+		if (probe((reach * step) / steps) >= 0) return false;
+	}
+	return true;
 }
 
 function relax(vertices: ReadonlyMap<string, Vertex>, fixed: ReadonlyMap<string, Vec2>) {

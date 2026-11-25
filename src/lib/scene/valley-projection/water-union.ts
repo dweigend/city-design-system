@@ -72,6 +72,22 @@ function seamPoint(point: Vec3, covers: ReadonlySet<Polygon>): Vec3 {
 	return point;
 }
 
+function hasCollinearVertex(polygon: Polygon): boolean {
+	const count = polygon.length;
+	for (let i = 0; i < count; i++) {
+		const prev = polygon[(i + count - 1) % count];
+		const curr = polygon[i];
+		const next = polygon[(i + 1) % count];
+		const dx = next[0] - prev[0];
+		const dy = next[1] - prev[1];
+		const length = Math.hypot(dx, dy);
+		if (length <= waterSeamToleranceM) continue;
+		const cross = Math.abs(dx * (curr[1] - prev[1]) - dy * (curr[0] - prev[0]));
+		if (cross <= waterSeamToleranceM * length) return true;
+	}
+	return false;
+}
+
 function joinSeams(piece: Polygon, earlier: ReadonlySet<Polygon>): WaterFace {
 	const polygon: Vec3[] = [];
 	for (const [i, a] of piece.entries()) {
@@ -99,7 +115,7 @@ function joinSeams(piece: Polygon, earlier: ReadonlySet<Polygon>): WaterFace {
 			previous = t;
 		}
 	}
-	return { polygon, split: polygon.length !== piece.length };
+	return { polygon, split: polygon.length !== piece.length || hasCollinearVertex(polygon) };
 }
 
 /** Takes convex water polygons in priority order and returns only the area each adds.

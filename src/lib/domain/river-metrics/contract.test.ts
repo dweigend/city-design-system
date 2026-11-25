@@ -219,3 +219,7 @@ test('rejects a repeated visited offset without rejecting a rounded endpoint', (
 		'advancing offsets'
 	);
 });
+
+test('does not charge the excluded terminal station against the cross-profile budget', () => {
+	expect(crossSections([0, 0, 200_000, 0], 0, 1, 1, 5)).toHaveLength(200_000);
+});

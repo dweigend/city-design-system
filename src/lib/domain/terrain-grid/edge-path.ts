@@ -202,6 +202,11 @@ export function planEdgeGraph(
 						a.cost - b.cost || (a.id < b.id ? -1 : Number(a.id > b.id));
 			const pending = new MinHeap(compare);
 			pending.add(origin);
+			function visitedOnWalk<State>(visit: Visit<State> | undefined, id: string): boolean {
+				for (let step = visit; step; step = step.previous) if (step.id === id) return true;
+				return false;
+			}
+
 			for (let visit = pending.take(); visit; visit = pending.take()) {
 				if (bestAt(visit.state).get(visit.id) !== visit) continue;
 				if (
@@ -215,6 +220,7 @@ export function planEdgeGraph(
 				}
 				for (const via of adjacent.get(visit.id) ?? []) {
 					const id = via.nodeIds[0] === visit.id ? via.nodeIds[1] : via.nodeIds[0];
+					if (traversal && visitedOnWalk(visit, id)) continue;
 					const cost = visit.cost + (measure?.(via) ?? via.lengthM);
 					if (!Number.isFinite(cost) || cost > maximumCost) continue;
 					const state =
