@@ -13,7 +13,8 @@ export { clipPolylineToSquare, sinuosity, type ClippedReach } from '../../core/p
 export { measureRiver, type RiverGeometry } from './reach';
 /** Reads a north-first raster in millimeters and a course in meters. Measures wet and
  * dry bank widths, slope shares, smoothed relief and terrace step gains. Omits censored
- * crossings. Invalid grids throw RangeError. See world/valley-protocol for the frozen settings.
+ * crossings. Invalid inputs and profile scans above the sampling budget throw RangeError.
+ * See world/valley-protocol for the frozen settings.
  */
 export { measureRiverSurface, type SurfaceProtocol } from './surface-metrics';
 /** A centered north-first raster of bed and water heights in millimeters. */

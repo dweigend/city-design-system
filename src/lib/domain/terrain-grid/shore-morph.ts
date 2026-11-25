@@ -58,7 +58,11 @@ function onShore(point: Vec2, clearance: Clearance): Vec2 | undefined {
 		return [x, y];
 }
 
-function anchors(vertices: ReadonlyMap<string, Vertex>, clearance: Clearance) {
+function anchors(
+	vertices: ReadonlyMap<string, Vertex>,
+	clearance: Clearance,
+	waterClearance: Clearance
+) {
 	const result = new Map<string, Vec2>();
 	for (const {
 		node: { id, xy },
@@ -83,7 +87,11 @@ function anchors(vertices: ReadonlyMap<string, Vertex>, clearance: Clearance) {
 			}, 0) / boundary.length;
 		const offset = limits.tangentRelaxationRatio * tangent;
 		const target = onShore([xy[0] - offset * n[1], xy[1] + offset * n[0]], clearance);
-		if (!target || distance(xy, target) > limits.maximumMoveM || !wideEnough(target, clearance))
+		if (
+			!target ||
+			distance(xy, target) > limits.maximumMoveM ||
+			!wideEnough(target, waterClearance)
+		)
 			continue;
 		result.set(id, [target[0] - xy[0], target[1] - xy[1]]);
 	}
@@ -93,12 +101,10 @@ function anchors(vertices: ReadonlyMap<string, Vertex>, clearance: Clearance) {
 function wideEnough(point: Vec2, clearance: Clearance) {
 	const n = normal(point, clearance);
 	if (!n) return false;
+	const bankDistance = clearance(...point);
 	const reach = limits.minimumWaterWidthM;
 	const probe = (depth: number) =>
-		clearance(
-			point[0] - (limits.bankAllowanceM + depth) * n[0],
-			point[1] - (limits.bankAllowanceM + depth) * n[1]
-		);
+		clearance(point[0] - (bankDistance + depth) * n[0], point[1] - (bankDistance + depth) * n[1]);
 	return probe(reach * 0.5) <= -reach * limits.widthProbeDepthRatio && probe(reach) < 0;
 }
 
@@ -228,10 +234,11 @@ function limitDisplacement(
 export function alignShore(
 	cells: readonly Candidate[],
 	clearance: Clearance,
-	inside: (ring: readonly Vec2[]) => boolean
+	inside: (ring: readonly Vec2[]) => boolean,
+	waterClearance = clearance
 ): readonly Candidate[] {
 	const vertices = shoreVertices(cells, clearance);
-	const fixed = anchors(vertices, clearance);
+	const fixed = anchors(vertices, clearance, waterClearance);
 	const field = relax(vertices, fixed);
 	const point = limitDisplacement(cells, inside, field, fixed);
 	const nodes = new Map([...vertices].map(([id, { node }]) => [id, { id, xy: point(node) }]));

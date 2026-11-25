@@ -1,4 +1,5 @@
 import { distance, pointAt, type Point } from '../../core/polyline';
+import { defaults } from '../../../config/river-metrics';
 
 type Sampler = (x: number, y: number) => number;
 type ProfilePoint = Readonly<{ offset: number; signed: number; height: number; terrace: number }>;
@@ -26,16 +27,36 @@ function courseAt(xy: ArrayLike<number>, chain: Float64Array, target: number): P
 	return { x: a.x + t * (b.x - a.x), y: a.y + t * (b.y - a.y) };
 }
 
-// Exact arithmetic: the maximum representable JS array length and a bound on half an ULP.
-const maximumArrayLength = 2 ** /* Exact arithmetic: bit width of the array length limit. */ 32 - 1;
-const relativeHalfUlpBound = Number.EPSILON / 2;
-
-/** Rejects offset ranges that can stall or exceed the length of an array. */
-export function checkOffsets(field: string, first: number, last: number, spacing: number): void {
-	const magnitude = Math.max(Math.abs(first), Math.abs(last));
+/** Returns the inclusive upper bound on the number of offsets, within the sampling budget. */
+export function offsetCount(
+	field: string,
+	first: number,
+	last: number,
+	spacing: number,
+	samplesPerOffset = /* Exact arithmetic: count one probe per offset by default. */ 1
+): number {
 	const count = Math.floor((last - first) / spacing) + 1;
-	if (spacing <= magnitude * relativeHalfUlpBound || count > maximumArrayLength)
-		throw new RangeError(`${field} must produce advancing offsets with a representable count`);
+	if (!(count * samplesPerOffset <= defaults.maximumCrossProfileSampleCount))
+		throw new RangeError(`${field} exceeds the cross-profile sample budget`);
+	return count;
+}
+
+function* offsets(
+	field: string,
+	first: number,
+	last: number,
+	spacing: number,
+	count: number,
+	includeLast: boolean
+) {
+	let previous = -Infinity;
+	for (let index = 0; index < count; index++) {
+		const offset = first + index * spacing;
+		if (offset > last || (!includeLast && offset === last)) break;
+		if (!(offset > previous)) throw new RangeError(`${field} must produce advancing offsets`);
+		previous = offset;
+		yield offset;
+	}
 }
 
 /** Places normal profiles at fixed offsets along the clipped course. */
@@ -43,14 +64,16 @@ export function crossSections(
 	xy: ArrayLike<number>,
 	first: number,
 	spacing: number,
-	tangentHalfLength: number
+	tangentHalfLength: number,
+	samplesPerProfile = /* Exact arithmetic: count only the station when no profile is supplied. */ 1
 ): Station[] {
 	const chain = chainage(xy);
 	const stations: Station[] = [];
 	const end = chain[chain.length - 1];
 	if (first >= end) return stations;
-	checkOffsets('profileSpacingM', first, end, spacing);
-	for (let along = first; along < end; along += spacing) {
+	const field = 'profileSpacingM';
+	const count = offsetCount(field, first, end, spacing, samplesPerProfile);
+	for (const along of offsets(field, first, end, spacing, count, false)) {
 		const center = courseAt(xy, chain, along);
 		const a = courseAt(xy, chain, Math.max(0, along - tangentHalfLength));
 		const b = courseAt(xy, chain, Math.min(end, along + tangentHalfLength));
@@ -74,7 +97,9 @@ export function profileAt(
 	terrace?: Sampler
 ): ProfilePoint[] {
 	const points: ProfilePoint[] = [];
-	for (let offset = -halfLength; offset <= halfLength; offset += spacing) {
+	const field = 'profileHalfLengthM and spacingM';
+	const count = offsetCount(field, -halfLength, halfLength, spacing);
+	for (const offset of offsets(field, -halfLength, halfLength, spacing, count, true)) {
 		const { x, y } = station(offset);
 		if (Math.max(Math.abs(x), Math.abs(y)) > windowM / 2) continue;
 		points.push({

@@ -140,6 +140,9 @@ export type TerrainGridOptions = Readonly<{
 	 * trimmed to one dry polygon before validating its ground. */
 	shore?: Readonly<{
 		clearanceAt: (x: number, y: number) => number;
+		/** Signed clearance from water before any setback. When omitted, the alignment width
+		 * test uses clearanceAt. */
+		waterClearanceAt?: (x: number, y: number) => number;
 		/** Align the uncut carrier before classifying and clipping its cells. */
 		align?: boolean;
 		minimumEdge: number;
@@ -327,7 +330,9 @@ function generateGrid(
 		const plan = corners.map(({ xy }) => xy);
 		return plan.length >= 3 && (!checkQuality || meetsQuality(plan)) && includes(plan);
 	});
-	const cells = shore?.align ? alignShore(carrierCells, shore.clearanceAt, includes) : carrierCells;
+	const cells = shore?.align
+		? alignShore(carrierCells, shore.clearanceAt, includes, shore.waterClearanceAt)
+		: carrierCells;
 	for (const source of cells) {
 		if (cover) {
 			layout.push(source);

@@ -176,3 +176,21 @@ test('keeps the original carrier for an isolated channel narrower than the snap 
 	);
 	expect(morphed).toEqual(base);
 });
+
+test('a 3 m setback does not make a 20 m channel wide enough to align', () => {
+	const waterClearanceAt = (x: number) => Math.abs(x) - 10;
+	const clearanceAt = (x: number) => waterClearanceAt(x) - 3;
+	const options: TerrainGridOptions = {
+		seed: 1201,
+		variant: 'square',
+		site: { origin: [30, 0], bearing: 0, length: 300, width: 300 },
+		parameters: { cellSize: 60 },
+		heightAt: () => 0,
+		shore: { clearanceAt, minimumEdge, minimumArea }
+	};
+	const cover = ([x]: Vec2) => (waterClearanceAt(x) < 0 ? 'river' : 'dry');
+	const base = TerrainGrid.createPlan(options, cover);
+	const shore = { clearanceAt, waterClearanceAt, minimumEdge, minimumArea, align: true };
+	const aligned = TerrainGrid.createPlan({ ...options, shore }, cover);
+	expect(positions(aligned.plan)).toEqual(positions(base.plan));
+});

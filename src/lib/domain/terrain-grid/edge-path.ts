@@ -31,12 +31,25 @@ export type PlanEdgePath = Readonly<{
 	lengthM: number;
 }>;
 
-type Visit = { id: string; lengthM: number; cost: number; via?: PlanEdge; previous?: Visit };
+type Visit<State> = {
+	id: string;
+	state?: State;
+	lengthM: number;
+	cost: number;
+	via?: PlanEdge;
+	previous?: Visit<State>;
+};
 
-function pathTo(end: Visit): PlanEdgePath {
+type Traversal<State> = Readonly<{
+	initial: State;
+	advance: (state: State, edge: PlanEdge, from: string, to: string) => State | undefined;
+	accepts: (state: State) => boolean;
+}>;
+
+function pathTo(end: Visit<unknown>): PlanEdgePath {
 	const nodeIds: string[] = [];
 	const edges: OrientedPlanEdge[] = [];
-	for (let step: Visit | undefined = end; step; step = step.previous) {
+	for (let step: Visit<unknown> | undefined = end; step; step = step.previous) {
 		nodeIds.push(step.id);
 		if (step.via && step.previous)
 			edges.push(Object.freeze({ id: step.via.id, from: step.previous.id, to: step.id }));
@@ -126,7 +139,7 @@ export function dryPlanEdges(grid: AddressedPlan, plan: AddressedPlan): readonly
 	);
 }
 
-function compareVisits(a: Visit, b: Visit) {
+function compareVisits(a: Visit<unknown>, b: Visit<unknown>) {
 	const first = a.via?.id ?? '';
 	const second = b.via?.id ?? '';
 	return (
@@ -158,33 +171,66 @@ export function planEdgeGraph(
 		/** Returns the world XY of an addressed vertex. Unknown nodes throw. */
 		point,
 		/** Visits destinations by increasing shortest cost with stable edge ties.
-		 * The bound is in cost units. Positive edge costs are required; Infinity excludes an edge. */
-		*pathsFrom(
+		 * The bound is in cost units. Positive edge costs are required; Infinity excludes an edge.
+		 * With a traversal, retain one route per node and state. An undefined transition excludes
+		 * the edge from that state. Yield the shortest accepting route to each destination. */
+		*pathsFrom<State extends string>(
 			start: string,
 			targets: (id: string) => boolean,
 			maximumCost: number,
-			measure?: (edge: PlanEdge) => number
+			measure?: (edge: PlanEdge) => number,
+			traversal?: Traversal<State>
 		) {
-			const origin: Visit = /* Exact arithmetic: path starts with zero length and cost. */ {
+			const origin: Visit<State> = /* Exact arithmetic: path starts with zero length and cost. */ {
 				id: start,
+				state: traversal?.initial,
 				lengthM: 0,
 				cost: 0
 			};
-			const best = new Map<string, Visit>([[start, origin]]);
+			const states = new Map<State | undefined, Map<string, Visit<State>>>();
+			function bestAt(state: State | undefined) {
+				const best = states.get(state) ?? new Map<string, Visit<State>>();
+				states.set(state, best);
+				return best;
+			}
+			bestAt(origin.state).set(start, origin);
+			const yielded = new Set<string>();
 			// Keep the original node tie order for the existing length-only crossing search.
 			const compare = measure
 				? compareVisits
-				: (a: Visit, b: Visit) => a.cost - b.cost || (a.id < b.id ? -1 : Number(a.id > b.id));
+				: (a: Visit<State>, b: Visit<State>) =>
+						a.cost - b.cost || (a.id < b.id ? -1 : Number(a.id > b.id));
 			const pending = new MinHeap(compare);
 			pending.add(origin);
 			for (let visit = pending.take(); visit; visit = pending.take()) {
-				if (best.get(visit.id) !== visit) continue;
-				if (visit.id !== start && targets(visit.id)) yield pathTo(visit);
+				if (bestAt(visit.state).get(visit.id) !== visit) continue;
+				if (
+					visit.id !== start &&
+					!yielded.has(visit.id) &&
+					targets(visit.id) &&
+					(!traversal || (visit.state !== undefined && traversal.accepts(visit.state)))
+				) {
+					yielded.add(visit.id);
+					yield pathTo(visit);
+				}
 				for (const via of adjacent.get(visit.id) ?? []) {
 					const id = via.nodeIds[0] === visit.id ? via.nodeIds[1] : via.nodeIds[0];
 					const cost = visit.cost + (measure?.(via) ?? via.lengthM);
 					if (!Number.isFinite(cost) || cost > maximumCost) continue;
-					const next = { id, cost, lengthM: visit.lengthM + via.lengthM, via, previous: visit };
+					const state =
+						visit.state === undefined
+							? undefined
+							: traversal?.advance(visit.state, via, visit.id, id);
+					if (traversal && state === undefined) continue;
+					const next = {
+						id,
+						state,
+						cost,
+						lengthM: visit.lengthM + via.lengthM,
+						via,
+						previous: visit
+					};
+					const best = bestAt(state);
 					const previous = best.get(id);
 					if (previous && compare(next, previous) >= 0) continue;
 					best.set(id, next);

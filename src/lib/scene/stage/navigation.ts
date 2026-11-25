@@ -36,8 +36,10 @@ export function stageNavigation(
 		const x = rect.left + rect.width / 2;
 		const y = rect.top + rect.height / 2;
 		if (readFrame) {
-			const anchor = groundAt(readFrame({ zoom, offset }), [from.x - x, from.y - y]);
-			const [dx, dy] = anchoredPan(readFrame({ zoom: next, offset }), anchor, [to.x - x, to.y - y]);
+			const current = readFrame({ zoom, offset });
+			const destination = readFrame({ zoom: next, offset });
+			const anchor = groundAt(current, [from.x - x, from.y - y], destination);
+			const [dx, dy] = anchoredPan(destination, anchor, [to.x - x, to.y - y]);
 			offset = [offset[0] + dx, offset[1] + dy];
 			metersPerPixel = scale;
 			zoom = next;

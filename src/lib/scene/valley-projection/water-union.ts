@@ -2,6 +2,7 @@ import { measurePolygon, type Vec3 } from '../../core/geometry';
 import { waterSeamToleranceM, waterUnionAreaEpsilonM2, waterUnionBucketM } from './constants';
 
 type Polygon = readonly Vec3[];
+export type WaterFace = Readonly<{ polygon: Polygon; split: boolean }>;
 
 function bins(polygon: Polygon) {
 	const xs = polygon.map(([x]) => Math.floor(x / waterUnionBucketM));
@@ -62,11 +63,43 @@ function seamPoint(point: Vec3, covers: ReadonlySet<Polygon>): Vec3 {
 			if (!length || Math.abs(dx * (y - b) - dy * (x - a)) > waterSeamToleranceM * length) continue;
 			const t = ((x - a) * dx + (y - b) * dy) / length ** 2;
 			const tolerance = waterSeamToleranceM / length;
-			if (t >= -tolerance && t <= 1 + tolerance)
-				return [x, y, z + (endZ - z) * Math.max(0, Math.min(1, t))];
+			if (t < -tolerance || t > 1 + tolerance) continue;
+			if (t <= tolerance) return [x, y, z];
+			if (t >= 1 - tolerance) return [x, y, endZ];
+			return [x, y, z + (endZ - z) * t];
 		}
 	}
 	return point;
+}
+
+function joinSeams(piece: Polygon, earlier: ReadonlySet<Polygon>): WaterFace {
+	const polygon: Vec3[] = [];
+	for (const [i, a] of piece.entries()) {
+		polygon.push(seamPoint(a, earlier));
+		const b = piece[(i + 1) % piece.length];
+		const dx = b[0] - a[0];
+		const dy = b[1] - a[1];
+		const length = Math.hypot(dx, dy);
+		if (length <= 2 * waterSeamToleranceM) continue;
+		const tolerance = waterSeamToleranceM / length;
+		const fractions: number[] = [];
+		for (const cover of earlier) {
+			for (const [x, y] of cover) {
+				const u = x - a[0];
+				const v = y - a[1];
+				if (Math.abs(dx * v - dy * u) > waterSeamToleranceM * length) continue;
+				const t = (u * dx + v * dy) / length ** 2;
+				if (t > tolerance && t < 1 - tolerance) fractions.push(t);
+			}
+		}
+		let previous = 0;
+		for (const t of fractions.sort((a, b) => a - b)) {
+			if (t - previous <= tolerance) continue;
+			polygon.push(seamPoint([a[0] + dx * t, a[1] + dy * t, a[2] + (b[2] - a[2]) * t], earlier));
+			previous = t;
+		}
+	}
+	return { polygon, split: polygon.length !== piece.length };
 }
 
 /** Takes convex water polygons in priority order and returns only the area each adds.
@@ -74,7 +107,7 @@ function seamPoint(point: Vec3, covers: ReadonlySet<Polygon>): Vec3 {
 export function waterUnion() {
 	const index = new Map<string, Polygon[]>();
 	const seams = new Map<string, Polygon[]>();
-	return (polygon: Polygon): readonly Polygon[] => {
+	return (polygon: Polygon) => {
 		if (polygon.length < 3) return [];
 		const area = measurePolygon(polygon).area;
 		if (Math.abs(area) <= waterUnionAreaEpsilonM2) return [];
@@ -87,16 +120,16 @@ export function waterUnion() {
 			if (!pieces.length) return [];
 		}
 		const earlier = new Set(keys.flatMap((id) => seams.get(id) ?? []));
-		const joined = pieces.map((piece) => piece.map((point) => seamPoint(point, earlier)));
+		const joined = pieces.map((piece) => joinSeams(piece, earlier));
 		for (const id of keys) {
 			const list = index.get(id) ?? [];
 			list.push(ordered);
 			index.set(id, list);
 		}
-		for (const piece of joined) {
-			for (const id of bins(piece)) {
+		for (const { polygon } of joined) {
+			for (const id of bins(polygon)) {
 				const list = seams.get(id) ?? [];
-				list.push(piece);
+				list.push(polygon);
 				seams.set(id, list);
 			}
 		}

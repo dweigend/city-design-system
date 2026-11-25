@@ -1,5 +1,5 @@
-import { Box3, Group, Mesh, MeshBasicNodeMaterial, Raycaster, Vector3 } from 'three/webgpu';
-import type { Bounds3, Vec3 } from '../../core/geometry';
+import { Box3, Group, Mesh, MeshBasicNodeMaterial, Raycaster, Sphere, Vector3 } from 'three/webgpu';
+import type { Bounds3, Vec2, Vec3 } from '../../core/geometry';
 import type { Drawable } from '../surface';
 import { chunkKey, displayedBounds, packChunk, type BatchedPart } from './batch';
 import type { strokeMaterials } from './edges';
@@ -38,26 +38,35 @@ function sameGeometry(a: Drawable, b: Drawable) {
 
 const ray = new Raycaster();
 const origin = new Vector3();
-const center = new Vector3();
+const worldBounds = new Box3();
+const meshBounds = new Box3();
+const sphere = new Sphere();
+
+function terrainIntersection(meshes: Mesh[], point: Vec3, direction: Vec3) {
+	if (!meshes.length) return undefined;
+	ray.set(origin.fromArray(point), new Vector3(...direction).normalize());
+	worldBounds.makeEmpty();
+	for (const mesh of meshes) {
+		mesh.updateWorldMatrix(true, false);
+		if (!mesh.geometry.boundingBox) mesh.geometry.computeBoundingBox();
+		const bounds = mesh.geometry.boundingBox;
+		if (bounds) worldBounds.union(meshBounds.copy(bounds).applyMatrix4(mesh.matrixWorld));
+	}
+	if (worldBounds.isEmpty()) return undefined;
+	worldBounds.getBoundingSphere(sphere);
+	ray.ray.origin.addScaledVector(
+		ray.ray.direction,
+		-(origin.distanceTo(sphere.center) + sphere.radius)
+	);
+	return ray.intersectObjects(meshes, false)[0];
+}
 
 /** The nearest point where a line through point meets one of the displayed meshes. */
-export function rayHit(meshes: readonly Mesh[], point: Vec3, direction: Vec3) {
-	ray.set(origin.fromArray(point), new Vector3(...direction).normalize());
-	let reach = 0;
-	for (const mesh of meshes) {
-		mesh.updateMatrixWorld();
-		if (!mesh.geometry.boundingSphere) mesh.geometry.computeBoundingSphere();
-		const sphere = mesh.geometry.boundingSphere;
-		if (!sphere) continue;
-		center.copy(sphere.center).applyMatrix4(mesh.matrixWorld);
-		reach = Math.max(
-			reach,
-			origin.distanceTo(center) + sphere.radius * mesh.matrixWorld.getMaxScaleOnAxis()
-		);
-	}
-	ray.ray.origin.addScaledVector(ray.ray.direction, -reach);
-	const [first] = ray.intersectObjects([...meshes], false);
-	return first?.point.toArray() as Vec3 | undefined;
+export function rayHit(meshes: Mesh[], point: Vec3, direction: Vec3): Vec3 | undefined {
+	const hit = terrainIntersection(meshes, point, direction);
+	if (!hit) return;
+	const { x, y, z } = hit.point;
+	return [x, y, z];
 }
 
 function toBounds(box: Box3): Bounds3 {
@@ -83,6 +92,18 @@ type Chunk = {
 	packed?: ReturnType<typeof packChunk>;
 };
 type Part = BatchedPart & { chunk?: Chunk };
+
+export type TerrainAnchor = Readonly<{ index: number; position: Vec3; warp: Vec2 }>;
+
+export function displayTerrainAnchor(
+	{ position: [x, y, z], warp: [dx, dy] }: TerrainAnchor,
+	drawable?: Drawable
+): Vec3 {
+	const amount = drawable?.warp?.amount ?? 0;
+	const scale = drawable?.vertical?.scale ?? 1;
+	const pivot = drawable?.vertical?.pivot ?? 0;
+	return [x + dx * amount, y + dy * amount, z * scale + pivot * (1 - scale)];
+}
 
 export function createContent(
 	strokes: ReturnType<typeof strokeMaterials>,
@@ -238,6 +259,35 @@ export function createContent(
 		chunk.packed?.delete();
 	}
 
+	function terrainMeshes() {
+		return [...terrain].flatMap(({ fill }) => (fill?.mesh.visible ? [fill.mesh] : []));
+	}
+
+	function locateGround(point: Vec3, direction: Vec3): TerrainAnchor | undefined {
+		const hit = terrainIntersection(terrainMeshes(), point, direction);
+		if (!hit) return;
+		const index = parts.findIndex(({ fill }) => fill?.mesh === hit.object);
+		const fill = parts[index]?.fill;
+		if (!fill) return;
+		const local = fill.mesh.worldToLocal(hit.point);
+		const offsets = fill.warpTargets[0]?.offsets;
+		let dx = 0;
+		let dy = 0;
+		if (offsets && hit.face && hit.barycoord) {
+			const vertices = [hit.face.a, hit.face.b, hit.face.c];
+			for (const [i, weight] of hit.barycoord.toArray().entries()) {
+				const offset = vertices[i] * 2;
+				dx += weight * offsets[offset];
+				dy += weight * offsets[offset + 1];
+			}
+		}
+		return {
+			index,
+			position: [local.x - dx * fill.warpAmount, local.y - dy * fill.warpAmount, local.z],
+			warp: [dx, dy]
+		};
+	}
+
 	return {
 		group,
 		get parts() {
@@ -261,12 +311,8 @@ export function createContent(
 			return frameBounds;
 		},
 		/** The displayed terrain point on a view ray through point, if any. */
-		hit: (point: Vec3, direction: Vec3) =>
-			rayHit(
-				[...terrain].flatMap(({ fill }) => (fill?.mesh.visible ? [fill.mesh] : [])),
-				point,
-				direction
-			),
+		hit: (point: Vec3, direction: Vec3) => rayHit(terrainMeshes(), point, direction),
+		locateGround,
 		style(drawables: readonly Drawable[]) {
 			if (!hasSameGeometry(parts, drawables))
 				throw new Error('Presentation must retain drawable geometry');

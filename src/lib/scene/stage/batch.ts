@@ -53,6 +53,11 @@ export function chunkKey(part: ProjectedPart) {
 
 export function displayedBounds(part: ProjectedPart, output: Box3, scale: number, offset: number) {
 	output.copy(part.bounds);
+	for (const { line } of part.individual) {
+		const geometry = line.geometry;
+		if (!geometry.boundingBox) geometry.computeBoundingBox();
+		if (geometry.boundingBox) output.union(geometry.boundingBox);
+	}
 	if (!output.isEmpty()) {
 		const low = output.min.z * scale + offset;
 		const high = output.max.z * scale + offset;

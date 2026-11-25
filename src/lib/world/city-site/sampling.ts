@@ -28,6 +28,7 @@ export function planGround(sample: CityTerrainSampler, bankSetbackM: number) {
 	}
 	return {
 		clearanceAt: (x: number, y: number) => read(x, y).waterClearance - bankSetbackM,
+		waterClearanceAt: (x: number, y: number) => read(x, y).waterClearance,
 		heightAt: (x: number, y: number) => {
 			const reading = read(x, y);
 			return reading.waterKind === null ? reading.height : undefined;

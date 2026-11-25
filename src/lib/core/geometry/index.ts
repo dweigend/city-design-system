@@ -258,7 +258,8 @@ function inSegmentBounds([x, y]: Vec2, [ax, ay]: Vec2, [bx, by]: Vec2): boolean 
 	);
 }
 
-function segmentsMeet(a: Vec2, b: Vec2, c: Vec2, d: Vec2): boolean {
+/** Tests whether two closed segments with finite XY endpoints meet, including on their ends. */
+export function isSegmentIntersection(a: Vec2, b: Vec2, c: Vec2, d: Vec2): boolean {
 	const abC = turn(a, b, c);
 	const abD = turn(a, b, d);
 	const cdA = turn(c, d, a);
@@ -282,7 +283,7 @@ function ringsMeet(first: readonly Vec2[], second: readonly Vec2[]): boolean {
 		const a = first[i];
 		const b = first[(i + 1) % first.length];
 		for (let j = 0; j < second.length; j++) {
-			if (segmentsMeet(a, b, second[j], second[(j + 1) % second.length])) return true;
+			if (isSegmentIntersection(a, b, second[j], second[(j + 1) % second.length])) return true;
 		}
 	}
 	return false;
@@ -312,7 +313,7 @@ export function isSimpleRing(ring: readonly Vec2[]): boolean {
 		if (retraces(ring[(i + count - 1) % count], a, b)) return false;
 		const last = i === 0 ? count - 1 : count;
 		for (let j = i + /* Exact arithmetic: skip the adjacent edge. */ 2; j < last; j++) {
-			if (segmentsMeet(a, b, ring[j], ring[(j + 1) % count])) return false;
+			if (isSegmentIntersection(a, b, ring[j], ring[(j + 1) % count])) return false;
 		}
 	}
 	return true;

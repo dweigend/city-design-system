@@ -1,4 +1,4 @@
-import { distance, readVertexMean, type Vec2 } from '../../core/geometry';
+import { distance, isSegmentIntersection, readVertexMean, type Vec2 } from '../../core/geometry';
 import { required } from '../../core/invariant';
 import { planEdgeGraph, type PlanEdgePath, type TerrainGrid } from '../../domain/terrain-grid';
 import { citySiteConfig as config } from '../../../config/city-site';
@@ -20,33 +20,42 @@ type Candidate = CityCrossing & {
 	midpoint: Vec2;
 	score: number;
 };
+type Segment = readonly [Vec2, Vec2];
+type CrossingProposal = { candidate: Candidate; segments: readonly Segment[] };
 /** Selects which wet ground kinds may form one continuous crossing. */
 export type CrossableWater = (kind: NonNullable<CityTerrainReading['waterKind']>) => boolean;
 
 type HeadCell = { id: string; point: Vec2 };
+type ChannelPhase = 'before-wet' | 'in-wet' | 'after-wet';
+type WaterKind = CityTerrainReading['waterKind'];
 
-function crossesChannel(
-	points: readonly Vec2[],
-	sample: CityTerrainSampler,
+function* waterProbes(a: Vec2, b: Vec2, sample: CityTerrainSampler) {
+	const steps = Math.max(1, Math.ceil(distance(a, b) / config.crossingProbeStepM));
+	for (let step = 1; step <= steps; step++) {
+		const t = step / steps;
+		yield sample(a[0] + t * (b[0] - a[0]), a[1] + t * (b[1] - a[1])).waterKind;
+	}
+}
+
+function advanceChannel(
+	phase: ChannelPhase,
+	probes: Iterable<WaterKind>,
 	crossable: CrossableWater
 ) {
-	let wet = false;
-	let ended = false;
-	for (let segment = 1; segment < points.length; segment++) {
-		const [a, b] = [points[segment - 1], points[segment]];
-		const steps = Math.max(1, Math.ceil(distance(a, b) / config.crossingProbeStepM));
-		for (let step = 1; step <= steps; step++) {
-			const t = step / steps;
-			const ground = sample(a[0] + t * (b[0] - a[0]), a[1] + t * (b[1] - a[1]));
-			if (ground.waterKind === null) {
-				ended ||= wet;
-				continue;
-			}
-			if (ended || !crossable(ground.waterKind)) return false;
-			wet = true;
+	for (const kind of probes) {
+		if (kind === null) {
+			if (phase === 'in-wet') phase = 'after-wet';
+		} else {
+			if (phase === 'after-wet' || !crossable(kind)) return undefined;
+			phase = 'in-wet';
 		}
 	}
-	return wet;
+	return phase;
+}
+
+function crossesChannel(a: Vec2, b: Vec2, sample: CityTerrainSampler, crossable: CrossableWater) {
+	const phase = advanceChannel('before-wet', waterProbes(a, b, sample), crossable);
+	return phase !== undefined && phase !== 'before-wet';
 }
 
 function headCells(built: TerrainGrid, edgeNodes: ReadonlySet<string>) {
@@ -84,7 +93,7 @@ function oppositeHeads(
 	const pairs = first.filter(behind).flatMap((from) =>
 		last
 			.filter(beyond)
-			.filter((to) => crossesChannel([from.point, to.point], sample, crossable))
+			.filter((to) => crossesChannel(from.point, to.point, sample, crossable))
 			.map((to) => [from.id, to.id] as const)
 	);
 	return [
@@ -116,13 +125,30 @@ export function channelCrossings(
 	const byEdge = new Map(graph.edges.map((edge) => [edge.id, edge]));
 	const edgeNodes = new Set(graph.edges.flatMap(({ nodeIds }) => nodeIds));
 	const heads = headCells(built, edgeNodes);
-	const proposals: Candidate[] = [];
+	const forward = new Map<string, readonly WaterKind[]>();
+	const backward = new Map<string, readonly WaterKind[]>();
+	const traversal = {
+		initial: 'before-wet' as ChannelPhase,
+		advance(phase: ChannelPhase, { id }: { id: string }, from: string, to: string) {
+			const cache = from < to ? forward : backward;
+			let probes = cache.get(id);
+			if (!probes) {
+				probes = [...waterProbes(graph.point(from), graph.point(to), sample)];
+				cache.set(id, probes);
+			}
+			return advanceChannel(phase, probes, crossable);
+		},
+		accepts: (phase: ChannelPhase) => phase !== 'before-wet'
+	};
+	const proposals: CrossingProposal[] = [];
 	for (const [start, first] of heads) {
 		const a = graph.point(start);
 		for (const path of graph.pathsFrom(
 			start,
 			(id) => start < id && heads.has(id),
-			config.crossingMaxLengthM
+			config.crossingMaxLengthM,
+			undefined,
+			traversal
 		)) {
 			const end = required(path.nodeIds.at(-1), 'crossing end');
 			const b = graph.point(end);
@@ -130,7 +156,7 @@ export function channelCrossings(
 			const straightness = lengthM / path.lengthM;
 			if (
 				straightness < config.minimumPathStraightnessRatio ||
-				!crossesChannel([a, b], sample, crossable)
+				!crossesChannel(a, b, sample, crossable)
 			)
 				continue;
 			const span =
@@ -145,12 +171,7 @@ export function channelCrossings(
 				sample,
 				crossable
 			);
-			if (
-				!from.length ||
-				!to.length ||
-				!crossesChannel(path.nodeIds.map(graph.point), sample, crossable)
-			)
-				continue;
+			if (!from.length || !to.length) continue;
 			const waterCellIds = [
 				...new Set(
 					path.edges.flatMap(({ id }) =>
@@ -159,31 +180,44 @@ export function channelCrossings(
 				)
 			];
 			const midpoint: Vec2 = [(a[0] + b[0]) * 0.5, (a[1] + b[1]) * 0.5];
+			const segments = path.edges.map(({ from, to }): Segment => [
+				graph.point(from),
+				graph.point(to)
+			]);
+			if (span) segments.push([a, b]);
 			proposals.push({
-				id: JSON.stringify(path.nodeIds),
-				path,
-				...(span ? { span } : {}),
-				heads: [
-					Object.freeze({ nodeId: start, cellIds: Object.freeze(from) }),
-					Object.freeze({ nodeId: end, cellIds: Object.freeze(to) })
-				],
-				waterCellIds,
-				midpoint,
-				score: path.lengthM + config.coreDistanceWeightRatio * distance(core, midpoint)
+				candidate: {
+					id: JSON.stringify(path.nodeIds),
+					path,
+					...(span ? { span } : {}),
+					heads: [
+						Object.freeze({ nodeId: start, cellIds: Object.freeze(from) }),
+						Object.freeze({ nodeId: end, cellIds: Object.freeze(to) })
+					],
+					waterCellIds,
+					midpoint,
+					score: path.lengthM + config.coreDistanceWeightRatio * distance(core, midpoint)
+				},
+				segments
 			});
 		}
 	}
-	const selected: Candidate[] = [];
+	const selected: CrossingProposal[] = [];
 	for (const proposal of proposals.sort(
-		(a, b) => a.score - b.score || (a.id < b.id ? -1 : Number(a.id > b.id))
+		({ candidate: a }, { candidate: b }) =>
+			a.score - b.score || (a.id < b.id ? -1 : Number(a.id > b.id))
 	)) {
 		if (
 			selected.some(
-				({ midpoint }) => distance(midpoint, proposal.midpoint) < config.crossingSpacingM
+				({ candidate: { midpoint }, segments }) =>
+					distance(midpoint, proposal.candidate.midpoint) < config.crossingSpacingM ||
+					segments.some(([a, b]) =>
+						proposal.segments.some(([c, d]) => isSegmentIntersection(a, b, c, d))
+					)
 			)
 		)
 			continue;
 		selected.push(proposal);
 	}
-	return selected;
+	return selected.map(({ candidate }) => candidate);
 }

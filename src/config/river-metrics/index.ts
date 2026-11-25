@@ -2,6 +2,13 @@ import { defineSettings, settingValues } from '../setting';
 
 /** Numeric settings and their provenance. */
 export const settings = defineSettings({
+	maximumCrossProfileSampleCount: {
+		value: 1_000_000,
+		unit: 'count',
+		meaning: 'Maximum number of stations or total sample probes in the cross-profile scan',
+		bounds: { min: 1 },
+		rationale: 'Bounds synchronous measurement work and the memory used by profiles and results.'
+	},
 	wavelengthHeadingCrossingToleranceRatio: {
 		value: 1e-12,
 		unit: 'ratio',

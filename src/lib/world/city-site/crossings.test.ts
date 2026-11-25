@@ -197,3 +197,82 @@ test('main-lane router refuses edges rejected by a custom walkability predicate'
 	expect(detour).toBeDefined();
 	expect(detour?.path.nodeIds).not.toContain('v1');
 });
+
+function crossingProbe(
+	points: Record<string, Vec2>,
+	faces: readonly (readonly string[])[],
+	landings: readonly string[],
+	clearance: (x: number, y: number) => number
+) {
+	const vertices: TerrainGrid['vertices'] = Object.entries(points).map(([id, [x, y]]) => ({
+		id,
+		position: [x, y, 0]
+	}));
+	const cells: TerrainGrid['cells'] = faces.map((vertexIds, i) => ({
+		id: 'face' + i,
+		vertexIds,
+		neighbors: [],
+		groundKind: i % 2 === 0 ? 'river' : 'dry'
+	}));
+	const builtVertices = [...vertices];
+	const builtCells = landings.map((id) => {
+		const [x, y] = points[id];
+		for (const dy of [-1, 1])
+			builtVertices.push({ id: id + '/' + dy, position: [x + Math.sign(x) * 20, y + dy, 0] });
+		return { id: id + '/head', vertexIds: [id, id + '/-1', id + '/1'], neighbors: [] };
+	});
+	const sample: CityTerrainSampler = (x, y) => {
+		const waterClearance = clearance(x, y);
+		return waterClearance < 0
+			? { height: 0, waterClearance, waterKind: 'river', waterHeight: 1 }
+			: { height: 0, waterClearance, waterKind: null };
+	};
+	const built = { vertices: builtVertices, cells: builtCells, boundary: [] };
+	return channelCrossings(
+		{ vertices, cells, boundary: [] },
+		built,
+		sample,
+		[0, 0],
+		(kind) => kind === 'river'
+	);
+}
+
+test('finds a longer continuous crossing when the shorter edge path leaves and reenters water', () => {
+	const crossings = crossingProbe(
+		{ a: [-50, 0], b: [50, 0], c: [0, 26], d: [0, -32] },
+		[
+			['a', 'c', 'b', 'd'],
+			['d', 'b', 'c', 'a']
+		],
+		['a', 'b'],
+		(x, y) => Math.max(Math.abs(x) - 15, Math.min(6 - Math.abs(x), y - 10))
+	);
+	expect(crossings.map(({ path }) => path.nodeIds)).toEqual([['a', 'd', 'b']]);
+});
+
+test('rejects intersecting bridge chords even with separated crossing midpoints', () => {
+	const crossings = crossingProbe(
+		{
+			a: [-30, -130],
+			b: [26, 130],
+			c: [24, -101],
+			d: [-30, 315],
+			e: [40, 55],
+			f: [-24, 190],
+			k: [32, 150],
+			g: [0, 20],
+			h: [0, 40],
+			i: [0, 160],
+			j: [0, 140]
+		},
+		[
+			['a', 'c', 'b', 'g'],
+			['b', 'c', 'a', 'h'],
+			['d', 'f', 'k', 'e', 'i'],
+			['e', 'k', 'f', 'd', 'j']
+		],
+		['a', 'b', 'd', 'e'],
+		(x) => Math.abs(x) - 25
+	);
+	expect(crossings.map(({ span }) => span?.nodeIds)).toEqual([['a', 'b']]);
+});

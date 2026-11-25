@@ -52,6 +52,7 @@ export function prepareCarrier(
 			shore: {
 				align: true,
 				clearanceAt: ground.clearanceAt,
+				waterClearanceAt: ground.waterClearanceAt,
 				minimumEdge: shorelineMorphLimits.clippedMinimumEdgeRatio * coarseCellSize,
 				minimumArea: shorelineMorphLimits.clippedMinimumAreaRatio * coarseCellSize ** 2
 			},

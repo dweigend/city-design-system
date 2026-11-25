@@ -1,4 +1,4 @@
-import { pathsFocusPreset } from './index';
+import { pathsFocusPreset, railSurfaces } from './index';
 import { expect, test } from 'bun:test';
 import { createMovementNetwork } from '../../domain/movement-network';
 import { projectMovement } from './index';
@@ -55,4 +55,9 @@ test('the Paths preset shows parcel widths with rail and stairs in plan', () => 
 		expect(readFocusLevel('plan', part)).toBe('full');
 	expect(readFocusLevel('rail', 'walkways')).toBe('hidden');
 	expect(readFocusLevel('paths', 'parcels')).toBe('hidden');
+});
+
+test('pins the rail platform and bearing palette tokens', () => {
+	expect(railSurfaces.platform.color).toBe('--cat-mobility');
+	expect(railSurfaces.bearing.color).toBe('--cat-mobility-5');
 });

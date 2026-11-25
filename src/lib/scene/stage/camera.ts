@@ -11,6 +11,7 @@ import {
 	type Vec3
 } from '../../core/geometry';
 import { shadowReach, sun } from './tone';
+import type { TerrainAnchor } from './content';
 
 // Quarry BLICK, converted from its Y-up projection to world coordinates.
 const bearingRad = (32 * Math.PI) / 180;
@@ -185,6 +186,9 @@ export type CameraFrame = Readonly<{
 	/** The first displayed ground point on the ray through an image point, looking into the scene.
 	 * `direction` above points from the scene toward the eye. */
 	hit?: (point: Vec3, direction: Vec3) => Vec3 | undefined;
+	/** Resolves the hit in source coordinates for a viewport with a different presentation. */
+	locateGround?: (point: Vec3, direction: Vec3) => TerrainAnchor | undefined;
+	displayGround?: (anchor: TerrainAnchor) => Vec3;
 }>;
 
 /** Reads the image axes of a fitted camera for a canvas of `widthPx` CSS pixels. */
@@ -210,11 +214,18 @@ export function pickGround(frame: CameraFrame, offset: Vec2): Vec3 | undefined {
 }
 
 /** Reads the displayed ground, with a plane through the frame center as fallback. */
-export function groundAt(frame: CameraFrame, offset: Vec2): Vec3 {
+export function groundAt(frame: CameraFrame, offset: Vec2, next?: CameraFrame): Vec3 {
 	const { center, direction } = frame;
 	const onImage = imagePoint(frame, offset);
-	const hit = frame.hit?.(onImage, scaled(direction, -1));
-	if (hit || Math.abs(direction[2]) < 1e-9) return hit ?? onImage;
+	const ray = scaled(direction, -1);
+	if (next?.displayGround && frame.locateGround) {
+		const anchor = frame.locateGround(onImage, ray);
+		if (anchor) return next.displayGround(anchor);
+	} else {
+		const hit = frame.hit?.(onImage, ray);
+		if (hit) return hit;
+	}
+	if (Math.abs(direction[2]) < 1e-9) return onImage;
 	return sum(onImage, scaled(direction, (center[2] - onImage[2]) / direction[2]));
 }
 

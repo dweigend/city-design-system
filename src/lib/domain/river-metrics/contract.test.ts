@@ -1,4 +1,5 @@
 import { expect, test } from 'bun:test';
+import { crossSections } from './cross-profiles';
 import { clipPolylineToSquare, measureRiver, measureRiverSurface, sinuosity } from './index';
 
 test('clips a straight line to its two interpolated border points', () => {
@@ -172,4 +173,49 @@ test('uses the supplied classifier to measure width to a different terrace class
 	const custom = measureRiverSurface(grid, course, protocol, (floor) => floor === 1);
 	expect(custom.bankPairsM.length).toBeGreaterThan(0);
 	expect(custom.bankPairsM).toEqual(custom.widthM.map(() => [1, 1]));
+});
+
+test('visits the indexed station offsets when additions would round down cumulatively', () => {
+	const spacing = 1.25 * Number.EPSILON;
+	const end = 1 + 8 * Number.EPSILON;
+	const offsets = crossSections([0, 0, end, 0], 1, spacing, 1).map((station) => station(0).x);
+	expect(offsets).toEqual(Array.from({ length: 6 }, (_, index) => 1 + index * spacing));
+});
+
+test('allows one station immediately below a representable boundary', () => {
+	const first = 2 - Number.EPSILON;
+	const stations = crossSections([0, 0, 2, 0], first, Number.EPSILON, 1);
+	expect(stations.map((station) => station(0).x)).toEqual([first]);
+});
+
+test('rejects excessive finite station counts before taking any samples', () => {
+	let reads = 0;
+	const xy = new Proxy([0, 0, 1 + 2 ** -20, 0], {
+		get(target, key) {
+			// Stop the first sample if the count guard was bypassed.
+			if (key === '0' && reads++ > 0) throw Error('Unexpected profile sample');
+			return Reflect.get(target, key);
+		}
+	});
+	expect(() => crossSections(xy, 1, 1.25 * Number.EPSILON, 1)).toThrow('profileSpacingM');
+});
+
+test('rejects a finite profile with too many offsets even on a tiny raster', () => {
+	expect(() =>
+		measureRiverSurface(surfaceGrid, surfaceCourse, {
+			...surfaceProtocol,
+			profileHalfLengthM: 2 ** 26,
+			stationOffsetM: 2
+		})
+	).toThrow('profileHalfLengthM');
+});
+
+test('limits the combined station and profile sample count', () => {
+	expect(() => crossSections([0, 0, 2000, 0], 0, 1, 1, 1000)).toThrow('profileSpacingM');
+});
+
+test('rejects a repeated visited offset without rejecting a rounded endpoint', () => {
+	expect(() => crossSections([0, 0, 1 + Number.EPSILON, 0], 1, Number.EPSILON / 4, 1)).toThrow(
+		'advancing offsets'
+	);
 });

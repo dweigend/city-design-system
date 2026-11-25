@@ -4,6 +4,7 @@ import { Valley } from '../../domain/valley';
 import { reachFrame, windowFrame } from './frame';
 import { sectionCuts } from './sections';
 import { waterSurface } from './water';
+import { waterUnion } from './water-union';
 import { projectValley, projectValleyWindow, valleyTriangleBudget } from './index';
 
 test('frames the regional reach as a cut block within the triangle budget', () => {
@@ -209,4 +210,30 @@ test('draws a dry crop as ground and earth without empty water meshes', () => {
 	);
 	expect(drawables.map(({ id }) => id)).toEqual(['ground', 'earth']);
 	expect(triangleCount).toBeGreaterThan(0);
+});
+
+test('inserts an earlier raised seam vertex into a later water face', () => {
+	const union = waterUnion();
+	union([
+		[0, -1, 0],
+		[1, 0, 1],
+		[0, 0, 0]
+	]);
+	union([
+		[2, -1, 0],
+		[2, 0, 0],
+		[1, 0, 1]
+	]);
+	const [joined] = union([
+		[0, 0, 0],
+		[2, 0, 0],
+		[2, 1, 0],
+		[0, 1, 0]
+	]);
+	expect(joined.split).toBe(true);
+	expect(joined.polygon.slice(0, 3)).toEqual([
+		[0, 0, 0],
+		[1, 0, 1],
+		[2, 0, 0]
+	]);
 });

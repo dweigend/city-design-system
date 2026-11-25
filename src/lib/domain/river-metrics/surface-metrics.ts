@@ -1,9 +1,9 @@
 import { isFiniteVector } from '../../core/geometry';
 import { clipPolylineToSquare } from '../../core/polyline';
 import {
-	checkOffsets,
 	crossSections,
 	floodplainWidths,
+	offsetCount,
 	profileAt,
 	stepCandidates,
 	wetBanks
@@ -85,7 +85,7 @@ function checkSlopeLimits(limits: SurfaceProtocol['landSlopeClassLimits']): void
 		);
 }
 
-function checkProtocol(grid: SurfaceGrid, protocol: SurfaceProtocol): void {
+function checkProtocol(grid: SurfaceGrid, protocol: SurfaceProtocol): number {
 	const { surfaceSpacingM, profileHalfLengthM, landSlopeClassLimits } = protocol;
 	const { stationOffsetM, stepMinimumSlope, stepMinimumGainM } = protocol;
 	const positive = {
@@ -108,13 +108,13 @@ function checkProtocol(grid: SurfaceGrid, protocol: SurfaceProtocol): void {
 		throw new RangeError('surfaceSpacingM must fit twice in windowM');
 	if (profileHalfLengthM % grid.spacingM !== 0)
 		throw new RangeError('profileHalfLengthM must be a multiple of grid.spacingM');
-	checkOffsets(
+	checkSlopeLimits(landSlopeClassLimits);
+	return offsetCount(
 		'profileHalfLengthM and spacingM',
 		-profileHalfLengthM,
 		profileHalfLengthM,
 		grid.spacingM
 	);
-	checkSlopeLimits(landSlopeClassLimits);
 }
 
 function checkSamples(field: string, values: ArrayLike<number>, length: number): void {
@@ -178,7 +178,7 @@ export function measureRiverSurface(
 	isTerrace: (floor: number) => boolean = isDefaultTerrace
 ) {
 	const side = checkGrid(grid);
-	checkProtocol(grid, protocol);
+	const samplesPerProfile = checkProtocol(grid, protocol);
 	const reach = clipPolylineToSquare(course, grid.windowM);
 	const surface = smoothSurface(
 		grid,
@@ -197,7 +197,8 @@ export function measureRiverSurface(
 				reach.xy,
 				protocol.stationOffsetM,
 				protocol.profileSpacingM,
-				protocol.stationTangentHalfLengthM
+				protocol.stationTangentHalfLengthM,
+				samplesPerProfile
 			)
 		: [];
 	for (const station of stations) {
@@ -211,9 +212,12 @@ export function measureRiverSurface(
 			terrace
 		);
 		recordWidths(profile, terrace !== undefined, widths);
-		stepHeightsM.push(
-			...stepCandidates(profile, protocol.stepMinimumSlope, protocol.stepMinimumGainM)
-		);
+		for (const step of stepCandidates(
+			profile,
+			protocol.stepMinimumSlope,
+			protocol.stepMinimumGainM
+		))
+			stepHeightsM.push(step);
 	}
 	return {
 		...widths,

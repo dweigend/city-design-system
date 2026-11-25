@@ -38,9 +38,10 @@ function build(edge: AccessEdge, slot: string, draw: (mesh: Mesh) => void) {
 	const start = edge.points[0];
 	const end = edge.points.at(-1);
 	if (edge.points.length < 2 || !end) throw new RangeError('Expected two or more edge points');
+	const supports = checkedSupports(edge.supports ?? []);
 	const layers = { [slot]: mesh(), bearing: mesh() };
 	draw(layers[slot]);
-	for (const { base, top } of edge.supports ?? [])
+	for (const { base, top } of supports)
 		drawBearing(layers.bearing, base, top, defaults.walkwayPierRadiusM, defaults.deckThicknessM);
 	const normal: Vec3 = /* Exact arithmetic: positive Z axis. */ [0, 0, 1];
 	const anchors: Anchor[] = [
@@ -56,6 +57,17 @@ function checkPoints(points: readonly Vec3[]): void {
 		if (!isFiniteVector(points[i], 3))
 			throw new RangeError(`Access point ${i} requires finite XYZ coordinates`);
 	}
+}
+
+// Exact arithmetic: bearing endpoints are XYZ triples.
+function checkedSupports(supports: NonNullable<AccessEdge['supports']>) {
+	for (const [index, { base, top }] of supports.entries()) {
+		if (!isFiniteVector(base, 3))
+			throw new RangeError(`Support ${index} base requires finite XYZ coordinates`);
+		if (!isFiniteVector(top, 3))
+			throw new RangeError(`Support ${index} top requires finite XYZ coordinates`);
+	}
+	return supports;
 }
 
 /** Builds one supported deck along its resolved edge, with an anchor at each end. */
@@ -83,9 +95,10 @@ function stairRun({ points }: AccessEdge) {
 	return run;
 }
 
-/** Rejects malformed XYZ points and edges without an inclined run of positive horizontal length. */
+/** Rejects malformed XYZ points and bearings, and edges without an inclined run of positive horizontal length. */
 export function validateStairEdge(edge: AccessEdge): void {
 	stairRun(edge);
+	checkedSupports(edge.supports ?? []);
 }
 
 /** Builds one supported stair with metric treads. Removes the level approach preceding the

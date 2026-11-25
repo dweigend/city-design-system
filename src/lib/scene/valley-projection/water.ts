@@ -1,7 +1,7 @@
-import type { Vec3 } from '../../core/geometry';
+import { sum, scaled, type Vec3 } from '../../core/geometry';
 import { channelPolygons, type Valley } from '../../domain/valley';
 import type { ReachFrame } from './frame';
-import { waterUnion } from './water-union';
+import { waterUnion, type WaterFace } from './water-union';
 
 type Polygon = readonly Vec3[];
 
@@ -51,20 +51,22 @@ export function waterSurface(valley: Valley, frame: ReachFrame, width: number, s
 	const point = weld(surface);
 	const polygons: Polygon[] = [];
 	const union = waterUnion();
-	const append = (polygon: Polygon) => {
+	const append = ({ polygon, split }: WaterFace) => {
 		const indices = polygon.map(point);
-		for (let i = 1; i + 1 < polygon.length; i++) {
-			const [a, b, c] = [polygon[0], polygon[i], polygon[i + 1]];
-			if (
-				indices[0] === indices[i] ||
-				indices[i] === indices[i + 1] ||
-				indices[0] === indices[i + 1]
-			)
-				continue;
+		// A fan from a boundary vertex can skip collinear seam edges. Use an interior fan
+		// for pieces with split edges so every inserted vertex reaches the mesh.
+		const a = split
+			? polygon.reduce<Vec3>((total, p) => sum(total, scaled(p, 1 / polygon.length)), [0, 0, 0])
+			: polygon[0];
+		const first = split ? point(a) : indices[0];
+		for (let i = split ? 0 : 1; i < (split ? polygon.length : polygon.length - 1); i++) {
+			const next = (i + 1) % polygon.length;
+			const [b, c] = [polygon[i], polygon[next]];
+			if (first === indices[i] || indices[i] === indices[next] || first === indices[next]) continue;
 			const area = (b[0] - a[0]) * (c[1] - a[1]) - (c[0] - a[0]) * (b[1] - a[1]);
 			if (Math.abs(area) < 1e-8) continue;
-			if (area > 0) surface.indices.push(indices[0], indices[i], indices[i + 1]);
-			else surface.indices.push(indices[0], indices[i + 1], indices[i]);
+			if (area > 0) surface.indices.push(first, indices[i], indices[next]);
+			else surface.indices.push(first, indices[next], indices[i]);
 		}
 		polygons.push(polygon);
 	};

@@ -54,3 +54,26 @@ test.each([validateStairEdge, createStairObject, createWalkwayObject])(
 		);
 	}
 );
+
+test.each([validateStairEdge, createStairObject, createWalkwayObject])(
+	'validates bearing endpoints in %p',
+	(read) => {
+		const points = [
+			[0, 0, 1],
+			[3, 0, 3]
+		] as const;
+		const valid = { base: [0, 0, 0], top: points[0] } as const;
+		for (const endpoint of ['base', 'top'] as const) {
+			for (const invalid of [
+				[0, 0],
+				[0, 0, 0, 1],
+				[0, 0, Infinity]
+			]) {
+				const support = { ...valid, [endpoint]: invalid as unknown as Vec3 };
+				expect(() => read({ id: 'edge', points, supports: [support] })).toThrow(
+					`Support 0 ${endpoint} requires finite XYZ coordinates`
+				);
+			}
+		}
+	}
+);

@@ -11,7 +11,7 @@ import {
 	type ViewFit
 } from './camera';
 import { setStrokeDepth, strokeMaterials } from './edges';
-import { createContent } from './content';
+import { createContent, displayTerrainAnchor, type TerrainAnchor } from './content';
 import type { Display } from './material';
 import { createStyle } from './style';
 import { openRenderer } from './renderer';
@@ -110,6 +110,8 @@ async function create({
 				if (next !== presented) content.style(next);
 				presented = next;
 			}
+			const dark = canvas.ownerDocument.documentElement.dataset.theme === 'dark';
+			styleContent(display, dark);
 			const clipping = content.clippingBounds;
 			const { center, eye, up, halfWidth, halfHeight, near, far } =
 				clipping === bounds ? framing : fitCamera(view, bounds, aspect, landscape, fit, clipping);
@@ -128,8 +130,6 @@ async function create({
 			camera.getWorldDirection(strokes.eye.value).negate();
 			setStrokeDepth(strokes, camera, clipping, width / widthPx);
 
-			const dark = canvas.ownerDocument.documentElement.dataset.theme === 'dark';
-			styleContent(display, dark);
 			try {
 				renderer.render(scene, camera);
 				displayedFrame = {
@@ -204,13 +204,22 @@ async function create({
 		/** Reads ground at a CSS pixel offset from the last displayed image center. */
 		pickGround: (offset: Vec2) => displayedFrame && pickGround(displayedFrame, offset),
 		/** Reads the image axes and scale the stage would use for another fit. */
-		readFrame: (next: ViewFit) => ({
-			...cameraFrame(
-				fitCamera(state.read().view, content.bounds, aspect, landscape, next),
-				widthPx
-			),
-			hit: content.hit
-		}),
+		readFrame(next: ViewFit) {
+			const framing = fitCamera(state.read().view, content.bounds, aspect, landscape, next);
+			const camera = cameraFrame(framing, widthPx);
+			const width = framing.halfWidth * 2;
+			const nextViewport = { width, metersPerPixel: camera.metersPerPixel, center: camera.center };
+			return {
+				...camera,
+				hit: content.hit,
+				locateGround: content.locateGround,
+				displayGround: (anchor: TerrainAnchor) =>
+					displayTerrainAnchor(
+						anchor,
+						present?.(nextViewport)[anchor.index] ?? content.parts[anchor.index].drawable
+					)
+			};
+		},
 		/** Resizes to CSS pixels with a device pixel ratio of at most two. */
 		resize(widthCSS: number, heightPx: number) {
 			if (closing) return;
