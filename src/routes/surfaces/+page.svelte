@@ -1,66 +1,103 @@
 <script module lang="ts">
 	export const lead =
-		'The city draws on a chosen palette, with colors in the transparent view marking what infrastructure does and existing buildings shown as pale forms or pencil outlines.';
+		'An architectural model of a library and a board of sample plates show how the city’s workshop materials read at different levels of detail.';
 </script>
 
 <script lang="ts">
+	import { goto } from '$app/navigation';
+	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
+	import { SvelteURLSearchParams } from 'svelte/reactivity';
+	import { specimenSettings } from '../../config/surface-specimens';
 	import {
 		familyNames,
 		surfaceLevels,
 		type Family,
 		type SurfaceLevel
 	} from '../../lib/domain/material';
-	import { StageView } from '../../lib/scene/stage-view';
 	import { existing, paintClad, type MaterialDisplay } from '../../lib/scene/surface';
+	import { Select } from '../../lib/ui/select';
 	import { Slider } from '../../lib/ui/slider';
 	import { Switch } from '../../lib/ui/switch';
 	import { ToggleGroup } from '../../lib/ui/toggle-group';
 	import ChapterHeader from '../ChapterHeader.svelte';
+	import ChapterViewer from '../ChapterViewer.svelte';
 	import { chapterAt } from '../chapters';
 	import { createSampleBoard } from './board';
 	import { createSampleBody } from './body';
-	import { specimenSettings } from '../../config/surface-specimens';
-	import { groundFamily, readControl } from './controls';
+	import { familyLabels, groundFamily, levelLabels, readControl, readSpecimen } from './controls';
 
 	const chapter = chapterAt('/surfaces');
-	const names: Record<Family, string> = {
-		board: 'Painted board',
-		card: 'Grey board',
-		cork: 'Cork',
-		stripe: 'Stripe laminate',
-		perforated: 'Perforated sheet',
-		acrylic: 'Lit acrylic',
-		ground: 'Ground'
-	};
-	const levelNames: Record<SurfaceLevel, string> = {
-		near: 'Near',
-		mid: 'Mid',
-		far: 'Far',
-		plain: 'Plain',
-		pencil: 'Pencil'
-	};
+	const portalTo = '.surfaces-hero .chapter-viewer';
+	const format = new Intl.NumberFormat('en');
+	const specimens = [
+		{ value: 'body', label: 'Body' },
+		{ value: 'board', label: 'Plates' }
+	];
 	const wallFamilies = familyNames.filter((family) => family !== groundFamily);
-	const query = page.url.searchParams;
-	const pickFamily = (value: string | null) => familyNames.find((family) => family === value);
-	const number = (key: string, fallback: number) => {
-		const value = Number(query.get(key));
-		return query.has(key) && Number.isFinite(value) ? value : fallback;
-	};
+	const levels = surfaceLevels.map((value) => ({ value, label: levelLabels[value] }));
+	const [moduleMin, moduleMax, moduleStep] = specimenSettings.moduleScaleBand;
+	const [seedMin, seedMax, seedStep] = specimenSettings.seedBand;
 
-	const shown = (query.get('show') ?? '').split(',').flatMap((value) => pickFamily(value) ?? []);
-	const levelRow = (query.get('levels') ?? '')
-		.split(',')
-		.flatMap((value) => surfaceLevels.find((level) => level === value) ?? []);
-	let level = $state<SurfaceLevel>(
-		surfaceLevels.find((value) => value === query.get('level')) ?? 'near'
+	const location = $derived(page.shallow?.url ?? page.url);
+	const specimen = $derived(readSpecimen(location.searchParams));
+	const isBody = $derived(specimen === 'body');
+
+	function selectSpecimen(value: string) {
+		const query = new SvelteURLSearchParams(location.search);
+		query.set('specimen', value);
+		void goto(resolve(`/surfaces?${query}${location.hash}`), {
+			shallow: true,
+			replace: true,
+			reset: false,
+			state: page.state
+		});
+	}
+
+	function zoomFromQuery(key: string) {
+		const query = location.searchParams;
+		const value = Number(query.get(key));
+		return query.has(key) && Number.isFinite(value) ? value : 1;
+	}
+
+	const queryShown = $derived(location.searchParams.get('show'));
+	const queryLevels = $derived(location.searchParams.get('levels'));
+	const shown = $derived(
+		(queryShown ?? '')
+			.split(',')
+			.flatMap((value) => familyNames.find((family) => family === value) ?? [])
 	);
-	let transparent = $state(query.get('display') === 'transparency');
-	let moduleScale = $state(readControl(query.get('module'), specimenSettings.moduleScaleBand));
-	let seed = $state(readControl(query.get('seed'), specimenSettings.seedBand));
-	let bodyFamily = $state<string>(pickFamily(query.get('body')) ?? 'board');
-	const zoom = number('zoom', 1);
-	const bodyZoom = number('bodyZoom', 1);
+	let levelRow = $derived(
+		(queryLevels ?? '')
+			.split(',')
+			.flatMap((value) => surfaceLevels.find((level) => level === value) ?? [])
+	);
+	const queryLevel = $derived(location.searchParams.get('level'));
+	const queryDisplay = $derived(location.searchParams.get('display'));
+	const queryModule = $derived(location.searchParams.get('module'));
+	const querySeed = $derived(location.searchParams.get('seed'));
+	const queryBody = $derived(location.searchParams.get('body'));
+	let level = $derived(surfaceLevels.find((value) => value === queryLevel) ?? 'near');
+	let transparent = $derived(queryDisplay === 'transparency');
+	let moduleScale = $derived(readControl(queryModule, specimenSettings.moduleScaleBand));
+	let seed = $derived(readControl(querySeed, specimenSettings.seedBand));
+	let bodyFamily = $derived<string>(familyNames.find((family) => family === queryBody) ?? 'board');
+	function selectLevel(value: string) {
+		level = surfaceLevels.find((item) => item === value) ?? 'near';
+		if (!isBody && levelRow.length) levelRow = [];
+	}
+
+	const family = $derived(familyNames.find((value) => value === bodyFamily) ?? 'board');
+	const bodies = $derived(
+		(queryBody === groundFamily ? familyNames : wallFamilies).map((value) => ({
+			value,
+			label: familyLabels[value]
+		}))
+	);
+	const zoom = $derived(zoomFromQuery('zoom'));
+	const bodyZoom = $derived(zoomFromQuery('bodyZoom'));
+	const boardFit = $derived({ zoom });
+	const bodyFit = $derived({ zoom: bodyZoom });
 
 	const display = $derived<MaterialDisplay>(transparent ? 'transparency' : 'normal');
 	const options = $derived({ seed, moduleScale, level });
@@ -69,105 +106,107 @@
 			? levelRow.map((rowLevel) => ({ family: shown[0] ?? 'stripe', level: rowLevel }))
 			: (shown.length ? shown : familyNames).map((family) => ({ family }))
 	);
+	const plateLabels = $derived(
+		entries.map(({ family, level }) =>
+			level ? `${familyLabels[family]} (${levelLabels[level]})` : familyLabels[family]
+		)
+	);
 	const board = $derived(createSampleBoard(entries, options));
-	const body = $derived(createSampleBody(pickFamily(bodyFamily) ?? 'board', options));
+	const body = $derived(createSampleBody(family, options));
 	const plain = { stand: existing.roof };
-	const boardDrawables = $derived(paintClad(board, display, plain));
-	const bodyDrawables = $derived(paintClad(body, display));
+	const drawables = $derived(isBody ? paintClad(body, display) : paintClad(board, display, plain));
 	const plateTriangles = $derived(Math.max(...board.surfaces.map(({ triangles }) => triangles)));
-
-	const levels = surfaceLevels.map((value) => ({ value, label: levelNames[value] }));
-	const bodies = wallFamilies.map((value) => ({ value, label: names[value] }));
-	const [moduleMin, moduleMax, moduleStep] = specimenSettings.moduleScaleBand;
-	const [seedMin, seedMax, seedStep] = specimenSettings.seedBand;
 </script>
 
 <svelte:head>
 	<title>{chapter.title} · City Design System</title>
 </svelte:head>
 
-<ChapterHeader number={chapter.number} title={chapter.title} {lead} />
+<ChapterHeader title={chapter.title} />
 
-<section class="stack" aria-label="Sample plates">
-	<h2>Model materials, not facades</h2>
+<section class="chapter-hero surfaces-hero" aria-label="Material specimens">
+	<ChapterViewer
+		resetKey={page.url.search}
+		stage={{
+			drawables,
+			view: 'iso',
+			display,
+			fit: isBody ? bodyFit : boardFit,
+			interactive: true,
+			label: isBody
+				? `${familyLabels[family]} library model with a cantilevered reading room and flat roofs`
+				: `Sample plates: ${plateLabels.join(', ')}`
+		}}
+	>
+		{#snippet controls()}
+			<div class="control-choice">
+				<ToggleGroup
+					label="Specimen"
+					showLabel
+					items={specimens}
+					bind:value={() => specimen, selectSpecimen}
+				/>
+			</div>
+			<div class="control-choice surfaces-level">
+				<ToggleGroup
+					label="Level"
+					showLabel
+					items={levels}
+					bind:value={() => (!isBody && levelRow.length ? '' : level), selectLevel}
+				/>
+			</div>
+			<div class="surfaces-finish">
+				{#if isBody}
+					<Select label="Walls" items={bodies} {portalTo} bind:value={bodyFamily} />
+				{/if}
+				<Switch label="Transparency" bind:checked={transparent} />
+			</div>
+			<div class="surfaces-sliders">
+				<Slider
+					label="Pattern scale"
+					min={moduleMin}
+					max={moduleMax}
+					step={moduleStep}
+					bind:value={moduleScale}
+				/>
+				<Slider label="Seed" min={seedMin} max={seedMax} step={seedStep} bind:value={seed} />
+			</div>
+		{/snippet}
+	</ChapterViewer>
+	<p class="data surfaces-budget" role="status">
+		{#if isBody}
+			Body {format.format(body.triangles)} of {format.format(specimenSettings.bodyTriangleBudget)} triangles
+		{:else}
+			Largest plate {format.format(plateTriangles)} of {format.format(
+				specimenSettings.plateTriangleBudget
+			)}
+			triangles · all plates {format.format(board.triangles)}
+		{/if}
+	</p>
+	{#if !isBody}
+		<p class="small surfaces-legend">
+			{plateLabels.join(' · ')}
+		</p>
+	{/if}
+</section>
+
+<div class="chapter-notes stack">
+	<p class="lead">{lead}</p>
 	<p>
-		A house is drawn as an architectural model, built from the materials of the model workshop:
-		painted board, grey board, cork, stripe laminate, perforated sheet, lit acrylic and an abstract
-		ground. Every body is one material in one tone. Texture is either fine and even, like the grain
-		of cork, or a flat graphic pattern, like stripes and dots, and a pattern covers a whole body and
-		runs on over its edges. Each recipe carries no colour; the palette paints it at one boundary,
-		and the transparency view turns every plate into the same grey veil.
+		The lower library bar and cantilevered reading room share one wall material. Stripes and
+		perforations follow the same coordinates across both volumes. Flat roof slabs frame the massing,
+		and recessed acrylic lights mark the entrance and reading rooms.
+	</p>
+	<p>
+		Near shows grain, printed patterns and panel joints. Mid retains the openings. Far keeps the
+		silhouette and large graphic patterns. Plain uses solid tones, and Pencil traces the edges and
+		joints. Transparency draws the materials as a grey veil.
 	</p>
 	<ul>
-		<li>One body, one material, one tone: no courses, joints or weathering across a face.</li>
-		<li>Three parts per house at most: a dominant body, a contrasting body, one small accent.</li>
-		<li>
-			Saturated matte solids beside cork, cream, chocolate and grey board, kept clear of the flow
-			colours.
-		</li>
-		<li>
-			Openings are few and plain: a recessed dark hole; a panel joint is one hairline at most.
-		</li>
-		<li>
-			Light makes the form: faces differ in value only. Lit acrylic is light as material, once per
-			house.
-		</li>
+		<li>Use one workshop material and one tone across a body.</li>
+		<li>Limit a building to a dominant body, a contrasting body and one small accent.</li>
+		<li>Keep saturated matte solids and warm neutrals distinct from the flow colours.</li>
+		<li>Recess openings and draw panel joints as hairlines.</li>
+		<li>Let light distinguish faces by value and use lit acrylic once per building.</li>
 	</ul>
-	<div class="city-stage">
-		<StageView
-			drawables={boardDrawables}
-			view="iso"
-			{display}
-			fit={{ zoom }}
-			interactive
-			label={`Sample plates: ${entries.map(({ family, level }) => names[family] + (level ? ` ${levelNames[level]}` : '')).join(', ')}`}
-		/>
-	</div>
-	<div class="cluster">
-		<ToggleGroup label="Level" items={levels} bind:value={level} />
-		<Switch label="Transparency" bind:checked={transparent} />
-		<Slider
-			label="Pattern scale"
-			min={moduleMin}
-			max={moduleMax}
-			step={moduleStep}
-			bind:value={moduleScale}
-		/>
-		<Slider label="Seed" min={seedMin} max={seedMax} step={seedStep} bind:value={seed} />
-	</div>
-	<p class="data">
-		Largest plate {plateTriangles.toLocaleString('en')} of {specimenSettings.plateTriangleBudget.toLocaleString(
-			'en'
-		)} triangles · all plates {board.triangles.toLocaleString('en')}
-	</p>
-</section>
-
-<section class="stack" aria-label="Surface on a body">
-	<h2>The same material on a house</h2>
-	<p>
-		On a body the material meets corners, a gable, a door, two windows and the ground. Its pattern
-		is laid in the coordinates of the whole body, so stripes and dots run on round the corners
-		instead of starting again on every wall. The roof takes one flat tone and the windows are lit
-		acrylic. With distance the house simplifies: near shows grain and panel joints, mid the openings
-		and every pattern, far only the plain body and a large graphic pattern, and pencil a drawing of
-		its joints.
-	</p>
-	<div class="city-stage">
-		<StageView
-			drawables={bodyDrawables}
-			view="iso"
-			{display}
-			fit={{ zoom: bodyZoom }}
-			interactive
-			label={`${names[pickFamily(bodyFamily) ?? 'board']} model house with a gable roof on a ground plate`}
-		/>
-	</div>
-	<div class="cluster">
-		<ToggleGroup label="Walls" items={bodies} bind:value={bodyFamily} />
-	</div>
-	<p class="data">
-		House {body.triangles.toLocaleString('en')} of {specimenSettings.bodyTriangleBudget.toLocaleString(
-			'en'
-		)} triangles
-	</p>
-</section>
+</div>

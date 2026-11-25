@@ -17,7 +17,7 @@ const routes = [
 	['/supply', 0],
 	['/architecture', 1],
 	['/architecture/structure', 1],
-	['/surfaces', 2],
+	['/surfaces', 1],
 	['/interface', 0],
 	['/blocks', 1],
 	['/content', 0],
@@ -650,32 +650,181 @@ journeys('commits city geometry sliders and previews taper live', async ({ page 
 	}
 });
 
-// Surface controls must update the plates and both stage displays. This catches a disconnected
-// level or switch after hydration. Geometry tests cannot exercise the controls. No hooks are added.
-journeys('changes the surface plate level and transparency', async ({ page }) => {
+journeys('changes the surface plate level and transparency on one stage', async ({ page }) => {
 	await open(page, '/surfaces');
-	const stages = await (await readyStages(page, 2)).all();
-	const builds = await Promise.all(
-		stages.map((canvas) => canvas.getAttribute('data-stage-drawable-builds'))
-	);
-	for (const count of builds) expect(Number(count)).toBeGreaterThan(0);
-	const plates = page.getByRole('region', { name: 'Sample plates' });
-	const transparency = plates.getByRole('switch', { name: 'Transparency' });
-	for (const display of ['transparency', 'normal'] as const) {
-		await transparency.click();
-		await expect(transparency).toHaveAttribute('aria-checked', String(display === 'transparency'));
-		for (const [index, canvas] of stages.entries()) {
+	const canvas = (await readyStages(page, 1)).first();
+	const original = await canvas.elementHandle();
+	const hero = page.getByRole('region', { name: 'Material specimens' });
+	const specimen = hero.getByRole('radiogroup', { name: 'Specimen' });
+	const body = specimen.getByRole('radio', { name: 'Body', exact: true });
+	const plates = specimen.getByRole('radio', { name: 'Plates', exact: true });
+	const level = hero.getByRole('radiogroup', { name: 'Level' });
+	const plain = level.getByRole('radio', { name: 'Plain', exact: true });
+	const transparency = hero.getByRole('switch', { name: 'Transparency' });
+	const triangles = hero.getByRole('status');
+	const builds = () => canvas.getAttribute('data-stage-drawable-builds');
+
+	async function expectSameCanvas() {
+		await expect(page.locator('canvas')).toHaveCount(1);
+		expect(await original.evaluate((element) => element === document.querySelector('canvas'))).toBe(
+			true
+		);
+	}
+
+	async function checkTransparency() {
+		const beforeDisplay = await builds();
+		for (const display of ['transparency', 'normal']) {
+			await transparency.click();
+			await expect(transparency).toHaveAttribute(
+				'aria-checked',
+				String(display === 'transparency')
+			);
 			await expect(canvas).toHaveAttribute('data-stage-display', display);
-			await expect(canvas).toHaveAttribute('data-stage-drawable-builds', builds[index] ?? '');
+			await expect(canvas).toHaveAttribute('data-stage-drawable-builds', beforeDisplay ?? '');
+			await expectSameCanvas();
 		}
 	}
-	const triangles = plates.getByText(/^Largest plate /);
+
+	await expect(body).toBeChecked();
+	await expect(triangles).toHaveText(/^Body /);
+	await renderedChange(canvas, () => choose(page, 'Walls', 'Stripe laminate'));
+	await checkTransparency();
+	const module = hero.getByRole('slider', { name: 'Pattern scale' });
+	await module.press('ArrowRight');
+	await expect(module).toHaveAttribute('aria-valuenow', '1.25');
+	await renderedChange(canvas, () => plates.click());
+	await expect(plates).toBeChecked();
+	await expect(page).toHaveURL(/\?specimen=board$/);
+	await expect(module).toHaveAttribute('aria-valuenow', '1.25');
+	await expect(canvas).toHaveAttribute('aria-label', /^Sample plates:/);
+	await expectSameCanvas();
+
 	const before = await triangles.textContent();
-	const plain = plates.getByRole('radio', { name: 'Plain', exact: true });
+	const beforeLevel = Number(await builds());
 	await plain.click();
 	await expect(plain).toBeChecked();
 	await expect(triangles).not.toHaveText(before ?? '');
+	await expect.poll(async () => Number(await builds())).toBeGreaterThan(beforeLevel);
+	await expectSameCanvas();
+	await checkTransparency();
+
+	await renderedChange(canvas, () => body.click());
+	await expect(body).toBeChecked();
+	await expect(plain).toBeChecked();
+	await expect(canvas).toHaveAttribute('aria-label', /^Stripe laminate library model/);
+	await expect(triangles).toHaveText(/^Body /);
+	await expectSameCanvas();
 });
+
+journeys('hydrates /surfaces capture URLs for both specimens', async ({ page }) => {
+	await open(page, '/surfaces?specimen=board&show=stripe&level=mid');
+	let canvas = (await readyStages(page, 1)).first();
+	await expect(canvas).toHaveAttribute('aria-label', 'Sample plates: Stripe laminate');
+	await expect(page.getByRole('radio', { name: 'Plates', exact: true })).toBeChecked();
+	await expect(page.getByRole('radio', { name: 'Mid', exact: true })).toBeChecked();
+	await expect(page.getByRole('combobox', { name: 'Walls' })).toHaveCount(0);
+
+	await open(page, '/surfaces?specimen=body&body=stripe');
+	canvas = (await readyStages(page, 1)).first();
+	await expect(canvas).toHaveAttribute('aria-label', /^Stripe laminate library model/);
+	await expect(page.getByRole('radio', { name: 'Body', exact: true })).toBeChecked();
+	await expect(page.getByRole('combobox', { name: 'Walls' })).toHaveText('Stripe laminate');
+
+	const capture =
+		'/surfaces?show=stripe&levels=near,pencil&display=transparency&module=1.5&seed=42&body=cork&zoom=1.2&bodyZoom=0.8';
+	await open(page, capture);
+	canvas = (await readyStages(page, 1)).first();
+	await expect(canvas).toHaveAttribute(
+		'aria-label',
+		'Sample plates: Stripe laminate (Near), Stripe laminate (Pencil)'
+	);
+	await expect(canvas).toHaveAttribute('data-stage-display', 'transparency');
+	await expect(page.getByRole('slider', { name: 'Pattern scale' })).toHaveAttribute(
+		'aria-valuenow',
+		'1.5'
+	);
+	await expect(page.getByRole('slider', { name: 'Seed' })).toHaveAttribute('aria-valuenow', '42');
+	await page.getByRole('radio', { name: 'Body', exact: true }).click();
+	await expect(canvas).toHaveAttribute('aria-label', /^Cork library model/);
+	const search = new URL(page.url()).searchParams;
+	search.delete('specimen');
+	expect(search.toString()).toBe(new URL(capture, page.url()).searchParams.toString());
+
+	await page.getByRole('radio', { name: 'Plates', exact: true }).click();
+	const level = page.getByRole('radiogroup', { name: 'Level' });
+	await expect(level.getByRole('radio', { checked: true })).toHaveCount(0);
+	const far = level.getByRole('radio', { name: 'Far', exact: true });
+	await far.click();
+	await expect(far).toBeChecked();
+	await expect(canvas).toHaveAttribute('aria-label', 'Sample plates: Stripe laminate');
+});
+
+for (const viewport of [
+	{ width: 1440, height: 900 },
+	{ width: 390, height: 844 }
+]) {
+	for (const colorScheme of ['light', 'dark'] as const) {
+		journeys(
+			`keeps the /surfaces HUD usable at ${viewport.width}px in ${colorScheme} mode`,
+			async ({ page }) => {
+				await page.setViewportSize(viewport);
+				await page.emulateMedia({ colorScheme });
+				await open(page, '/surfaces');
+				const canvas = (await readyStages(page, 1)).first();
+				await expect(canvas).toHaveAttribute('data-stage-theme', colorScheme);
+				const hero = page.getByRole('region', { name: 'Material specimens' });
+				const hud = hero.locator('.chapter-viewer-hud');
+				const enter = hud.getByRole('button', { name: 'Enter fullscreen' });
+				const exit = hud.getByRole('button', { name: 'Exit fullscreen' });
+				const body = hud.getByRole('radio', { name: 'Body', exact: true });
+				const plates = hud.getByRole('radio', { name: 'Plates', exact: true });
+				const walls = hud.getByRole('combobox', { name: 'Walls' });
+				const width = () => page.evaluate(() => document.documentElement.scrollWidth);
+
+				for (const control of [canvas, hud, enter, hero.getByRole('status')])
+					await expect(control).toBeInViewport({ ratio: 1 });
+				expect(await width()).toBe(viewport.width);
+				await plates.click();
+				await expect(walls).toBeHidden();
+				await expect(hud).toBeInViewport({ ratio: 1 });
+				expect(await width()).toBe(viewport.width);
+
+				const original = await canvas.elementHandle();
+				const fullscreen = hero.locator('.chapter-viewer:fullscreen');
+				await enter.click();
+				await expect(fullscreen.locator('canvas')).toHaveCount(1);
+				// Headless Chromium initially enters fullscreen at its virtual display size.
+				await page.setViewportSize(viewport);
+				await expect
+					.poll(() => page.evaluate(() => ({ width: innerWidth, height: innerHeight })))
+					.toEqual(viewport);
+				await body.click();
+				await choose(page, 'Walls', 'Perforated sheet');
+				await expect(fullscreen.getByRole('radiogroup', { name: 'Level' })).toBeInViewport({
+					ratio: 1
+				});
+				await expect(exit).toBeInViewport({ ratio: 1 });
+				const hudBox = await hud.boundingBox();
+				if (!hudBox) throw new Error('Expected a fullscreen HUD');
+				expect(hudBox.x).toBeGreaterThan(0);
+				expect(hudBox.x + hudBox.width).toBeLessThan(viewport.width);
+				expect(hudBox.y).toBeGreaterThan(viewport.height / 2);
+				expect(hudBox.y + hudBox.height).toBeLessThan(viewport.height);
+				expect(await width()).toBe(viewport.width);
+
+				await page.keyboard.press('Escape');
+				await expect(fullscreen).toHaveCount(0);
+				await expect(enter).toBeFocused();
+				await expect(walls).toHaveText('Perforated sheet');
+				await expect(page.locator('canvas')).toHaveCount(1);
+				expect(
+					await original.evaluate((element) => element === document.querySelector('canvas'))
+				).toBe(true);
+				expect(await width()).toBe(viewport.width);
+			}
+		);
+	}
+}
 
 // Filtering must show the selected specimen kind and reset must restore the complete list.
 // This catches stale results that the asset registry's tests cannot detect. No hooks are added.

@@ -1,9 +1,12 @@
 import { specimenSettings as m } from '../../config/surface-specimens';
 import { scaled, sum, type Vec3 } from '../../lib/core/geometry';
-import { axes } from './axes';
 import {
 	createClad,
+	fitModuleScale,
+	hasPrintedMarks,
+	readLevelDetail,
 	readPatchArea,
+	readSurfaceLevelName,
 	type CladObject,
 	type Cladding,
 	type Family,
@@ -11,165 +14,168 @@ import {
 	type Rect,
 	type SurfaceOptions
 } from '../../lib/domain/material';
+import { axes } from './axes';
 import { groundFamily } from './controls';
 
-type Wall = Readonly<{ origin: Vec3; across: Vec3; normal: Vec3; length: number; gable: boolean }>;
+type Volume = Readonly<{
+	origin: Vec3;
+	size: readonly [width: number, depth: number, height: number];
+	front: readonly Rect[];
+	east?: readonly Rect[];
+}>;
 
-// Exact arithmetic: four walls around the origin, gables on the short sides.
-function walls(width: number, depth: number): Wall[] {
-	const [x, y] = [width / 2, depth / 2];
-	return [
-		{ origin: [-x, -y, 0], across: axes.east, normal: axes.south, length: width, gable: false },
-		{ origin: [x, -y, 0], across: axes.north, normal: axes.east, length: depth, gable: true },
-		{ origin: [x, y, 0], across: axes.west, normal: axes.north, length: width, gable: false },
-		{ origin: [-x, y, 0], across: axes.south, normal: axes.west, length: depth, gable: true }
-	];
-}
-
-// Exact arithmetic: the door and a window on the front wall (0), a window on the east gable (1).
-function openingsOf(index: number, length: number): Rect[] {
-	const [doorWidth, doorHeight, doorOffset] = m.bodyDoorM;
-	const [windowWidth, windowHeight, windowOffset, sill] = m.bodyWindowM;
-	if (index === 0)
-		return [
-			[doorOffset, 0, doorOffset + doorWidth, doorHeight],
-			[windowOffset, sill, windowOffset + windowWidth, sill + windowHeight]
-		];
-	if (index === 1)
-		return [[(length - windowWidth) / 2, sill, (length + windowWidth) / 2, sill + windowHeight]];
-	return [];
-}
-
-// Exact arithmetic: two slopes meet at the ridge over the middle of the depth.
-function roofSlopes(width: number, depth: number, eaves: number, ridge: number): Patch[] {
-	const run = depth / 2;
-	const rise = ridge - eaves;
-	const slope = Math.hypot(run, rise);
-	const overhang = m.bodyEaveM;
-	const size = [width + 2 * overhang, slope + overhang] as const;
-	const front: Vec3 = [0, run / slope, rise / slope];
-	const back: Vec3 = [0, -run / slope, rise / slope];
-	// Lift each plane by the configured normal distance and cut the backing vertically at the ridge.
-	const roofEaves = eaves + (m.bodyRoofLiftM * slope) / run;
+// Exact arithmetic: wind counterclockwise in plan so each patch faces out.
+function walls({ origin: [x, y, z], size: [width, depth, height], front, east }: Volume): Patch[] {
 	return [
 		{
-			origin: sum([-width / 2 - overhang, -run, roofEaves], scaled(front, -overhang)),
+			origin: [x, y, z],
 			across: axes.east,
-			normal: [0, -front[2], front[1]],
-			size,
+			normal: axes.south,
+			size: [width, height],
 			thickness: m.bodyWallM,
-			backingDirection: axes.up
+			openings: front
 		},
 		{
-			origin: sum([width / 2 + overhang, run, roofEaves], scaled(back, -overhang)),
-			across: axes.west,
-			normal: [0, back[2], -back[1]],
-			size,
+			origin: [x + width, y, z],
+			across: axes.north,
+			normal: axes.east,
+			size: [depth, height],
 			thickness: m.bodyWallM,
-			backingDirection: axes.up
+			openings: east
+		},
+		{
+			origin: [x + width, y + depth, z],
+			across: axes.west,
+			normal: axes.north,
+			size: [width, height],
+			thickness: m.bodyWallM
+		},
+		{
+			origin: [x, y + depth, z],
+			across: axes.south,
+			normal: axes.west,
+			size: [depth, height],
+			thickness: m.bodyWallM
 		}
 	];
 }
 
-/** Glazing patches set into each opening, facing out with their wall. */
-function glazing(wall: Wall, openings: readonly Rect[]): Patch[] {
-	const upAxis = axes.up;
-	return openings.map(([u0, v0, u1, v1]) => ({
-		origin: sum(
-			sum(wall.origin, scaled(wall.across, u0)),
-			sum(scaled(upAxis, v0), scaled(wall.normal, -m.bodyOpeningInsetM))
-		),
-		across: wall.across,
-		normal: wall.normal,
-		size: [u1 - u0, v1 - v0],
-		thickness: m.bodyGlazingM
+function glazing({ openings = [], origin, across, normal }: Patch): Cladding[] {
+	return openings.map(([left, bottom, right, top]) => ({
+		role: 'opening',
+		family: 'acrylic',
+		patch: {
+			origin: sum(
+				sum(origin, scaled(across, left)),
+				sum(scaled(axes.up, bottom), scaled(normal, -m.bodyOpeningInsetM))
+			),
+			across,
+			normal,
+			size: [right - left, top - bottom],
+			thickness: m.bodyGlazingM
+		}
 	}));
 }
 
-/** A model house with a gable roof, a door and two windows, standing on a ground slab: walls in
- * the given family as one body, so a pattern wraps all four walls, the roof in the flat roof tone,
- * the ground in `ground`, the windows in lit acrylic (MAT-14). The triangle budget is shared among
- * the patches by area. Centred on the origin with the ground face at zero. */
-export function createSampleBody(
-	family: Family,
-	options: SurfaceOptions = {},
-	ground: Family = groundFamily
-): CladObject {
-	const [width, depth, eaves, ridge] = m.bodySizeM;
-	const claddings = wallCladdings(family, m.bodySizeM);
-	for (const patch of roofSlopes(width, depth, eaves, ridge))
-		claddings.push({ role: 'roof', family: 'board', tone: 'roof', body: 'roof', patch });
-	claddings.push(groundCladding(ground));
-	return createClad(
-		{ id: 'sample-body', footprint: { width, depth }, anchors: [] },
-		shareBudget(claddings, m.bodyTriangleBudget),
-		options
-	);
-}
-
-// Exact arithmetic: a gable outline starts at the patch origin and peaks at mid-length.
-function wallCladdings(
-	family: Family,
-	[width, depth, eaves, ridge]: readonly number[]
-): Cladding[] {
-	const claddings: Cladding[] = [];
-	for (const [index, wall] of walls(width, depth).entries()) {
-		const openings = openingsOf(index, wall.length);
-		const outline = wall.gable
-			? ([
-					[0, 0],
-					[wall.length, 0],
-					[wall.length, eaves],
-					[wall.length / 2, ridge],
-					[0, eaves]
-				] as const)
-			: undefined;
-		claddings.push({
-			role: 'wall',
-			family,
-			body: 'house',
-			patch: {
-				origin: wall.origin,
-				across: wall.across,
-				normal: wall.normal,
-				size: [wall.length, wall.gable ? ridge : eaves],
-				thickness: m.bodyWallM,
-				outline,
-				openings
-			}
-		});
-		for (const patch of glazing(wall, openings))
-			claddings.push({ role: 'opening', family: 'acrylic', patch });
-	}
-	return claddings;
-}
-
-// Exact arithmetic: the ground face lies at zero around the centred body.
-function groundCladding(ground: Family): Cladding {
-	const [width, depth] = m.bodySizeM;
-	const [margin, slab] = m.bodyGroundM;
-	const groundOrigin: Vec3 = [-width / 2 - margin, -depth / 2 - margin, 0];
+// Exact arithmetic: a plan margin extends both ends of each side.
+function slab(
+	{ origin: [x, y], size: [width, depth] }: Volume,
+	top: number,
+	margin: number,
+	thickness: number
+): Patch {
 	return {
-		role: 'ground',
-		family: ground,
-		patch: {
-			origin: groundOrigin,
-			across: axes.east,
-			normal: axes.up,
-			size: [width + 2 * margin, depth + 2 * margin],
-			thickness: slab,
-			openings: [[margin, margin, margin + width, margin + depth]]
-		}
+		origin: [x - margin, y - margin, top],
+		across: axes.east,
+		normal: axes.up,
+		size: [width + 2 * margin, depth + 2 * margin],
+		thickness
 	};
 }
 
-function shareBudget(claddings: readonly Cladding[], budget: number): Cladding[] {
-	const total = claddings.reduce((sum, { patch }) => sum + readPatchArea(patch), 0);
+function roof(patch: Patch): Cladding {
+	return { role: 'roof', family: 'board', tone: 'roof', patch };
+}
+
+function shareBudget(claddings: readonly Cladding[]): Cladding[] {
+	// Roofs and the ground are closed boxes. Reserve their exact triangle count first.
+	const slabTriangles = /* Exact arithmetic: six sides with two triangles each. */ 12;
+	const patterned = claddings.filter(({ role }) => role === 'wall' || role === 'opening');
+	const totalArea = patterned.reduce((sum, { patch }) => sum + readPatchArea(patch), 0);
+	const budget = m.bodyTriangleBudget - (claddings.length - patterned.length) * slabTriangles;
 	return claddings.map((cladding) => ({
 		...cladding,
 		patch: {
 			...cladding.patch,
-			budget: Math.floor((budget * readPatchArea(cladding.patch)) / total)
+			budget:
+				cladding.role === 'wall' || cladding.role === 'opening'
+					? Math.floor((budget * readPatchArea(cladding.patch)) / totalArea)
+					: slabTriangles
 		}
 	}));
+}
+
+function fitWallScale(claddings: readonly Cladding[], family: Family, options: SurfaceOptions) {
+	const requested = options.moduleScale ?? 1;
+	const level = readSurfaceLevelName(options.level ?? 'near');
+	if (!hasPrintedMarks(family, level, requested, options.recipe)) return requested;
+	const { openings } = readLevelDetail(level);
+	return Math.max(
+		requested,
+		...claddings
+			.filter(({ role }) => role === 'wall')
+			.map(({ patch }) =>
+				fitModuleScale(
+					family,
+					{
+						...patch,
+						openings: openings ? patch.openings : undefined,
+						budget: (patch.budget ?? 0) * m.bodyPatternBudgetShare
+					},
+					options
+				)
+			)
+	);
+}
+
+/** Stepped library specimen in meters. The lower bar and cantilevered reading room share a
+ * wall pattern frame and scale (MAT-9). Flat slabs cap the volumes and frame the cantilever. */
+export function createSampleBody(family: Family, options: SurfaceOptions = {}): CladObject {
+	const [width, depth, height] = m.bodyBarM;
+	const [pavilionWidth, pavilionDepth, pavilionHeight] = m.bodyPavilionM;
+	const [offsetX, offsetY] = m.bodyPavilionOffsetM;
+	const [overhang, slabThickness] = m.bodySlabM;
+	const [groundMargin, groundThickness] = m.bodyGroundM;
+	// Exact arithmetic: center both plan rectangles, then apply the upper volume's offset.
+	const bar: Volume = {
+		origin: [-width / 2, -depth / 2, 0],
+		size: m.bodyBarM,
+		front: [m.bodyBarFrontLightM, m.bodyBarEntranceM]
+	};
+	const barRoof = height + slabThickness;
+	const pavilionFloor = barRoof + slabThickness;
+	const pavilion: Volume = {
+		origin: [offsetX - pavilionWidth / 2, offsetY - pavilionDepth / 2, pavilionFloor],
+		size: m.bodyPavilionM,
+		front: [m.bodyPavilionFrontLightM],
+		east: [m.bodyPavilionEndLightM]
+	};
+	const wallPatches = [...walls(bar), ...walls(pavilion)];
+	const detail = readLevelDetail(readSurfaceLevelName(options.level ?? 'near'));
+	const claddings = shareBudget([
+		...wallPatches.map((patch) => ({ role: 'wall', family, body: 'library', patch })),
+		...(detail.openings ? wallPatches.flatMap(glazing) : []),
+		roof(slab(bar, barRoof, overhang, slabThickness)),
+		roof(slab(pavilion, pavilionFloor, overhang, slabThickness)),
+		roof(slab(pavilion, pavilionFloor + pavilionHeight + slabThickness, overhang, slabThickness)),
+		{ role: 'ground', family: groundFamily, patch: slab(bar, 0, groundMargin, groundThickness) }
+	]);
+	const wallScale = fitWallScale(claddings, family, options) / (options.moduleScale ?? 1);
+	return createClad(
+		{ id: 'sample-body', footprint: { width, depth }, anchors: [] },
+		claddings.map((cladding) =>
+			cladding.role === 'wall' ? { ...cladding, moduleScale: wallScale } : cladding
+		),
+		options
+	);
 }
