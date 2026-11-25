@@ -54,7 +54,11 @@ export type SurfaceMesh = Readonly<{
 	lines: readonly number[];
 }>;
 
-function scaleParams(params: PatternParams, scale: number): PatternParams {
+function scaleParams(
+	params: PatternParams,
+	scale: number,
+	pattern: PatternKind = 'stripe'
+): PatternParams {
 	const scaled = {
 		...params,
 		pitch: params.pitch * scale,
@@ -62,7 +66,7 @@ function scaleParams(params: PatternParams, scale: number): PatternParams {
 	};
 	if (
 		![scaled.pitch, ...scaled.joint].every(Number.isFinite) ||
-		(params.pitch > 0 && scaled.pitch <= planeToleranceM) ||
+		(pattern !== 'plain' && params.pitch > 0 && scaled.pitch <= planeToleranceM) ||
 		params.joint.some((module, i) => module > 0 && scaled.joint[i] <= planeToleranceM)
 	)
 		throw new RangeError('Scaled surface dimensions must be finite and exceed the plane tolerance');
@@ -140,7 +144,7 @@ export function printsMarks(
 	recipe?: FamilyRecipe
 ): boolean {
 	const { pattern, params } = readFamily(family, recipe);
-	return prints(pattern, scaleParams(params, moduleScale), readSurfaceLevelName(level));
+	return prints(pattern, scaleParams(params, moduleScale, pattern), readSurfaceLevelName(level));
 }
 
 function marksOf(
@@ -204,7 +208,7 @@ function buildAt(
 	withMarks: boolean
 ) {
 	const detail = readLevelDetail(level);
-	const scaled = scaleParams(params, scale);
+	const scaled = scaleParams(params, scale, pattern);
 	const face = printFace(frame, detail.openings);
 	const sinks = new Map<FamilySlot, MeshSink>([['face', createSink()]]);
 	addFace(sinks.get('face') as MeshSink, frame, face);

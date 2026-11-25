@@ -4,7 +4,7 @@ import { clipHalfPlane, clipToOutline, cutOpenings, segmentOutside, type Rect } 
 import type { PatternParams } from './families';
 import { fitPitch, type FaceMap, type PatternFrame } from './pattern';
 
-const { planeToleranceM, dotSides } = materialSettings;
+const { planeToleranceM, dotSides, maxLayoutUnits } = materialSettings;
 
 /** A face to print on: its outline and openings in patch meters, its map into the body box and
  * the body box itself. */
@@ -132,7 +132,8 @@ function chord(map: FaceMap, k: number, level: number, outline: readonly Vec2[])
  * openings. */
 // Exact arithmetic: axes 0 and 2 are the body's long axis and up.
 export function jointSegments(face: PrintFace, params: PatternParams): [Vec2, Vec2][] {
-	const segments: [Vec2, Vec2][] = [];
+	const axes: { k: number; pitch: number; first: number; last: number }[] = [];
+	let totalLines = 0;
 	for (const [k, module] of /* Exact arithmetic: joint axis indices. */ [
 		[0, params.joint[0]],
 		[2, params.joint[1]]
@@ -140,12 +141,17 @@ export function jointSegments(face: PrintFace, params: PatternParams): [Vec2, Ve
 		if (!(module > 0) || slope(face.map, k) <= planeToleranceM) continue;
 		const pitch = fitPitch(face.body.size[k], module);
 		const [low, high] = range(face.outline, coordinate(face.map, k));
-		for (
-			let i = Math.ceil(low / pitch + planeToleranceM);
-			i * pitch < high - planeToleranceM;
-			i++
-		) {
-			if (i <= 0 || i * pitch >= face.body.size[k] - planeToleranceM) continue;
+		const first = Math.max(1, Math.ceil(low / pitch + planeToleranceM));
+		const upper = Math.min(high, face.body.size[k]) - planeToleranceM;
+		const last = Math.floor(upper / pitch);
+		if (last < first) continue;
+		totalLines += last - first + 1;
+		if (totalLines > maxLayoutUnits) return [];
+		axes.push({ k, pitch, first, last });
+	}
+	const segments: [Vec2, Vec2][] = [];
+	for (const { k, pitch, first, last } of axes) {
+		for (let i = first; i <= last; i++) {
 			const line = chord(face.map, k, i * pitch, face.outline);
 			if (line) segments.push(...segmentOutside(line[0], line[1], face.openings));
 		}

@@ -42,7 +42,16 @@ export function markers(
 	showSupports = true,
 	overrides?: Partial<MarkerSizing>
 ) {
-	const sizing = overrides ? { ...markerDefaults, ...overrides } : markerDefaults;
+	const sizing: MarkerSizing = overrides
+		? {
+				supportWidthM: overrides.supportWidthM ?? markerDefaults.supportWidthM,
+				supportHeightM: overrides.supportHeightM ?? markerDefaults.supportHeightM,
+				arrowWidthM: overrides.arrowWidthM ?? markerDefaults.arrowWidthM,
+				arrowHeadM: overrides.arrowHeadM ?? markerDefaults.arrowHeadM,
+				arrowBaseM: overrides.arrowBaseM ?? markerDefaults.arrowBaseM,
+				arrowReferenceKN: overrides.arrowReferenceKN ?? markerDefaults.arrowReferenceKN
+			}
+		: markerDefaults;
 	if (
 		overrides &&
 		(Object.values(sizing).some((value) => !Number.isFinite(value) || value <= 0) ||

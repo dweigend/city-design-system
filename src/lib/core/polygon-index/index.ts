@@ -47,9 +47,9 @@ export function createPolygonIndex<T extends Polygon>(
 	});
 	const root = leaves.length ? tree(leaves) : undefined;
 
-	function candidates(points: readonly Vec2[]) {
+	function candidates(points: readonly Vec2[], margin = marginM) {
 		const matches: Leaf<T>[] = [];
-		if (root) intersect(root, bounds(points), marginM, matches);
+		if (root) intersect(root, bounds(points), margin, matches);
 		return matches;
 	}
 
@@ -57,7 +57,7 @@ export function createPolygonIndex<T extends Polygon>(
 		/** Reads polygons whose XY bounds overlap the bounds of the points, in input order.
 		 * Use this when the caller owns the exact geometry and boundary rules. */
 		readCandidates(points: readonly Vec2[]): readonly T[] {
-			return candidates(points)
+			return candidates(points, /* Exact arithmetic: exact box overlap without margin. */ 0)
 				.sort((a, b) => a.order - b.order)
 				.map(({ polygon }) => polygon);
 		},

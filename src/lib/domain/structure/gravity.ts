@@ -38,26 +38,31 @@ function routeForces(
 	order: readonly number[],
 	exits: ReturnType<typeof gravityRoutes>['exits']
 ) {
-	const transfers = new Map<number, { verticalKN: number; slope: number }>();
+	const transfers = new Map<
+		number,
+		{ verticalKN: number; slope: number; riseM: number; spanM: number }
+	>();
 	for (const joint of order) {
 		const load = force[joint];
 		if (!load) continue;
 		const links = exits[joint];
+		const subnormalSplit =
+			load < minimumNormal || links.some(({ share }) => share > 0 && load * share < minimumNormal);
 		let fraction = 0;
 		let sentKN = 0;
 		for (let i = 0; i < links.length; i++) {
-			const { share, member, joint: receiver, slope } = links[i];
-			let verticalKN = load * share;
+			const { share, area, scale, total, member, joint: receiver, slope, riseM, spanM } = links[i];
+			let verticalKN = share === 0 && area > 0 ? (load / total) * (area / scale) : load * share;
 			// Round cumulative subnormal shares so fractions of the last representable unit
 			// add up to the original load in graph order.
-			if (load < minimumNormal) {
+			if (subnormalSplit) {
 				fraction += share;
 				const throughKN = i + 1 === links.length ? load : load * Math.min(1, fraction);
 				verticalKN = throughKN - sentKN;
 				sentKN = throughKN;
 			}
 			force[receiver] += verticalKN;
-			transfers.set(member, { verticalKN, slope });
+			transfers.set(member, { verticalKN, slope, riseM, spanM });
 		}
 	}
 	return transfers;
@@ -65,6 +70,14 @@ function routeForces(
 
 function finite(value: number) {
 	return Number.isFinite(value) ? value : null;
+}
+
+function axialDemand(
+	transfer: { verticalKN: number; slope: number; riseM: number; spanM: number } | undefined
+): number | null {
+	if (!transfer || !(transfer.riseM > 0)) return null;
+	if (transfer.slope > 0) return finite(transfer.verticalKN / transfer.slope);
+	return finite((transfer.verticalKN / transfer.riseM) * transfer.spanM);
 }
 
 /** Routes nonnegative gravity loads to reachable supports. Outputs are detached in graph
@@ -109,7 +122,7 @@ export function runGravity(graph: MemberGraph, loads: readonly JointLoad[]) {
 				const stressKPa =
 					referenceStressKPa ?? graph.definitions?.referenceStressKPa ?? defaults.nominalStressKPa;
 				const capacityKN = areaM2 * stressKPa;
-				const axialKN = transfer && transfer.slope > 0 ? finite(verticalKN / transfer.slope) : null;
+				const axialKN = axialDemand(transfer);
 				return Object.freeze({
 					id,
 					verticalKN,

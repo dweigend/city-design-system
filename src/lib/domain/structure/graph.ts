@@ -40,7 +40,9 @@ const supports: readonly Support[] = ['free', 'pinned', 'fixed'];
 
 /** Reads the validated section used by a member of this graph. */
 export function readMemberSection(graph: MemberGraph, key: string): MemberSection {
-	return (graph.definitions ?? defaultDefinitions).sections[key];
+	const sections = (graph.definitions ?? defaultDefinitions).sections;
+	if (!Object.hasOwn(sections, key)) throw new RangeError(`Unknown structural section "${key}"`);
+	return sections[key];
 }
 
 /** Resolves primary classification from the member and its section. */

@@ -346,4 +346,15 @@ test('caller-supplied material patterns and parameter overrides are local to the
 		buildSurface('stripe', patch, { recipe: { params: { pitch: 1 } } }).meshes.get('mark')?.indices
 	).toHaveLength(12);
 	expect(() => buildSurface('board', patch, { recipe: { pattern: 'dots' } })).toThrow(RangeError);
+	const fineJoints = buildSurface(
+		'board',
+		{ ...patch, size: [10, 10] },
+		{ recipe: { pattern: 'plain', params: { joint: [2e-6, 0] } } }
+	);
+	expect(fineJoints.lines).toEqual([]);
+	const plainOverride = buildSurface('stripe', patch, {
+		recipe: { pattern: 'plain' },
+		moduleScale: 1e-6
+	});
+	expect(plainOverride.meshes.get('face')?.indices.length).toBeGreaterThan(0);
 });

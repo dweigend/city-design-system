@@ -6,6 +6,7 @@ import {
 	gravityBalanceTolerance,
 	memberSections,
 	portalExample,
+	readMemberSection,
 	runGravity,
 	type StructuralJoint,
 	type StructuralMember
@@ -189,12 +190,59 @@ test('R15-05 preserves subnormal load across two exits', () => {
 			{ id: 'right', from: 'top', to: 'right', role: 'brace', section: 'light' }
 		]
 	});
-	for (const forceKN of [Number.MIN_VALUE, 3 * Number.MIN_VALUE]) {
+	for (const forceKN of [Number.MIN_VALUE, 3 * Number.MIN_VALUE, 2 ** -1022 + Number.MIN_VALUE]) {
 		const result = runGravity(graph, [{ joint: 'top', forceKN }]);
 		expect(result.reactedKN).toBe(forceKN);
 		expect(result.balanceErrorKN).toBe(0);
 		expect(result.balanced).toBe(true);
 	}
+});
+
+test('R15-05 preserves representable axial demand on subnormal rise and extreme section ratios', () => {
+	const subnormalSlope = createMemberGraph({
+		joints: [
+			{ id: 'seat', position: [0, 0, 0], support: 'pinned' },
+			{ id: 'top', position: [4, 0, Number.MIN_VALUE], support: 'free' }
+		],
+		members: [{ id: 'slope', from: 'top', to: 'seat', role: 'brace', section: 'light' }]
+	});
+	expect(
+		runGravity(subnormalSlope, [{ joint: 'top', forceKN: Number.MIN_VALUE }]).members[0].axialKN
+	).toBe(4);
+
+	class GetterSection {
+		get widthM() {
+			return 0.2;
+		}
+		get areaM2() {
+			return 1e-100;
+		}
+		get referenceStressKPa() {
+			return 1;
+		}
+	}
+	const extreme = createMemberGraph({
+		joints: [
+			{ id: 'a', position: [-1, 0, 0], support: 'pinned' },
+			{ id: 'b', position: [1, 0, 0], support: 'pinned' },
+			{ id: 'top', position: [0, 0, 1], support: 'free' }
+		],
+		members: [
+			{ id: 'tiny', from: 'top', to: 'a', role: 'brace', section: 'tiny' },
+			{ id: 'huge', from: 'top', to: 'b', role: 'brace', section: 'huge' }
+		],
+		definitions: {
+			sections: {
+				tiny: new GetterSection(),
+				huge: { widthM: 1, areaM2: 1e300, referenceStressKPa: 1 }
+			},
+			referenceStressKPa: 1
+		}
+	});
+	expect(readMemberSection(extreme, 'tiny').areaM2).toBe(1e-100);
+	expect(() => readMemberSection(extreme, 'toString')).toThrow(RangeError);
+	const routed = runGravity(extreme, [{ joint: 'top', forceKN: 1e300 }]);
+	expect(routed.members.find(({ id }) => id === 'tiny')?.verticalKN).toBeCloseTo(1e-100, 110);
 });
 
 test('R15-06 detached structural definitions provide widths, areas, roles and reference stress', () => {

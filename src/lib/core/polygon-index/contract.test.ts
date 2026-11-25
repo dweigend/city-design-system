@@ -55,4 +55,20 @@ test('reads broad-phase bounds in input order and includes boundary contact', ()
 			.map(({ id }) => id)
 	).toEqual(['holding', 'neighbor']);
 	expect(index.readCandidates([[4, 4]])).toEqual([]);
+	const padded = createPolygonIndex(
+		[
+			{
+				id: 'box',
+				outline: [
+					[0, 0],
+					[2, 0],
+					[2, 2],
+					[0, 2]
+				]
+			}
+		],
+		1
+	);
+	expect(padded.readPoint([2.5, 1])?.id).toBe('box');
+	expect(padded.readCandidates([[2.5, 1]])).toEqual([]);
 });

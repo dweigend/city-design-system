@@ -114,4 +114,11 @@ test('R15-07 bearing and force marker dimensions follow the supplied sizing', ()
 		expect(shape(sized)).toBeDefined();
 		expect(shape(sized)).not.toEqual(shape(ordinary));
 	}
+	expect(
+		projectStructure(graph, {
+			analysis,
+			arrows: loads,
+			markerSizing: { supportWidthM: undefined }
+		})
+	).toEqual(ordinary);
 });

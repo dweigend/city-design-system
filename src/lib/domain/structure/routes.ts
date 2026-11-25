@@ -1,7 +1,14 @@
 import { distance } from '../../core/geometry';
 import { readMemberSection, type MemberGraph } from './graph';
 
-type Neighbor = { joint: number; member: number; slope: number; area: number; riseM: number };
+type Neighbor = {
+	joint: number;
+	member: number;
+	spanM: number;
+	slope: number;
+	area: number;
+	riseM: number;
+};
 
 function adjacency(graph: MemberGraph, indexById: ReadonlyMap<string, number>) {
 	const { joints, members } = graph;
@@ -12,10 +19,11 @@ function adjacency(graph: MemberGraph, indexById: ReadonlyMap<string, number>) {
 		const pointA = joints[a].position;
 		const pointB = joints[b].position;
 		const riseM = pointA[2] - pointB[2];
-		const slope = riseM / distance(pointA, pointB);
+		const spanM = distance(pointA, pointB);
+		const slope = riseM / spanM;
 		const { areaM2: area } = readMemberSection(graph, section);
-		neighbors[a].push({ joint: b, member, slope, area, riseM });
-		neighbors[b].push({ joint: a, member, slope: -slope, area, riseM: -riseM });
+		neighbors[a].push({ joint: b, member, spanM, slope, area, riseM });
+		neighbors[b].push({ joint: a, member, spanM, slope: -slope, area, riseM: -riseM });
 	}
 	return neighbors;
 }
@@ -42,10 +50,15 @@ function weighted(links: readonly Neighbor[]) {
 		? 1
 		: links.reduce((max, { area }) => Math.max(max, area), 0);
 	const total = scale === 1 ? weight : links.reduce((sum, { area }) => sum + area / scale, 0);
-	return links.map(({ joint, member, slope, area }) => ({
+	return links.map(({ joint, member, spanM, riseM, slope, area }) => ({
 		joint,
 		member,
+		spanM,
+		riseM,
 		slope,
+		area,
+		scale,
+		total,
 		share: area / scale / total
 	}));
 }

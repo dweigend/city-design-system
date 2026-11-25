@@ -47,7 +47,15 @@ export function resolveDefinitions(input: StructureDefinitions) {
 			!positive(areaM2 * (stress ?? referenceStressKPa))
 		)
 			throw new RangeError(`Invalid structural section "${id}"`);
-		return [id, Object.freeze({ ...section })] as const;
+		return [
+			id,
+			Object.freeze({
+				widthM,
+				areaM2,
+				...(stress !== undefined ? { referenceStressKPa: stress } : {}),
+				...(primary !== undefined ? { primary } : {})
+			})
+		] as const;
 	});
 	const memberRoles = [...new Set([...roles, ...(input.roles ?? [])])];
 	if (!memberRoles.every(validName)) throw new RangeError('Invalid structural member role');
