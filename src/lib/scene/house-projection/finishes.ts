@@ -6,7 +6,9 @@ import { readModelSurface, type Drawable } from '../surface';
 function readAddressedPartId(drawableId: string, prefix: string): string | undefined {
 	if (!drawableId.startsWith(prefix)) return drawableId;
 	try {
-		const parsed: unknown = JSON.parse(decodeURIComponent(drawableId.slice(prefix.length).split('/')[0]));
+		const parsed: unknown = JSON.parse(
+			decodeURIComponent(drawableId.slice(prefix.length).split('/')[0])
+		);
 		return Array.isArray(parsed) && typeof parsed[0] === 'string' ? parsed[0] : undefined;
 	} catch {
 		return undefined;

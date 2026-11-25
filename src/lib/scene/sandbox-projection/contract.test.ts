@@ -268,11 +268,41 @@ test('painting a flat-topped uppermost solid at near detail repaints its roof wi
 	const parcels = town.parcelsByBlock.get(town.blocks.block.id) ?? [];
 	const projection = createSandboxProjection(town.site, town.layout, world.holdings);
 	const document = world.createDocument();
+	const isFlatRoof = (shape: ReturnType<typeof projection.projectParcelHouse>[number]['shape']) => {
+		if (shape.kind !== 'mesh' || shape.positions.length < 9) return false;
+		let minZ = Infinity;
+		let maxZ = -Infinity;
+		for (let i = 2; i < shape.positions.length; i += 3) {
+			minZ = Math.min(minZ, shape.positions[i]);
+			maxZ = Math.max(maxZ, shape.positions[i]);
+		}
+		return maxZ - minZ < 0.25;
+	};
+	const topClad = (
+		list: ReturnType<typeof projection.projectParcelHouse>,
+		houseId: string,
+		partId: string
+	) =>
+		list.filter(({ id, fillVisible, finish }) => {
+			if (fillVisible === false || finish === 'line') return false;
+			try {
+				const [, innerId] = JSON.parse(id) as [string, string];
+				if (!innerId.startsWith(houseId + '/')) return false;
+				const role = JSON.parse(
+					decodeURIComponent(innerId.slice(houseId.length + 1).split('/')[0])
+				);
+				return Array.isArray(role) && role[0] === partId;
+			} catch {
+				return false;
+			}
+		});
+	const options = { budget: blockTriangleBudget, level: 'near' as const, tone: 'pink' as const };
 	let target:
 		| {
 				record: SandboxPlacement;
 				placed: Extract<ParcelHouseResult, { status: 'placed' }>;
 				topRef: ReturnType<typeof readHousePartRefs>[number];
+				before: ReturnType<typeof projection.projectParcelHouse>;
 		  }
 		| undefined;
 	for (const parcel of parcels) {
@@ -282,34 +312,27 @@ test('painting a flat-topped uppermost solid at near detail repaints its roof wi
 		const record = required(document.readPlacement(host), 'memphis placement');
 		const placed = world.resolveHouse(record);
 		if (placed?.status === 'placed') {
-			const topBody = readHousePartRefs(placed.house, world.world.id)
-				.filter(({ body }) => body)
-				.sort((a, b) => b.storeySpan[1] - a.storeySpan[1])[0];
+			const before = projection.projectParcelHouse(placed, [], record.id, options);
+			const topBody = readHousePartRefs(placed.house, world.world.id).find(
+				({ body, partId }) =>
+					body && topClad(before, placed.house.id, partId).some(({ shape }) => isFlatRoof(shape))
+			);
 			if (topBody) {
-				target = { record, placed, topRef: topBody };
+				target = { record, placed, topRef: topBody, before };
 				break;
 			}
 		}
 		document.undo();
 	}
-	const { record, placed, topRef } = required(target, 'placed flat-topped memphis house');
-	const options = { budget: blockTriangleBudget, level: 'near' as const, tone: 'pink' as const };
-	const before = projection.projectParcelHouse(placed, [], record.id, options);
+	const { record, placed, topRef, before } = required(target, 'placed flat-topped memphis house');
 	const after = projection.projectParcelHouse(placed, [], record.id, options, [
 		{ ref: topRef.ref, family: 'board', tone: 'blue' }
 	]);
-	const topKey = `${record.id}/${encodeURIComponent(JSON.stringify([topRef.partId, 'roof']))}/`;
-	const roofBefore = before.filter(
-		({ id, fillVisible, finish }) =>
-			id.startsWith(topKey) && fillVisible !== false && finish !== 'line'
-	);
-	const roofAfter = after.filter(
-		({ id, fillVisible, finish }) =>
-			id.startsWith(topKey) && fillVisible !== false && finish !== 'line'
-	);
-	expect(roofBefore.length).toBeGreaterThan(0);
-	expect(roofAfter.map(({ color }) => color)).toEqual(roofAfter.map(() => '--model-blue'));
-	expect(roofAfter.every((part, i) => part.shape === roofBefore[i].shape)).toBe(true);
+	const cladBefore = topClad(before, placed.house.id, topRef.partId);
+	const cladAfter = topClad(after, placed.house.id, topRef.partId);
+	expect(cladBefore.some(({ shape }) => isFlatRoof(shape))).toBe(true);
+	expect(cladAfter.map(({ color }) => color)).toEqual(cladAfter.map(() => '--model-blue'));
+	expect(cladAfter.every((part, i) => part.shape === cladBefore[i].shape)).toBe(true);
 	expect(
 		hasSameGeometry(
 			before.map((drawable) => ({ drawable })),

@@ -126,7 +126,7 @@
 
 <section class="chapter-hero surfaces-hero" aria-label="Material specimens">
 	<ChapterViewer
-		resetKey={page.url.search}
+		resetKey={location.search}
 		stage={{
 			drawables,
 			view: 'iso',

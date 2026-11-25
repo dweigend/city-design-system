@@ -30,5 +30,9 @@ export function readControl(value: string | null, [min, max]: readonly [number, 
 export function readSpecimen(query: Pick<URLSearchParams, 'get' | 'has'>): 'body' | 'board' {
 	const specimen = query.get('specimen');
 	if (specimen === 'body' || specimen === 'board') return specimen;
-	return query.has('show') || query.has('levels') ? 'board' : 'body';
+	return query.has('show') ||
+		query.has('levels') ||
+		(query.has('zoom') && !query.has('body') && !query.has('bodyZoom'))
+		? 'board'
+		: 'body';
 }

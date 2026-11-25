@@ -19,6 +19,8 @@ test.each([
 	['body=stripe', 'body'],
 	['show=stripe', 'board'],
 	['levels=near,mid', 'board'],
+	['zoom=1.5', 'board'],
+	['specimen=body&zoom=1.5', 'body'],
 	['specimen=body&show=stripe&levels=near,mid', 'body'],
 	['specimen=board&body=stripe', 'board']
 ] as const)('capture query %s opens the %s specimen', (query, specimen) => {

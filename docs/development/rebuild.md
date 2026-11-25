@@ -43,7 +43,7 @@ Run `bun run config:catalogue` to list the settings. Frozen observations and acc
 - Packages R00–R07 run one at a time. After R07 at most two run in parallel.
 - A package is done when the checks pass, the hardware-GPU shot stands beside its reference and the owner has approved the picture. Opus 5.5 writes the leading picture verdict, Sol 6.2 and Argon add a second opinion. Two corrections at most, then the package is rebuilt.
 - A special case is removed, not carried over. A feature that needs one is left out.
-- Ported code is cut to the module shape above. Compatibility entries, forwarding files, `legacy` names and baselines do not enter the branch.
+- Ported code is cut to the module shape above. Compatibility entries, forwarding files, `legacy` names and baselines do not enter the branch. Declared persistence exception (#135): `sandbox-document` writes `sandbox/4` while retaining read-only replay compatibility for `sandbox/3` saves (and `sandbox-world` retains compatible `city-assets/2` and `city-assets/3` restore revisions).
 - A rule enters the standards together with its check and a failing probe.
 - A chapter page shows only real demos. A chapter without a demo has its heading and nothing else.
 

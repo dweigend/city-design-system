@@ -244,8 +244,11 @@ test('rejects oversized UTF-8 saves and excessive redo edits before starting rep
 		expect(() =>
 			document.apply([
 				{
-					...place(parcel('proto-guard')),
-					cellOverrides: JSON.parse(`{"${key}":1}`)
+					kind: 'place',
+					assetId: 'house/court-neutral',
+					host: parcel('proto-guard'),
+					params: {},
+					cellOverrides: JSON.parse(`{"${key}":1}`) as Readonly<Record<string, number>>
 				}
 			])
 		).toThrow('nonnegative integer storey count');
@@ -256,12 +259,14 @@ test('rejects oversized UTF-8 saves and excessive redo edits before starting rep
 	big.apply([place(parcel('north'))]);
 	const placed = big.readPlacement(parcel('north'));
 	if (!placed) throw new Error('Expected initial placement');
-	const batch = Array.from({ length: 201 }, (_, i) => ({
-		kind: 'replace' as const,
-		id: placed.id,
-		params: placed.params,
-		seed: i + 1
-	}));
-	for (let s = 0; s < 100; s++) big.apply(batch);
+	for (let s = 0; s < 100; s++)
+		big.apply(
+			Array.from({ length: 201 }, (_, i) => ({
+				kind: 'replace' as const,
+				id: placed.id,
+				params: placed.params,
+				seed: s * 201 + i + 1
+			}))
+		);
 	expect(() => big.serialize()).toThrow('restore edit limit');
 });
