@@ -100,6 +100,7 @@ export function specimenHost({ id, kind }: AssetDefinition): CityAssetHost {
 							]
 			};
 		case 'surface':
+		case 'sculpture':
 			return { kind: 'ground', point: [0, 0, 0] };
 		case 'structure':
 			return { kind: 'frame', id, graph: portalExample().graph };

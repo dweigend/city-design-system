@@ -69,6 +69,7 @@ Use US English for repository text and names, including `center` and `color`. Th
 | footbridge / catwalk                        | Steg                                 | Narrow, lightly spanning pedestrian bridge.                                                |
 | walking distance                            | Gehweite                             | Accessibility on foot (e.g., 15-minute city).                                              |
 | landmark                                    | Landmarke                            | Single tall cell in calm surroundings.                                                     |
+| sculpture                                   | Skulptur                             | Static civic artwork or plaza folly built on a ground host with named geometry slots.      |
 
 ---
 

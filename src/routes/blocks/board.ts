@@ -43,7 +43,8 @@ function paint(object: PlaceableObject, kind: string, materials?: SpecimenMateri
 	const surface = (slot: string): Surface => {
 		const material = materialAt(slot);
 		if (material) return readMaterialSurface(material.family, material.role, 'normal');
-		if (kind === 'surface') throw new RangeError(`Missing specimen material for slot "${slot}"`);
+		if (kind === 'surface' || kind === 'sculpture')
+			throw new RangeError(`Missing specimen material for slot "${slot}"`);
 		if (slot === 'solid') return { ...existing.roof, color: '--stock-veil' };
 		return { ...existing.wall, color: '--ink-3' };
 	};

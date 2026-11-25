@@ -1,6 +1,7 @@
 /** Module: Composes the city library’s public object builders into one placeable asset registry. */
 import { createAssetRegistry } from '../../core/asset-registry';
 import { groveAsset } from './grove';
+import { sculptureAssets } from './sculptures';
 import { courtHouses } from './houses';
 import { accessAssets } from './access';
 import { structuralAssets } from './structures';
@@ -25,7 +26,7 @@ export {
 } from '../../core/asset-registry';
 /** A resolved city placement host. */
 export type { CityAssetHost } from './hosts';
-/** The family and role of every generated material specimen slot. */
+/** The material family and role assigned to each specimen slot. */
 export type { SpecimenMaterials } from './plates';
 /** Places a registered court-house style on a resolved city parcel. */
 export { placeParcelHouseAsset } from './houses';
@@ -35,14 +36,15 @@ export { groveLawnLiftM } from './grove';
 export { readGrovePlan } from './grove';
 
 /** Replay revision for the installed asset IDs, parameter schemas and builders. */
-export const cityAssetRegistryRevision = 'city-assets/3';
+export const cityAssetRegistryRevision = 'city-assets/4';
 
 const registry = createAssetRegistry<CityAssetHost, SpecimenMaterials>([
 	...courtHouses,
 	groveAsset,
 	...accessAssets,
 	...surfaceAssets,
-	...structuralAssets
+	...structuralAssets,
+	...sculptureAssets
 ]);
 
 /** Lists city asset definitions matching the optional kind and tags. */

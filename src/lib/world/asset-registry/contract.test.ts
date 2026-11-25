@@ -10,6 +10,7 @@ import {
 } from '../../domain/cell-space';
 import {
 	buildAsset,
+	buildAssetResult,
 	InvalidAssetParamsError,
 	listAssets,
 	readAsset,
@@ -345,4 +346,61 @@ test('grove host validation rejects outside, intersecting, overlapping, nested a
 		expect(() => validateAssetHost('park/grove', invalidHost)).toThrow(RangeError);
 		expect(() => buildAsset('park/grove', invalidHost, {}, 1)).toThrow(RangeError);
 	}
+});
+
+test('builds three static ground sculptures with complete material roles and deterministic variation', () => {
+	const point = [12, -7, 3] as const;
+	const ground = { kind: 'ground', point } as const;
+	const assets = listAssets({ kind: 'sculpture' });
+	expect(assets.map(({ id }) => id)).toEqual([
+		'sculpture/portal-arch',
+		'sculpture/cantilever-totem',
+		'sculpture/plaza-canopy'
+	]);
+	const { sculptures } = placementsExample();
+	for (const [index, { id, hostKinds }] of assets.entries()) {
+		expect(hostKinds).toEqual(['ground']);
+		const overrides = { scale: 1.25, rotation: Math.PI / 2 };
+		const result = buildAssetResult(id, ground, overrides, 37);
+		expect(result).toEqual(sculptures[index]);
+		expect(result).toEqual(buildAssetResult(id, ground, overrides, 37));
+		expect(result.object).not.toEqual(buildAsset(id, ground, overrides, 38));
+		expect(result.object.anchors).toEqual([{ name: 'ground', position: point, normal: [0, 0, 1] }]);
+		expect(bounds(result.object).min[2]).toBeCloseTo(point[2], 10);
+		expect(Object.keys(result.metadata ?? {}).sort()).toEqual([...result.object.slots].sort());
+		const unrotated = buildAsset(id, ground, {}, 37);
+		const { min, max } = bounds(result.object);
+		expect(max[0] - min[0]).toBeCloseTo(unrotated.footprint.depth * overrides.scale, 10);
+		expect(max[1] - min[1]).toBeCloseTo(unrotated.footprint.width * overrides.scale, 10);
+	}
+});
+
+test('clamps and snaps sculpture inputs and validates hosts, overrides and seed', () => {
+	const ground = { kind: 'ground', point: [0, 0, 0] } as const;
+	const edge = {
+		kind: 'graph-edge',
+		id: 'walk',
+		points: [
+			[0, 0, 0],
+			[8, 0, 0]
+		]
+	} as const;
+	for (const { id, params } of listAssets({ kind: 'sculpture' })) {
+		expect(buildAsset(id, ground, { scale: 0.1, rotation: 100 }, 37)).toEqual(
+			buildAsset(id, ground, { scale: params.scale.min, rotation: params.rotation.max }, 37)
+		);
+		expect(buildAsset(id, ground, { scale: 1.23, rotation: 0.04 }, 37)).toEqual(
+			buildAsset(id, ground, { scale: 1.25, rotation: 0 }, 37)
+		);
+		expect(() => buildAsset(id, ground, { scale: NaN }, 37)).toThrow(InvalidAssetParamsError);
+		expect(() => buildAsset(id, ground, { span: 5 }, 37)).toThrow(InvalidAssetParamsError);
+		expect(() => buildAsset(id, ground, {}, 0.5)).toThrow(InvalidAssetParamsError);
+		for (const unsupported of [host, edge])
+			expect(() => validateAssetHost(id, unsupported)).toThrow(WrongAssetHostError);
+	}
+	expect(
+		listAssets().filter(
+			({ hostKinds, kind }) => hostKinds.includes('parcel') && kind === 'sculpture'
+		)
+	).toEqual([]);
 });

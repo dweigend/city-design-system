@@ -1,4 +1,5 @@
 import { expect, test } from 'bun:test';
+import { createHash } from 'node:crypto';
 import { createWorldReference, encodeKey } from '../../core/ref';
 import { readCellStoreys } from '../../domain/cell-space';
 import { readCityColumns } from '../../domain/city-volume';
@@ -6,6 +7,7 @@ import {
 	createSandboxDocument,
 	readPlacementId,
 	SandboxDataError,
+	restoreSandboxDocument,
 	UnsupportedSandboxVersionError,
 	type SandboxEdit,
 	type PlacementChange
@@ -304,7 +306,7 @@ test('derives snapshot identity from the resolved city size, terrain and topolog
 	expect(world.world).toMatchObject({
 		terrainRevision: '["valley",4,1201,{"sinuosity":1.15,"relief":0,"runoff":1}]',
 		topologyRevision: '2992ab70a4f9fad2',
-		registryRevision: 'city-assets/3'
+		registryRevision: 'city-assets/4'
 	});
 	const other = createSandboxWorld(site, readCityGrid(site, 600), columns);
 	expect(other.world.id).toBe(world.world.id);
@@ -561,9 +563,9 @@ test('persists mixed house and grove placement geometry through erasure and sand
 	}
 	const house = document.readPlacements()[0];
 	if (house?.host.kind !== 'parcel') throw new Error('Expected a built house');
-	const oldSave = document.serialize().replace('"city-assets/3"', '"city-assets/2"');
+	const oldSave = document.serialize().replace('"city-assets/4"', '"city-assets/2"');
 	const upgraded = world.restore(oldSave);
-	expect(upgraded.world.registryRevision).toBe('city-assets/3');
+	expect(upgraded.world.registryRevision).toBe('city-assets/4');
 	expect(upgraded.readPlacements().map(world.build)).toEqual([world.build(house)]);
 	const houseParcel = house.host.id;
 	const garden = parcels.find(({ id }) => id !== houseParcel);
@@ -587,4 +589,119 @@ test('persists mixed house and grove placement geometry through erasure and sand
 	expect(restored.readPlacements()).toEqual([house]);
 	restored.undo();
 	expect(restored.readPlacements().map(world.build)).toEqual(both);
+});
+
+// Captured by the sandbox serializer at 1a8229d4f07419765908ef7cb485fd24582e8b55.
+// Both placements are active, with the grove removal still in the redo log.
+const preSculptureSave = String.raw`{
+	"format": "sandbox/3",
+	"world": {
+		"id": "[\"city-plan/1\",1201,\"organic\",60,[0,0],-1.5707963267948966,[\"valley\",1201]]",
+		"planScope": "[\"terrain-plan/1\",null,\"organic\",1201,65,0,0,-1.5707963267948966]",
+		"seed": 1201,
+		"terrainRevision": "[\"valley\",4,1201,{\"sinuosity\":1.15,\"relief\":0,\"runoff\":1}]",
+		"topologyRevision": "2992ab70a4f9fad2",
+		"registryRevision": "city-assets/3"
+	},
+	"strokes": [
+		[
+			{
+				"kind": "place",
+				"assetId": "house/court-neutral",
+				"host": {
+					"v": 1,
+					"world": "[\"city-plan/1\",1201,\"organic\",60,[0,0],-1.5707963267948966,[\"valley\",1201]]",
+					"kind": "parcel",
+					"key": "[\"[\\\"face/base/-2,4/base/-3,4/base/-3,5/split/base/-2,4\\\"]\",[0,0,0,0]]"
+				},
+				"params": {
+					"complexity": 0.5,
+					"height": 4,
+					"width": 9
+				},
+				"seed": 3665137930
+			}
+		],
+		[
+			{
+				"kind": "place",
+				"assetId": "park/grove",
+				"host": {
+					"v": 1,
+					"world": "[\"city-plan/1\",1201,\"organic\",60,[0,0],-1.5707963267948966,[\"valley\",1201]]",
+					"kind": "parcel",
+					"key": "[\"[\\\"face/base/-2,4/base/-3,4/base/-3,5/split/base/-2,4\\\"]\",[0,0,0,1]]"
+				},
+				"params": {
+					"density": 5,
+					"height": 8
+				},
+				"seed": 1771340845
+			}
+		],
+		[
+			{
+				"kind": "remove",
+				"id": "[\"[\\\"city-plan/1\\\",1201,\\\"organic\\\",60,[0,0],-1.5707963267948966,[\\\"valley\\\",1201]]\",\"parcel\",\"[\\\"[\\\\\\\"face/base/-2,4/base/-3,4/base/-3,5/split/base/-2,4\\\\\\\"]\\\",[0,0,0,1]]\"]"
+			}
+		]
+	],
+	"position": 2
+}`;
+
+test('restores the pre-sculpture sandbox/3 log with identical placement geometry and history', () => {
+	const { world } = example();
+	const document = world.restore(preSculptureSave);
+	const saved = JSON.parse(preSculptureSave);
+	expect(document.world.registryRevision).toBe('city-assets/4');
+	expect(document.readOrphans()).toEqual([]);
+	expect(JSON.parse(document.serialize())).toEqual({
+		...saved,
+		world: { ...saved.world, registryRevision: 'city-assets/4' }
+	});
+
+	const placements = document.readPlacements();
+	const capturedPlacements = restoreSandboxDocument(preSculptureSave).readPlacements();
+	expect(placements).toEqual(
+		capturedPlacements.map((placement) => ({ ...placement, registryRevision: 'city-assets/4' }))
+	);
+	const geometryHashes = () =>
+		document
+			.readPlacements()
+			.map(world.build)
+			.map((object) => createHash('sha256').update(JSON.stringify(object)).digest('hex'));
+	// Full object hashes from the same pre-expansion capture.
+	const geometry = [
+		'a7bee1760cb582477654627c84bfc7709f6eb0d7468520eb4a870c6ad909f8a4',
+		'717ed5adfc0705c4bc212dd1e12d24ab3f7f28e7f0201ba996390698dd08d18c'
+	];
+	expect(geometryHashes()).toEqual(geometry);
+	expect(document.readHistory()).toEqual({ placements: 2, strokes: 3, position: 2 });
+
+	document.redo();
+	expect(document.readPlacements()).toEqual(placements.slice(0, 1));
+	expect(geometryHashes()).toEqual(geometry.slice(0, 1));
+	expect(document.readHistory()).toEqual({ placements: 1, strokes: 3, position: 3 });
+	document.undo();
+	expect(document.readPlacements()).toEqual(placements);
+	expect(geometryHashes()).toEqual(geometry);
+	document.undo();
+	document.undo();
+	expect(document.readPlacements()).toEqual([]);
+	document.redo();
+	document.redo();
+	expect(document.readPlacements()).toEqual(placements);
+	expect(geometryHashes()).toEqual(geometry);
+	expect(document.readHistory()).toEqual({ placements: 2, strokes: 3, position: 2 });
+});
+
+test('keeps the parcel brush list unchanged when the sculpture family is installed', () => {
+	const { world } = example();
+	expect(world.listAssets('parcel').map(({ id }) => id)).toEqual([
+		'house/court-neutral',
+		'house/court-memphis',
+		'house/court-archigram',
+		'house/court-organic',
+		'park/grove'
+	]);
 });

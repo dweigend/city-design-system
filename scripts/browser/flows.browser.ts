@@ -694,7 +694,21 @@ journeys('filters the specimen list and restores all assets', async ({ page }) =
 	for (const item of houses) expect(item).toMatch(/\bhouse\/\S+/);
 	await choose(page, 'Asset kind', 'Parks');
 	await expect(specimens).toHaveText([/Grove.*park\/grove/s]);
-	await choose(page, 'Asset kind', 'All kinds');
+	const canvas = (await readyStages(page, 1)).first();
+	await renderedChange(canvas, () => choose(page, 'Asset kind', 'Sculptures'));
+	const sculptures = [
+		/sculpture\/portal-arch/,
+		/sculpture\/cantilever-totem/,
+		/sculpture\/plaza-canopy/
+	];
+	await expect(specimens).toHaveText(sculptures);
+	const builds = await canvas.getAttribute('data-stage-drawable-builds');
+	for (const level of ['Pencil', 'Transparent', 'Normal']) {
+		await renderedChange(canvas, () => choose(page, 'Display level', level));
+		await expect(specimens).toHaveText(sculptures);
+		await expect(canvas).toHaveAttribute('data-stage-drawable-builds', builds ?? '');
+	}
+	await renderedChange(canvas, () => choose(page, 'Asset kind', 'All kinds'));
 	await expect(specimens).toHaveText(all, { useInnerText: true });
 });
 
@@ -706,7 +720,7 @@ journeys('saves the default town with engine-portable revisions', async ({ page 
 	expect(JSON.parse(await readFile(saved, 'utf8')).world).toMatchObject({
 		terrainRevision: '["valley",4,1201,{"sinuosity":1.15,"relief":0,"runoff":1}]',
 		topologyRevision: '2992ab70a4f9fad2',
-		registryRevision: 'city-assets/3'
+		registryRevision: 'city-assets/4'
 	});
 });
 

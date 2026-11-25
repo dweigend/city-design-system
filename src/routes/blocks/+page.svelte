@@ -25,7 +25,8 @@
 		rail: 'Rail',
 		surface: 'Surfaces',
 		structure: 'Frames',
-		lattice: 'Lattices'
+		lattice: 'Lattices',
+		sculpture: 'Sculptures'
 	};
 	const kinds = [
 		{ value: 'all', label: 'All kinds' },
@@ -45,7 +46,7 @@
 	};
 	const boardFocus = createFocusResolver(
 		{
-			full: { label: 'Full', subject: ['specimens'] },
+			full: { label: 'Normal', subject: ['specimens'] },
 			transparent: { label: 'Transparent', subject: ['specimens'] },
 			pencil: { label: 'Pencil', subject: ['specimens'] }
 		},

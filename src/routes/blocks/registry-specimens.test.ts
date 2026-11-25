@@ -1,13 +1,20 @@
 import { expect, test } from 'bun:test';
+import { houseLevels } from '../../lib/scene/house-projection';
+import { readMaterialSurface } from '../../lib/scene/surface';
 import { accessSurfaces, railSurfaces } from '../../lib/scene/paths-projection';
-import { buildAsset, listAssets, readAsset } from '../../lib/world/asset-registry';
+import {
+	buildAsset,
+	buildAssetResult,
+	listAssets,
+	readAsset
+} from '../../lib/world/asset-registry';
 import { defaults } from '../../config/blocks-board';
-import { buildBoard } from './board';
+import { buildBoard, presentBoard } from './board';
 import { specimenHost } from './hosts';
 
 test('builds every registered specimen at defaults and every combination of parameter bounds', () => {
 	const assets = listAssets();
-	expect(assets).toHaveLength(24);
+	expect(assets).toHaveLength(27);
 	for (const entry of assets) {
 		const host = specimenHost(entry);
 		const edges = Object.entries(entry.params).reduce<Record<string, number>[]>(
@@ -40,7 +47,7 @@ test('places a frame on a resolved lattice bay', () => {
 	expect(frame.anchors.length).toBeGreaterThan(0);
 });
 
-test('spaces the 24 specimen plinths on the configured metric grid', () => {
+test('spaces the 27 specimen plinths on the configured metric grid', () => {
 	const { bases } = buildBoard(listAssets());
 	const {
 		boardMaximumColumns,
@@ -50,7 +57,7 @@ test('spaces the 24 specimen plinths on the configured metric grid', () => {
 		boardPlinthRimM,
 		boardPlinthHeightM
 	} = defaults;
-	expect(bases).toHaveLength(24);
+	expect(bases).toHaveLength(27);
 	const places = [
 		[1, [boardColumnPitchM, -0]],
 		[boardMaximumColumns, [0, -boardRowPitchM]]
@@ -92,4 +99,41 @@ test('access and rail specimens use the full Paths role surfaces', () => {
 			...surface
 		}))
 	);
+});
+
+test('paints every sculpture slot and reuses its geometry in all three display modes', () => {
+	const assets = listAssets({ kind: 'sculpture' });
+	for (const asset of assets) {
+		const { object, metadata } = buildAssetResult(
+			asset.id,
+			specimenHost(asset),
+			{},
+			defaults.boardSeed
+		);
+		const board = buildBoard([asset]);
+		const full = presentBoard(board, 'full');
+		expect(full).toBe(board.drawables);
+		expect(board.specimens).toHaveLength(object.parts.length);
+		for (const [index, part] of object.parts.entries()) {
+			const material = metadata?.[part.slot];
+			if (!material) throw new Error('Expected material for ' + part.slot);
+			expect(board.specimens[index]).toMatchObject({
+				id: asset.id + '/' + part.id,
+				...readMaterialSurface(material.family, material.role, 'normal')
+			});
+		}
+		for (const level of ['pencil', 'transparent'] as const) {
+			const [base, ...specimens] = presentBoard(board, level);
+			expect(base).toBe(board.bases[0]);
+			expect(specimens).toHaveLength(board.specimens.length);
+			for (const [index, part] of specimens.entries()) {
+				expect(part.shape).toBe(board.specimens[index].shape);
+				expect(part).toMatchObject({
+					hatch: houseLevels[level].hatch,
+					fillAlpha: houseLevels[level].fillAlpha,
+					occlude: level === 'transparent'
+				});
+			}
+		}
+	}
 });

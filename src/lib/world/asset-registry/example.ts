@@ -1,8 +1,15 @@
 import { resolveParams } from '../../core/params';
 import { createCellSpace, parcelEdgeId, type Parcel } from '../../domain/cell-space';
-import { buildAsset, readAsset, type CityAssetHost, type Placement } from './index';
+import {
+	buildAsset,
+	buildAssetResult,
+	listAssets,
+	readAsset,
+	type CityAssetHost,
+	type Placement
+} from './index';
 
-/** Builds three houses, round-trips their placement records through JSON and rebuilds them. */
+/** Replays fixed house placements through JSON and builds the three sculpture specimens. */
 export function placementsExample() {
 	const parcels = new Map<string, Parcel>();
 	for (const [index, id] of ['first', 'second', 'third'].entries()) {
@@ -47,5 +54,9 @@ export function placementsExample() {
 	const original = records.map(build);
 	const json = JSON.stringify(records);
 	const restored = JSON.parse(json) as Placement[];
-	return { records, original, json, restored, rebuilt: restored.map(build) };
+	const ground = { kind: 'ground', point: [12, -7, 3] } as const;
+	const sculptures = listAssets({ kind: 'sculpture' }).map(({ id }) =>
+		buildAssetResult(id, ground, { scale: 1.25, rotation: Math.PI / 2 }, 37)
+	);
+	return { records, original, json, restored, rebuilt: restored.map(build), sculptures };
 }
