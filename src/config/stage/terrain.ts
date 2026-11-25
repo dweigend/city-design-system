@@ -128,7 +128,7 @@ export const terrainSettings = defineSettings({
 		meaning: 'Minor contour ink mix in the light palette',
 		rationale: 'Keeps minor contours subordinate to index contours.'
 	},
-	stageDarkMinorContourInkLift: {
+	stageDarkMinorContourInkShift: {
 		value: -0.05,
 		unit: 'ratio',
 		meaning: 'Change in minor contour ink mix in the dark palette',

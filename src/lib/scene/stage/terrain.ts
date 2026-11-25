@@ -85,13 +85,23 @@ export function terrainColor(
 			)
 		)
 		.mul(palette.hull.oneMinus());
-	const paper = graphite(materialColor, offset, steepness.mul(grain.shadow));
+	const paper = graphite(
+		materialColor,
+		offset,
+		mix(
+			steepness,
+			float(/* Exact arithmetic: uniform grain factor in translucent hull mode. */ 1),
+			palette.hull
+		).mul(grain.shadow)
+	);
 	const minor = pencil(
 		height,
 		contourInterval,
 		defaults.stageMinorContourRadiusPx,
 		defaults.stageContourDotSpacingPx
-	).mul(palette.dark.mul(defaults.stageDarkMinorContourInkLift).add(defaults.stageMinorContourInk));
+	).mul(
+		palette.dark.mul(defaults.stageDarkMinorContourInkShift).add(defaults.stageMinorContourInk)
+	);
 	const index = pencil(
 		height,
 		contourInterval * defaults.stageIndexContourStride,
