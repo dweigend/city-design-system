@@ -1,4 +1,6 @@
+import { writable, type Readable, type Writable } from 'svelte/store';
 import type { Vec2, Vec3 } from '../../lib/core/geometry';
+import { resolveParams, type ParameterSchema } from '../../lib/core/params';
 import {
 	cityCameraBearingRad,
 	cityCameraMinimumWidthM,
@@ -12,6 +14,29 @@ import {
 import { projectFocus, type View, type ViewFit } from '../../lib/scene/stage';
 
 type CityStep = '01' | '02' | '03';
+type CitySlider = Readable<number> & {
+	draft: Writable<number>;
+	commit: (value: number) => void;
+};
+
+/** Creates a fresh draft initialized from the query and a readable committed value.
+ * Both values use the schema's units, bounds and steps. Missing query values use the
+ * schema default. Non-finite query or commit values throw RangeError. */
+export function createCitySlider(param: ParameterSchema[string], queryValue?: number): CitySlider {
+	const schema = { value: param };
+	const initial = resolveParams(schema, { value: queryValue ?? param.default }).value;
+	const draft = writable(initial);
+	const committed = writable(initial);
+	return {
+		draft,
+		subscribe: committed.subscribe,
+		commit: (value: number) => {
+			const resolved = resolveParams(schema, { value }).value;
+			draft.set(resolved);
+			committed.set(resolved);
+		}
+	};
+}
 
 /** Selects the city step from the query, defaulting to the complete lattice view. */
 export function readCityStep(value: string | null): CityStep {

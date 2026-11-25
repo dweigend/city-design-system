@@ -27,7 +27,13 @@
 		projectCityLattice
 	} from '../../lib/scene/city-volume-projection';
 	import type { View, Viewport } from '../../lib/scene/stage';
-	import { readCityFit, readCityStep, readCityStepFocus, readCitySubject } from './city';
+	import {
+		createCitySlider,
+		readCityFit,
+		readCityStep,
+		readCityStepFocus,
+		readCitySubject
+	} from './city';
 	import { StageView } from '../../lib/scene/stage-view';
 	import { valleyParams } from '../../lib/domain/valley';
 	import { cityHeightScaleM } from '../../lib/scene/surface';
@@ -120,23 +126,19 @@
 	let viewport = $state.raw<Viewport>({ width: 1, metersPerPixel: 0, center: [0, 0, 0] });
 	let step = $derived(readCityStep(page.url.searchParams.get('step')));
 	let view = $derived<View>(page.url.searchParams.get('view') === 'plan' ? 'plan' : 'iso');
-	let citySize = $derived(
-		resolveParams(citySiteParams, { citySize: valueFromQuery('city') ?? sizeParam.default })
-			.citySize
-	);
+	const citySize = $derived(createCitySlider(sizeParam, valueFromQuery('city')));
+	const height = $derived(createCitySlider(heightParam, valueFromQuery('height')));
+	const complexity = $derived(createCitySlider(complexityParam, valueFromQuery('complexity')));
+	const sizeDraft = $derived(citySize.draft);
+	const heightDraft = $derived(height.draft);
+	const complexityDraft = $derived(complexity.draft);
 	let seed = $derived(
 		resolveParams(citySiteParams, { seed: valueFromQuery('seed') ?? seedParam.default }).seed
 	);
-	const volumeInputs = $derived(
-		resolveParams(cityVolumeParams, {
-			height: valueFromQuery('height') ?? heightParam.default,
-			complexity: valueFromQuery('complexity') ?? complexityParam.default,
-			taper: valueFromQuery('taper') ?? taperParam.default
-		})
+	let taper = $derived(
+		resolveParams({ taper: taperParam }, { taper: valueFromQuery('taper') ?? taperParam.default })
+			.taper
 	);
-	let taper = $derived(volumeInputs.taper);
-	let height = $derived(volumeInputs.height);
-	let complexity = $derived(volumeInputs.complexity);
 
 	let terrainSettings = $derived<Readonly<Record<string, number>>>(
 		resolveParams(
@@ -150,13 +152,15 @@
 		)
 	);
 	const city = $derived(createCitySite(undefined, { ...terrainSettings, seed }));
-	const plan = $derived(readCityGrid(city, citySize, gridVariant, seed));
+	const plan = $derived(readCityGrid(city, $citySize, gridVariant, seed));
 	const recipe = $derived(city.recipe ?? riverCityRecipe);
 	// Every step stands on the whole plan, water cells included, so the plan and its crossings are
 	// one set of overlays that the focus draws at every step.
 	const terrain = $derived(projectCityTerrain(city, plan.grid, plan.plan));
 	const maxProfileScale = $derived(terrain.autoHeightScale);
-	const districts = $derived(readCityDistricts(city, plan, seed, { height, complexity }));
+	const districts = $derived(
+		readCityDistricts(city, plan, seed, { height: $height, complexity: $complexity })
+	);
 	const columns = $derived(readCityColumns(plan.grid, districts));
 	const taperField = $derived(createCityTaper(columns, plan.datumZ, recipe.levelHeightM));
 	const envelope = $derived(
@@ -369,7 +373,8 @@
 						min={sizeParam.min}
 						max={sizeParam.max}
 						step={sizeParam.step}
-						bind:value={citySize}
+						bind:value={$sizeDraft}
+						onCommit={citySize.commit}
 					/>
 					{#if active !== '01'}
 						<Slider
@@ -377,14 +382,16 @@
 							min={heightParam.min}
 							max={heightParam.max}
 							step={heightParam.step}
-							bind:value={height}
+							bind:value={$heightDraft}
+							onCommit={height.commit}
 						/>
 						<Slider
 							label={complexityParam.label}
 							min={complexityParam.min}
 							max={complexityParam.max}
 							step={complexityParam.step}
-							bind:value={complexity}
+							bind:value={$complexityDraft}
+							onCommit={complexity.commit}
 						/>
 						<Slider
 							label={taperParam.label}

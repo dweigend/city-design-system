@@ -142,6 +142,38 @@ test('keeps the taper at zero for the quarter frame on narrow and wide canvases'
 	}
 });
 
+test('previews signed taper at city distance using the same projected geometry', () => {
+	const { districts, envelope, members } = example();
+	const viewport = { width: 4200, metersPerPixel: 4.2, center: [0, 0, 0] as const };
+	const present = (taper: number) =>
+		cityPresentation({
+			terrain: [],
+			envelope: envelope.drawables,
+			members: members.drawables,
+			focus: 'all',
+			peak: districts.peakHeight,
+			relief: 0,
+			trueScale: true,
+			maxProfileScale: 1,
+			taper
+		})(viewport);
+	const upright = present(0);
+	for (const taper of [-1, -0.5, 0.5, 1]) {
+		const preview = present(taper);
+		expect(preview).toHaveLength(upright.length);
+		const changed = preview.filter(
+			(part, index) => part.warp?.amount !== upright[index].warp?.amount
+		);
+		expect(changed.length).toBeGreaterThan(0);
+		for (const part of changed) expect(Math.sign(part.warp?.amount ?? 0)).toBe(Math.sign(taper));
+		for (const [index, part] of preview.entries()) {
+			expect(part.id).toBe(upright[index].id);
+			expect(part.shape).toBe(upright[index].shape);
+			expect(part.strokeSegments).toBe(upright[index].strokeSegments);
+		}
+	}
+});
+
 test('winds roofs up and walls out, whatever the turn of the plan ring', () => {
 	expect(
 		clockwise([

@@ -106,6 +106,108 @@ journeys('switches city steps and focuses on parcels', async ({ page }) => {
 	);
 });
 
+// Readouts must follow the pointer, while drawable builds wait for a commit.
+// Taper must render during the gesture and reuse existing geometry.
+journeys('commits city geometry sliders and previews taper live', async ({ page }) => {
+	await open(page, '/city?seed=42&city=1000&height=21&complexity=0&taper=-1');
+	const canvas = (await readyStages(page, 1)).first();
+	const paint = () => page.screenshot();
+	const stageCount = async (name: 'drawable-builds' | 'frames') =>
+		Number(await canvas.getAttribute(`data-stage-${name}`));
+	const inputs = [
+		{ label: 'City size', values: ['1600', '2800', '3800'] },
+		{ label: 'Height', values: ['35', '49', '63'] },
+		{ label: 'Complexity', values: ['0.17', '0.33', '0.5'] },
+		{ label: 'Taper', values: ['-0.75', '-0.25', '0'] }
+	];
+	for (const { label, values } of inputs) {
+		const slider = page.getByRole('slider', { name: label, exact: true });
+		await slider.scrollIntoViewIfNeeded();
+		await paint();
+		const initialBuilds = await stageCount('drawable-builds');
+		// One rendered update can build several individual drawables.
+		const finishCounting = await canvas.evaluateHandle((element) => {
+			const attribute = 'data-stage-drawable-builds';
+			let previous = element.getAttribute(attribute);
+			let updates = 0;
+			const observer = new MutationObserver(() => {
+				const current = element.getAttribute(attribute);
+				if (current !== previous) updates++;
+				previous = current;
+			});
+			observer.observe(element, { attributeFilter: [attribute] });
+			return () => {
+				observer.disconnect();
+				return updates;
+			};
+		});
+		const track = await slider.locator('..').boundingBox();
+		const thumb = await slider.boundingBox();
+		if (!track || !thumb) throw new Error(`Cannot locate the ${label} slider`);
+		const min = Number(await slider.getAttribute('aria-valuemin'));
+		const max = Number(await slider.getAttribute('aria-valuemax'));
+		const y = thumb.y + thumb.height / 2;
+		await page.mouse.move(thumb.x + thumb.width / 2, y);
+		await page.mouse.down();
+		for (const value of values) {
+			const frames = await stageCount('frames');
+			const fraction = (Number(value) - min) / (max - min);
+			await page.mouse.move(track.x + track.width * fraction, y);
+			await expect(slider).toHaveText(value);
+			if (label === 'Taper') {
+				await expect.poll(() => stageCount('frames')).toBeGreaterThan(frames);
+			}
+			await paint();
+			expect(await stageCount('drawable-builds'), `${label} while dragging`).toBe(initialBuilds);
+		}
+		await page.mouse.up();
+		if (label !== 'Taper') {
+			await expect.poll(() => stageCount('drawable-builds')).toBeGreaterThan(initialBuilds);
+		}
+		await paint();
+		const updates = await finishCounting.evaluate((finish) => finish());
+		await finishCounting.dispose();
+		expect(updates, `${label} drawable updates for one gesture`).toBe(label === 'Taper' ? 0 : 1);
+	}
+
+	const size = page.getByRole('slider', { name: 'City size', exact: true });
+	const builds = await stageCount('drawable-builds');
+	await size.press('ArrowRight');
+	await expect(size).toHaveText('4000');
+	await expect.poll(() => stageCount('drawable-builds')).toBeGreaterThan(builds);
+
+	const citySummary = async () => {
+		const measurements = await page.locator('.city-measurements').innerText();
+		const focus = page.getByRole('combobox', { name: 'Focus', exact: true });
+		await focus.click();
+		await expect(page.getByRole('option', { name: 'Parcels', exact: true })).toBeVisible();
+		const choices = await page.getByRole('option').allTextContents();
+		await page.keyboard.press('Escape');
+		return { measurements, choices, active: await focus.innerText() };
+	};
+	const committed = await citySummary();
+	await open(page, '/city?seed=42&city=4000&height=63&complexity=0.5&taper=0');
+	await readyStages(page, 1);
+	expect(await citySummary()).toEqual(committed);
+	for (const { label, values } of inputs.slice(1)) {
+		await expect(page.getByRole('slider', { name: label, exact: true })).toHaveText(
+			values[values.length - 1]
+		);
+	}
+	await expect(size).toHaveText('4000');
+
+	await page.getByRole('link', { name: 'City', exact: true }).click();
+	await expect(page).toHaveURL(/\/city$/);
+	for (const [label, value] of [
+		['City size', '1800'],
+		['Height', '105'],
+		['Complexity', '0.35'],
+		['Taper', '1']
+	]) {
+		await expect(page.getByRole('slider', { name: label, exact: true })).toHaveText(value);
+	}
+});
+
 // Surface controls must update the plates and both stage displays. This catches a disconnected
 // level or switch after hydration. Geometry tests cannot exercise the controls. No hooks are added.
 journeys('changes the surface plate level and transparency', async ({ page }) => {
