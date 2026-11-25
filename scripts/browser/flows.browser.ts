@@ -632,6 +632,53 @@ journeys('paints, erases, uses history and reloads the saved sandbox', async ({ 
 	expect(JSON.parse(await readFile(resaved, 'utf8'))).toEqual(original);
 });
 
+journeys(
+	'previews sandbox storey drags and Plan levels without editing the town',
+	async ({ page }) => {
+		await open(page, '/sandbox');
+		const canvas = (await readyStages(page, 1)).first();
+		const status = page.getByRole('status');
+		await page.getByRole('radio', { name: 'Preview storeys', exact: true }).click();
+		await canvas.scrollIntoViewIfNeeded();
+		const box = await canvas.boundingBox();
+		if (!box) throw new Error('The sandbox canvas has no bounds');
+		const baseCount = Number(await canvas.getAttribute('data-stage-drawables'));
+		const x = box.x + box.width * 0.46;
+		const y = box.y + box.height * 0.52;
+		const startDrag = async (steps: number) => {
+			await page.mouse.move(x, y);
+			await page.mouse.down();
+			await page.mouse.move(x, y - box.height * 0.22, { steps });
+			await expect(status).toContainText(/Previewing storeys \d+–\d+/);
+			await expect(canvas).toHaveAttribute('data-stage-drawables', String(baseCount + 1));
+			return status.innerText();
+		};
+		const fast = await startDrag(1);
+		await page.mouse.up();
+		await expect(status).toContainText('Drag up or down on a fine cell');
+		await expect(canvas).toHaveAttribute('data-stage-drawables', String(baseCount));
+		expect(await startDrag(12)).toBe(fast);
+		await canvas.dispatchEvent('pointercancel', { pointerId: 1, pointerType: 'mouse' });
+		await page.mouse.up();
+		await expect(status).toContainText('Drag up or down on a fine cell');
+		await expect(canvas).toHaveAttribute('data-stage-drawables', String(baseCount));
+
+		await page.getByRole('radio', { name: 'Plan', exact: true }).click();
+		await expect(canvas).toHaveAttribute('data-stage-view', 'plan');
+		await page.mouse.click(box.x + box.width * 0.42, y);
+		await expect(status).toContainText('Previewing storey 1');
+		await choose(page, 'Storey', '2');
+		await expect(status).toContainText('Previewing storey 2');
+		await expect(canvas).toHaveAttribute('data-stage-drawables', String(baseCount + 1));
+		await expect(page.getByRole('button', { name: 'Undo', exact: true })).toBeDisabled();
+		const saved = await saveSandbox(page, 'sandbox.json');
+		expect(JSON.parse(await readFile(saved, 'utf8')).strokes).toEqual([]);
+		await page.getByRole('radio', { name: '3D', exact: true }).click();
+		await expect(page.getByRole('combobox', { name: 'Storey', exact: true })).toHaveCount(0);
+		await expect(canvas).toHaveAttribute('data-stage-drawables', String(baseCount));
+	}
+);
+
 // Town review controls must preserve combined URL selections across reloads without rebuilding
 // house geometry on focus switches. Catches broken shallow routing or dropped query params.
 journeys('preserves town review focus, frame and view across reloads', async ({ page }) => {

@@ -31,3 +31,14 @@ export {
 	/** One candidate with the sandbox's current selection and pointer state. */
 	type DetailSubject
 } from './detail';
+/** Vertical fine-cell picking and work-plane strokes. */
+export {
+	/** Locks a cell-centered vertical plane and reads discrete storeys crossed from the press. */
+	createVerticalStroke,
+	/** Reads the first fine cell containing a plan point. */
+	readFineCell,
+	/** Reads the nearest occupied fine-cell volume along the camera ray. */
+	readOccupiedCell,
+	/** The locked fine cell, its stage center and its available storeys. */
+	type VerticalTarget
+} from './vertical-stroke';

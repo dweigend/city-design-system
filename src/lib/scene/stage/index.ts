@@ -7,6 +7,7 @@ import {
 	cameraFrame,
 	fitCamera,
 	pickGround,
+	readRay,
 	type CameraFrame,
 	type View,
 	type ViewFit
@@ -21,6 +22,8 @@ import { drawingPalette } from './tone';
 
 /** Camera projections for the same geometry. */
 export type {
+	/** A world-space camera origin and unit direction into the scene. */
+	CameraRay,
 	/** Named camera projections of the same stage geometry. */
 	View,
 	/** Optional orthographic fit with radian angles, a fill fraction, and positive relative zoom. */
@@ -229,7 +232,9 @@ async function create({
 		/** Reads the current fitted camera width and scale. */
 		readViewport: () => viewport,
 		/** Reads ground at a CSS pixel offset from the last displayed image center. */
-		pickGround: (offset: Vec2) => displayedFrame && pickGround(displayedFrame, offset),
+		pickGround: (offset: Vec2) => pickGround(displayedFrame, offset),
+		/** Reads the camera ray at the same offset as pickGround, once a frame has rendered. */
+		readRay: (offset: Vec2) => readRay(displayedFrame, offset),
 		/** Reads the image axes and scale the stage would use for another fit. */
 		readFrame(next: ViewFit) {
 			const framing = fitCamera(state.read().view, content.bounds, aspect, landscape, next);

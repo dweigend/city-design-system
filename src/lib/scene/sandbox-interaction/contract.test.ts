@@ -1,9 +1,15 @@
 import { describe, expect, test } from 'bun:test';
+import { required } from '../../core/invariant';
+import { createCellSpace } from '../../domain/cell-space';
+import type { CameraRay } from '../stage';
 import { example } from './example';
 import {
 	createBuildQueue,
 	createStrokeDraft,
 	createStrokeState,
+	createVerticalStroke,
+	readFineCell,
+	readOccupiedCell,
 	selectHouseDetail,
 	shareBlockBudget,
 	type StrokeInput
@@ -151,4 +157,74 @@ describe('sandbox interaction', () => {
 			['c', 100]
 		]);
 	});
+});
+
+const space = createCellSpace(
+	{
+		id: 'parcel',
+		corners: [
+			{ id: 'a', position: [0, 0] },
+			{ id: 'b', position: [4, 0] },
+			{ id: 'c', position: [4, 4] },
+			{ id: 'd', position: [0, 4] }
+		],
+		frontage: [],
+		baseZ: 10,
+		datumIndex: 6,
+		storeyCount: 4,
+		storeyHeightsM: [2, 5, 3, 6]
+	},
+	0
+);
+const cell = space.cells[0];
+const stock = [{ id: cell.id, role: 'wing', fromStorey: 0, toStorey: 2 }] as const;
+const target = {
+	cell,
+	center: [1, 1] as const,
+	storeys: space.storeys.filter(({ cellId }) => cellId === cell.id)
+};
+const rayAt = (height: number): CameraRay => ({
+	origin: [-9, 1, height + 7.5],
+	direction: [0.8, 0, -0.6]
+});
+const planRay: CameraRay = { origin: [1, 1, 50], direction: [0, 0, -1] };
+
+test('picks the visible fine-cell volume before ground and uses the plan cell at ground', () => {
+	expect(readOccupiedCell(space, stock, rayAt(13.5), 20)).toEqual({
+		cell,
+		distance: 11.25
+	});
+	expect(readOccupiedCell(space, stock, rayAt(13.5), 10)).toBeUndefined();
+	expect(readOccupiedCell(space, stock, planRay, Infinity)).toEqual({ cell, distance: 33 });
+	expect(readFineCell(space, [3, 1])).toBe(space.cells[1]);
+	expect(readFineCell(space, [5, 1])).toBeUndefined();
+});
+
+test('fast and slow drags cross the same mixed-height storeys, including the first above stock', () => {
+	const fast = required(createVerticalStroke(target, rayAt(11)), 'fast stroke');
+	const slow = required(createVerticalStroke(target, rayAt(11)), 'slow stroke');
+	const datums = (storeys: ReturnType<typeof fast>) => storeys?.map(({ datumIndex }) => datumIndex);
+	expect(datums(slow(rayAt(15)))).toEqual([6, 7]);
+	const swept = fast(rayAt(17));
+	expect(datums(swept)).toEqual([6, 7, 8]);
+	expect(swept?.at(-1)?.storey).toBe(stock[0].toStorey);
+	expect(slow(rayAt(17))).toEqual(swept);
+	expect(datums(slow(rayAt(13)))).toEqual([6, 7]);
+});
+
+test('orders downward drags from the press and clips to the available stack', () => {
+	const sweep = required(createVerticalStroke(target, rayAt(24)), 'downward stroke');
+	expect(sweep(rayAt(8))?.map(({ datumIndex }) => datumIndex)).toEqual([9, 8, 7, 6]);
+	expect(sweep(rayAt(40))?.map(({ datumIndex }) => datumIndex)).toEqual([9]);
+	const above = required(createVerticalStroke(target, rayAt(26)), 'roof-height stroke');
+	expect(above(rayAt(50))).toEqual([]);
+});
+
+test('rejects edge-on and backward intersections', () => {
+	expect(createVerticalStroke(target, planRay)).toBeUndefined();
+	expect(
+		createVerticalStroke(target, { origin: [2, 1, 15], direction: [1, 0, 0] })
+	).toBeUndefined();
+	const sweep = required(createVerticalStroke(target, rayAt(15)), 'oblique stroke');
+	expect(sweep(planRay)).toBeUndefined();
 });

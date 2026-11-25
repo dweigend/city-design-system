@@ -2,6 +2,7 @@
 import type { Vec2 } from '../../core/geometry';
 import { move, type PlaceableObject } from '../../core/object';
 import { defaults } from '../../../config/sandbox-projection';
+import type { CellStorey, FineCell } from '../../domain/cell-space';
 import { houseFaces, type AdjoiningWall, type HouseStyleName } from '../../domain/house-court';
 import type { SurfaceLevel } from '../../domain/material';
 import type { Parcel } from '../../domain/parcels';
@@ -16,6 +17,7 @@ import {
 	projectProgrammedHouse
 } from '../house-projection';
 import { projectPathAsset } from '../paths-projection';
+import type { CameraRay, View } from '../stage';
 import {
 	projectGrove,
 	readModelSurface,
@@ -75,12 +77,21 @@ export function createSandboxProjection(site: CitySite, layout: CityGrid, holdin
 			stroke: { color, width, opacity: defaults.hoverOpacity }
 		};
 	}
+	/** Converts a displayed position to the polygon index's world XY meters. */
+	function toWorld(x: number, y: number): Vec2 {
+		return [origin[0] + x * east - y * north, origin[1] + x * north + y * east];
+	}
+
 	return Object.freeze({
 		background: [...terrain.drawables, ...terrain.projectParcels(holdings)],
 		toLocal,
-		/** Converts a displayed ground point to the polygon index's world XY meters. */
-		toWorld(x: number, y: number): Vec2 {
-			return [origin[0] + x * east - y * north, origin[1] + x * north + y * east];
+		toWorld,
+		/** Re-expresses a stage ray in the parcel coordinate system. */
+		readWorldRay({ origin: [x, y, z], direction: [dx, dy, dz] }: CameraRay): CameraRay {
+			return {
+				origin: [...toWorld(x, y), z],
+				direction: [dx * east - dy * north, dx * north + dy * east, dz]
+			};
 		},
 		/** Projects one object's registry geometry with its slot surfaces. */
 		projectPlacement(object: PlaceableObject, kind: string, placementId: string): Drawable[] {
@@ -146,6 +157,38 @@ export function createSandboxProjection(site: CitySite, layout: CityGrid, holdin
 		/** Drapes a parcel contour in a colour token, for stroke, skip and selection marks. */
 		projectMark(parcel: Pick<Parcel, 'outline'>, id: string, color: `--${string}`): Drawable {
 			return projectOutline(parcel, id, color, defaults.markStrokePx);
+		},
+		/** Draws a fine cell's contiguous storey span, including edges obscured by stock. */
+		projectStoreyPreview(
+			cell: FineCell,
+			storeys: readonly CellStorey[],
+			view: View
+		): Drawable | undefined {
+			if (!storeys.length) return undefined;
+			const polygon = cell.quad.map(([x, y]) => toLocal(x, y));
+			const base = Math.min(...storeys.map(({ bottomZ }) => bottomZ));
+			const top = Math.max(...storeys.map(({ topZ }) => topZ));
+			const levels = view === 'plan' ? [top] : new Set([base, ...storeys.map(({ topZ }) => topZ)]);
+			const strokeSegments: number[] = [];
+			for (const z of levels)
+				for (const [i, p] of polygon.entries())
+					strokeSegments.push(...p, z, ...polygon[(i + 1) % polygon.length], z);
+			if (view === 'iso') for (const p of polygon) strokeSegments.push(...p, base, ...p, top);
+			const color = '--blueprint';
+			return {
+				id: 'sandbox-storey-preview',
+				shape: { kind: 'prism', polygon, base, top },
+				color,
+				finish: 'line',
+				fillVisible: false,
+				strokeSegments,
+				stroke: {
+					color,
+					width: defaults.hoverStrokePx,
+					opacity: defaults.hoverOpacity,
+					hidden: defaults.storeyPreviewHiddenOpacity
+				}
+			};
 		},
 		/** A plain matte body standing on the parcel up to `heightM` above its lowest ground, the
 		 * immediate stand-in for a house that is still being built. */

@@ -6,6 +6,7 @@ export type IconName =
 	| 'minimize'
 	| 'x'
 	| 'paintbrush'
+	| 'layers'
 	| 'eraser'
 	| 'pointer'
 	| 'dices'

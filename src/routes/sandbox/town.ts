@@ -1,5 +1,6 @@
 import { defaults } from '../../config/sandbox-brush';
 import type { Vec3 } from '../../lib/core/geometry';
+import type { CellSpace } from '../../lib/domain/cell-space';
 import type { Parcel } from '../../lib/domain/parcels';
 import type { createSandboxDocument, SandboxPlacement } from '../../lib/domain/sandbox-document';
 import {
@@ -14,8 +15,16 @@ import { projectSketch } from '../../lib/scene/sketch';
 import { createSandboxProjection } from '../../lib/scene/sandbox-projection';
 import type { Drawable, ModelTone } from '../../lib/scene/surface';
 import { groveLawnLiftM } from '../../lib/world/asset-registry';
-import { createTownHouseStudy, townHouseRecipe } from '../../lib/world/house-site';
-import { createPlacementCache, createSandboxWorld } from '../../lib/world/sandbox-world';
+import {
+	createTownHouseStudy,
+	townHouseRecipe,
+	type PlacedParcelHouse
+} from '../../lib/world/house-site';
+import {
+	createPlacementCache,
+	createSandboxWorld,
+	UnavailableHostError
+} from '../../lib/world/sandbox-world';
 
 const styleTones = {
 	neutral: 'cream',
@@ -40,6 +49,7 @@ export type PlacementRequest = Readonly<{
 	parcel?: Parcel;
 	salience?: Readonly<{ block: string; features: HouseFeatures }>;
 	reason?: string;
+	house?: PlacedParcelHouse;
 	program?: readonly Pick<HouseStorey, 'storey' | 'phase' | 'use'>[];
 	build?: (detail: Detail) => readonly Drawable[];
 }>;
@@ -74,6 +84,26 @@ export function createTownSandbox() {
 	const readBrushParams = (id: string) => (isHouse(id) ? brushParams : {});
 	const previewBody = (parcel: Parcel, id: string, assetId: string, height: number) =>
 		projection.projectBody(parcel, isHouse(assetId) ? height : groveLawnLiftM, id, toneOf(assetId));
+	const previewSpaces = new Map<string, CellSpace | undefined>();
+
+	/** Uses the same parcel subdivision and datum as a house without editing the open document. */
+	function readPreviewSpace(parcel: Parcel): CellSpace | undefined {
+		if (parcel.publicUse) return undefined;
+		if (previewSpaces.has(parcel.id)) return previewSpaces.get(parcel.id);
+		const host = { kind: 'parcel', id: parcel.id } as const;
+		const scratch = world.createDocument();
+		let space: CellSpace | undefined;
+		try {
+			scratch.apply([world.place('house/court-neutral', host, brushParams)]);
+			const placement = scratch.readPlacement(host);
+			const house = placement && world.resolveHouse(placement);
+			space = house?.status === 'placed' ? house.space : undefined;
+		} catch (error) {
+			if (!(error instanceof UnavailableHostError)) throw error;
+		}
+		previewSpaces.set(parcel.id, space);
+		return space;
+	}
 	/** Draws the brushes on the first parcel every house style can build. */
 	function createSpecimens() {
 		const sketchOptions = {
@@ -127,6 +157,7 @@ export function createTownSandbox() {
 		isHouse,
 		readBrushParams,
 		previewBody,
+		readPreviewSpace,
 		parcels,
 		/** Turns the current placements and their party walls into deferred build requests. */
 		createCache: (document: ReturnType<typeof createSandboxDocument>) =>
@@ -141,6 +172,7 @@ export function createTownSandbox() {
 					if (house)
 						return {
 							placement,
+							house,
 							...where,
 							salience: {
 								block: house.parcel.blockId,

@@ -8,9 +8,11 @@ import {
 	MeshBasicMaterial,
 	Object3D,
 	OrthographicCamera,
-	Scene
+	Scene,
+	Vector3
 } from 'three/webgpu';
 import { dotProduct, displacement, type Vec3 } from '../../core/geometry';
+import { required } from '../../core/invariant';
 import type { Drawable } from '../surface';
 import {
 	Stage,
@@ -26,6 +28,8 @@ import {
 	cameraFrame,
 	fitCamera,
 	groundAt,
+	pickGround,
+	readRay,
 	readView,
 	type CameraFrame
 } from './camera';
@@ -45,6 +49,61 @@ import { shadowPolygon } from './ground';
 import { readDisplay } from './material';
 import { stageState } from './state';
 import { openDemandRenderer } from './renderer';
+
+test('has no camera ray before a frame is displayed', () => {
+	expect(readRay(undefined, [15, -20])).toBeUndefined();
+});
+
+test.each(['iso', 'plan'] as const)('casts the %s ray through the ground hit', (view) => {
+	const { content } = contentOf();
+	content.show([
+		{
+			id: 'ground',
+			color: '--paper',
+			finish: 'terrain',
+			shape: { kind: 'mesh', positions: [-20, -20, 2, 20, -20, 2, 0, 20, 2], indices: [0, 1, 2] }
+		}
+	]);
+	content.update(appearance, true);
+	try {
+		const camera = fitCamera(view, { min: [-20, -20, 2], max: [20, 20, 8] }, 2, true, {
+			bearing: 0.6,
+			width: 40,
+			zoom: 2,
+			offset: [1, -2]
+		});
+		const frame = { ...cameraFrame(camera, 400), hit: content.hit };
+		const offset = [15, -20] as const;
+		const ray = required(readRay(frame, offset), 'rendered camera ray');
+		const ground = required(pickGround(frame, offset), 'displayed ground hit');
+		const { halfWidth, halfHeight, near, far, eye, center, up } = camera;
+		const reference = new OrthographicCamera(
+			-halfWidth,
+			halfWidth,
+			halfHeight,
+			-halfHeight,
+			near,
+			far
+		);
+		reference.position.set(...eye);
+		reference.up.set(...up);
+		reference.lookAt(...center);
+		reference.updateMatrixWorld();
+		const worldNear = new Vector3(offset[0] / 200, -offset[1] / 100, -1).unproject(reference);
+		for (const [axis, coordinate] of worldNear.toArray().entries())
+			expect(ray.origin[axis] + near * ray.direction[axis]).toBeCloseTo(coordinate);
+		expect(ground[2]).toBeCloseTo(2);
+		expect(Math.hypot(...ray.direction)).toBeCloseTo(1);
+		expect(ray.direction[2]).toBeLessThan(0);
+		const relative = displacement(ray.origin, ground);
+		const distance = dotProduct(relative, ray.direction);
+		expect(distance).toBeGreaterThan(0);
+		for (const [axis, component] of relative.entries())
+			expect(component).toBeCloseTo(distance * ray.direction[axis]);
+	} finally {
+		content.delete();
+	}
+});
 
 test.each(['r187', 'hooks removed', 'stop changed'] as const)(
 	'initializes, submits one demand frame and releases the renderer (%s)',

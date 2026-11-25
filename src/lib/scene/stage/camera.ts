@@ -209,6 +209,7 @@ export function fitCamera(
 /** A fitted camera as navigation reads it: image axes, view direction and scale. */
 export type CameraFrame = Readonly<{
 	center: Vec3;
+	eye: Vec3;
 	right: Vec3;
 	imageUp: Vec3;
 	direction: Vec3;
@@ -221,12 +222,16 @@ export type CameraFrame = Readonly<{
 	displayGround?: (anchor: TerrainAnchor) => Vec3;
 }>;
 
+/** A world-space ray from the orthographic camera, pointing into the scene at unit length. */
+export type CameraRay = Readonly<{ origin: Vec3; direction: Vec3 }>;
+
 /** Reads the image axes of a fitted camera for a canvas of `widthPx` CSS pixels. */
 export function cameraFrame(camera: ReturnType<typeof fitCamera>, widthPx: number): CameraFrame {
 	const direction = unitVector(displacement(camera.center, camera.eye));
 	const right = unitVector(crossProduct(camera.up, direction));
 	return {
 		center: camera.center,
+		eye: camera.eye,
 		right,
 		imageUp: crossProduct(direction, right),
 		direction,
@@ -234,22 +239,29 @@ export function cameraFrame(camera: ReturnType<typeof fitCamera>, widthPx: numbe
 	};
 }
 
-function imagePoint({ center, right, imageUp, metersPerPixel }: CameraFrame, [x, y]: Vec2) {
-	return sum(center, sum(scaled(right, x * metersPerPixel), scaled(imageUp, -y * metersPerPixel)));
+function imageOffset({ right, imageUp, metersPerPixel }: CameraFrame, [x, y]: Vec2) {
+	return sum(scaled(right, x * metersPerPixel), scaled(imageUp, -y * metersPerPixel));
+}
+
+/** Reads the ray at a CSS pixel offset from the image center, once a frame has been displayed. */
+export function readRay(frame: CameraFrame | undefined, offset: Vec2): CameraRay | undefined {
+	if (!frame) return undefined;
+	return {
+		origin: sum(frame.eye, imageOffset(frame, offset)),
+		direction: scaled(frame.direction, /* Exact arithmetic: reverse the view direction. */ -1)
+	};
 }
 
 /** Reads the displayed terrain at a pixel offset from the image center. */
-export function pickGround(frame: CameraFrame, offset: Vec2): Vec3 | undefined {
-	return frame.hit?.(
-		imagePoint(frame, offset),
-		scaled(frame.direction, /* Exact arithmetic: reverse the view direction. */ -1)
-	);
+export function pickGround(frame: CameraFrame | undefined, offset: Vec2): Vec3 | undefined {
+	const ray = readRay(frame, offset);
+	return ray && frame?.hit?.(ray.origin, ray.direction);
 }
 
 /** Reads the displayed ground, with a plane through the frame center as fallback. */
 export function groundAt(frame: CameraFrame, offset: Vec2, next?: CameraFrame): Vec3 {
 	const { center, direction } = frame;
-	const onImage = imagePoint(frame, offset);
+	const onImage = sum(center, imageOffset(frame, offset));
 	const ray = scaled(direction, /* Exact arithmetic: reverse the view direction. */ -1);
 	if (next?.displayGround && frame.locateGround) {
 		const anchor = frame.locateGround(onImage, ray);

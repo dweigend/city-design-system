@@ -18,3 +18,13 @@ is the calm interval at which a busy queue's progress is shown.
 house as the subject in focus.
 `shareBlockBudget` splits one block triangle budget evenly among a block's houses.
 `readPreviewHeight` gives the stand-in body height at about the eaves (`previewEavesRatio`).
+
+## Vertical preview
+
+A press locks one fine cell and a vertical plane through its center. The plane faces
+the displayed camera horizontally. The press ray and current ray bound the preview
+interval in stage meters. Every intersected storey is returned once, in the direction
+of travel from the press. Storeys include their bottom boundary and exclude their top
+boundary. Targets come from the cell space, including available bands above occupied
+ones. Only the two rays determine the span. Plan has no horizontal ray direction and
+uses an explicit storey choice for the clicked cell.

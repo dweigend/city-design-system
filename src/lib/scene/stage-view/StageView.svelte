@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { onMount, untrack } from 'svelte';
+	import type { Vec2 } from '../../core/geometry';
 	import {
 		Stage,
 		stageNavigation,
@@ -66,11 +67,13 @@
 	function groundPointer(event: PointerEvent) {
 		if (!canvas || !stage || !onGroundPointer) return;
 		const { left, top, width, height } = canvas.getBoundingClientRect();
-		const ground = stage.pickGround([
-			event.clientX - left - width / 2,
-			event.clientY - top - height / 2
-		]);
-		onGroundPointer({ event, ground, canvas });
+		const offset: Vec2 = [event.clientX - left - width / 2, event.clientY - top - height / 2];
+		onGroundPointer({
+			event,
+			ground: stage.pickGround(offset),
+			ray: stage.readRay(offset),
+			canvas
+		});
 	}
 
 	const cameraFit = $derived(combine(interaction));

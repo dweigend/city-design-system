@@ -1,6 +1,6 @@
 import { defineSettings, settingValues } from '../setting';
 
-/** Hover marker settings in the shared sandbox projection. */
+/** Marker settings in the shared sandbox projection. */
 export const settings = defineSettings({
 	hoverLiftM: {
 		value: 0.4,
@@ -29,6 +29,14 @@ export const settings = defineSettings({
 		meaning: 'Screen width of a stroke, skip or selection outline',
 		bounds: { exclusiveMin: 0 },
 		rationale: 'Quieter than the active outline, still above background parcel lines.'
+	},
+	storeyPreviewHiddenOpacity: {
+		value: 0.7,
+		unit: 'ratio',
+		meaning: 'Opacity share of a fine-cell preview edge behind opaque geometry',
+		bounds: { min: 0, max: 1 },
+		rationale:
+			'Keeps the selected storey legible inside stock while showing which edges are occluded.'
 	}
 });
 

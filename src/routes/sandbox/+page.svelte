@@ -1,6 +1,8 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
+	import { displacement, dotProduct, type Vec3 } from '../../lib/core/geometry';
 	import { Random } from '../../lib/core/random';
+	import { cellCenter, type CellSpace, type FineCell } from '../../lib/domain/cell-space';
 	import type { Parcel } from '../../lib/domain/parcels';
 	import {
 		readPlacementId,
@@ -14,17 +16,20 @@
 		createBuildQueue,
 		createStrokeDraft,
 		createStrokeState,
+		readFineCell,
+		readOccupiedCell,
 		readPreviewHeight,
 		selectHouseDetail,
 		shareBlockBudget,
 		showIntervalMs,
 		type StrokeEffect
 	} from '../../lib/scene/sandbox-interaction';
-	import { projectFocus, type View } from '../../lib/scene/stage';
+	import { projectFocus, type CameraRay, type View } from '../../lib/scene/stage';
 	import { StageView, type GroundPointer } from '../../lib/scene/stage-view';
 	import type { Drawable } from '../../lib/scene/surface';
 	import { FilePicker } from '../../lib/ui/file-picker';
 	import { IconButton } from '../../lib/ui/icon-button';
+	import { Select } from '../../lib/ui/select';
 	import { Slider } from '../../lib/ui/slider';
 	import { SpecimenPicker } from '../../lib/ui/specimen-picker';
 	import { Switch } from '../../lib/ui/switch';
@@ -32,11 +37,11 @@
 	import { ToolBar } from '../../lib/ui/tool-bar';
 	import { UnavailableHostError } from '../../lib/world/sandbox-world';
 	import { housePhaseLabels, houseUseLabels, houseUseTone } from '../house-uses';
-	import { createStrokePointer } from './stroke';
+	import { createStrokePointer, createVerticalPointer, type VerticalPreview } from './stroke';
 	import { createTownSandbox, type Detail, type PlacementRequest } from './town';
 
 	type Town = ReturnType<typeof createTownSandbox>;
-	type Tool = 'paint' | 'erase' | 'reseed' | 'select';
+	type Tool = 'paint' | 'erase' | 'reseed' | 'select' | 'storeys';
 	type Tally = { placed: number; removed: number; reseeded: number; occupied: number; off: number };
 
 	const styleNames: Readonly<Record<string, string>> = {
@@ -56,14 +61,16 @@
 		{ value: 'paint', label: 'Paint', icon: 'paintbrush', shortcut: 'B' },
 		{ value: 'erase', label: 'Erase', icon: 'eraser', shortcut: 'E' },
 		{ value: 'reseed', label: 'Reseed', icon: 'dices', shortcut: 'R' },
-		{ value: 'select', label: 'Select', icon: 'pointer', shortcut: 'V' }
+		{ value: 'select', label: 'Select', icon: 'pointer', shortcut: 'V' },
+		{ value: 'storeys', label: 'Preview storeys', icon: 'layers', shortcut: 'T' }
 	] as const;
 	const toolKeys = new Map<string, Tool>(tools.map(({ value, shortcut }) => [shortcut, value]));
 	const hints: Readonly<Record<Tool, string>> = {
 		paint: 'Drag to paint',
 		erase: 'Drag to erase',
 		reseed: 'Drag to reseed',
-		select: 'Click a placement to edit it'
+		select: 'Click a placement to edit it',
+		storeys: 'Drag up or down on a fine cell'
 	};
 	const views = [
 		{ value: 'iso', label: '3D' },
@@ -81,6 +88,7 @@
 	let cache: ReturnType<Town['createCache']>;
 	let pointer: ReturnType<typeof createStrokePointer>;
 	const stroke = createStrokeState<Parcel>();
+	const verticalPointer = createVerticalPointer(readVerticalTarget);
 	const queue = createBuildQueue<readonly Drawable[]>(() => performance.now());
 	const serials = new WeakMap<PlacementRequest, number>();
 	let serial = 0;
@@ -103,6 +111,8 @@
 	let loading = $state(false);
 	let panning = $state(false);
 	let frameWork = $state.raw<{ run: () => boolean }>();
+	let verticalPreview = $state.raw<VerticalPreview>();
+	let planStorey = $state('0');
 
 	type Sketch = ReturnType<Town['createSpecimens']> extends Map<string, infer S> ? S : never;
 	type Draft = {
@@ -118,15 +128,30 @@
 		town && { fill: town.viewContextFill, subject: projectFocus(view, {}, town.points) }
 	);
 	const hoverMark = $derived(town && hovered && town.projection.projectHover(hovered));
+	const previewStoreys = $derived(
+		verticalPreview?.kind === 'drag'
+			? verticalPreview.storeys
+			: (verticalPreview?.target.storeys.slice(Number(planStorey), Number(planStorey) + 1) ?? [])
+	);
+	const verticalMark = $derived(
+		verticalPreview &&
+			town?.projection.projectStoreyPreview(verticalPreview.target.cell, previewStoreys, view)
+	);
 	const shownHouses = $derived(functionsVisible ? placed.map(paintHouseUse) : placed);
 	const drawables = $derived([
 		...layout,
 		...shownHouses,
 		...marks,
-		...(hoverMark ? [hoverMark] : [])
+		...(hoverMark ? [hoverMark] : []),
+		...(verticalMark ? [verticalMark] : [])
 	]);
 	const hoveredRequest = $derived(hovered && readRequest(hovered.id));
-	const hint = $derived(describeHover(hovered, hoveredRequest) ?? hints[tool]);
+	const hint = $derived(
+		tool === 'storeys'
+			? (describeVerticalPreview() ??
+					(view === 'plan' ? 'Click a fine cell to choose a storey' : hints.storeys))
+			: (describeHover(hovered, hoveredRequest) ?? hints[tool])
+	);
 	const asset = $derived(selected && town?.assets.find(({ id }) => id === selected?.assetId));
 	const selectedProgram = $derived(selected ? requests.get(selected.id)?.program : undefined);
 
@@ -155,6 +180,84 @@
 	function readRequest(parcelId: string) {
 		const placement = documentModel?.readPlacement(address(parcelId));
 		return placement && requests.get(placement.id);
+	}
+
+	function describeVerticalPreview() {
+		const first = previewStoreys[0];
+		const last = previewStoreys.at(-1);
+		if (!first || !last) return undefined;
+		const from = numberFormat.format(first.storey + 1);
+		const to = numberFormat.format(last.storey + 1);
+		return first === last ? `Previewing storey ${from}` : `Previewing storeys ${from}–${to}`;
+	}
+
+	function readOccupiedTarget(ray: CameraRay, distance: number) {
+		let target: { space: CellSpace; cell: FineCell } | undefined;
+		for (const { house } of requests.values()) {
+			if (!house) continue;
+			const hit = readOccupiedCell(house.space, house.house.cells, ray, distance);
+			if (!hit) continue;
+			target = { space: house.space, cell: hit.cell };
+			distance = hit.distance;
+		}
+		return target;
+	}
+
+	function readGroundTarget(town: Town, [x, y]: Vec3) {
+		const point = town.projection.toWorld(x, y);
+		const parcel = town.world.polygons.readPoint(point);
+		if (!parcel || parcel.publicUse) return undefined;
+		const space = readRequest(parcel.id)?.house?.space ?? town.readPreviewSpace(parcel);
+		if (!space) return undefined;
+		const cell = readFineCell(space, point);
+		return cell && { space, cell };
+	}
+
+	function readVerticalTarget({ ground, ray }: GroundPointer) {
+		if (!town || !ray) return undefined;
+		const { toLocal, readWorldRay } = town.projection;
+		const distance = ground
+			? dotProduct(displacement(ray.origin, ground), ray.direction)
+			: Infinity;
+		const target =
+			readOccupiedTarget(readWorldRay(ray), distance) ?? (ground && readGroundTarget(town, ground));
+		if (!target) return undefined;
+		const { cell, space } = target;
+		return {
+			cell,
+			center: toLocal(...cellCenter(cell)),
+			storeys: space.storeys.filter(({ cellId }) => cellId === cell.id)
+		};
+	}
+
+	function previewVertical(input: GroundPointer) {
+		hovered = undefined;
+		try {
+			const next = verticalPointer.read(input, view);
+			if (next === undefined) return;
+			if (next?.target.cell.id !== verticalPreview?.target.cell.id) planStorey = '0';
+			verticalPreview = next ?? undefined;
+		} catch (error) {
+			releaseVertical();
+			fail(error);
+		}
+	}
+
+	function releaseVertical() {
+		verticalPointer.release();
+		verticalPreview = undefined;
+	}
+
+	function setTool(next: string) {
+		if (tool !== next) releaseVertical();
+		tool = next as Tool;
+		submit();
+	}
+
+	function setView(next: string) {
+		const selectedView = next === 'plan' ? 'plan' : 'iso';
+		if (view !== selectedView) releaseVertical();
+		view = selectedView;
 	}
 
 	function describeHover(parcel: Parcel | undefined, request: PlacementRequest | undefined) {
@@ -402,11 +505,13 @@
 			for (const next of stroke.read({ type: 'cancel', pointer: lastPointer, hits: [], tool }))
 				effect(next);
 			pointer.release();
+			releaseVertical();
 			panning = true;
 			return;
 		}
 		if (event.type === 'pointerup' && event.pointerType === 'touch' && event.isPrimary)
 			panning = false;
+		if (!open && tool === 'storeys' && !panning) return previewVertical(input);
 		if (!open && (tool === 'select' || panning)) return selectPointer(input);
 		const read = pointer.read(input, strokeTool());
 		if (!read) return;
@@ -435,7 +540,10 @@
 	function apply(edits: readonly SandboxEdit[], message = '') {
 		if (open) return;
 		try {
-			if (documentModel.apply(edits).length) sync();
+			if (documentModel.apply(edits).length) {
+				releaseVertical();
+				sync();
+			}
 			status = message;
 		} catch (error) {
 			fail(error);
@@ -446,7 +554,10 @@
 		if (!town || loading || stroke.isOpen()) return;
 		try {
 			const changes = documentModel[direction]();
-			if (changes.length) sync();
+			if (changes.length) {
+				releaseVertical();
+				sync();
+			}
 			status = changes.length
 				? `${direction === 'undo' ? 'Undid' : 'Redid'} ${plural(changes.length, 'change')}.`
 				: '';
@@ -523,6 +634,7 @@
 		const key = event.key.toLowerCase();
 		const command = event.ctrlKey || event.metaKey;
 		if (key === ' ' && !event.repeat) {
+			if (event.type === 'keydown' && verticalPointer.isOpen()) releaseVertical();
 			panning = event.type === 'keydown';
 			if (event.target instanceof HTMLCanvasElement) event.preventDefault();
 			return;
@@ -532,6 +644,10 @@
 			event.preventDefault();
 			moveHistory(event.shiftKey || key === 'y' ? 'redo' : 'undo');
 		} else if (key === 'escape') {
+			if (verticalPreview || verticalPointer.isOpen()) {
+				releaseVertical();
+				return;
+			}
 			const wasOpen = stroke.isOpen();
 			for (const next of stroke.read({ type: 'cancel', pointer: lastPointer, hits: [], tool }))
 				effect(next);
@@ -543,8 +659,7 @@
 		} else if ((key === 'delete' || key === 'backspace') && selected) {
 			removeSelected();
 		} else if (!command && !event.altKey && toolKeys.has(key.toUpperCase())) {
-			tool = toolKeys.get(key.toUpperCase()) ?? tool;
-			submit();
+			setTool(toolKeys.get(key.toUpperCase()) ?? tool);
 		} else if (!command && !event.altKey && /^[1-9]$/.test(key)) {
 			const choice = specimens[Number(key) - 1];
 			if (choice) setStyle(choice.value);
@@ -568,6 +683,7 @@
 		try {
 			stroke.reset();
 			pointer.release();
+			releaseVertical();
 			open = undefined;
 			const next = town.world.restore(await file.text());
 			const nextCache = town.createCache(next);
@@ -616,7 +732,7 @@
 					<ToolBar
 						label="Sandbox tools"
 						{tools}
-						bind:value={() => tool, (next: string) => ((tool = next as Tool), submit())}
+						bind:value={() => tool, setTool}
 						actions={[
 							{
 								value: 'undo',
@@ -638,13 +754,19 @@
 					/>
 				</div>
 				<div class="sandbox-hud-view">
-					<ToggleGroup
-						label="View"
-						items={views}
-						bind:value={() => view, (value) => (view = value === 'plan' ? 'plan' : 'iso')}
-					/>
+					<ToggleGroup label="View" items={views} bind:value={() => view, setView} />
 					<Switch label="House functions" bind:checked={functionsVisible} />
 					<Switch label="Transparency" bind:checked={transparent} />
+					{#if verticalPreview?.kind === 'plan'}
+						<Select
+							label="Storey"
+							items={verticalPreview.target.storeys.map(({ storey }) => ({
+								value: String(storey),
+								label: numberFormat.format(storey + 1)
+							}))}
+							bind:value={planStorey}
+						/>
+					{/if}
 				</div>
 				{#if tool === 'paint' || (tool === 'select' && selected)}
 					<div
