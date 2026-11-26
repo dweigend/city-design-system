@@ -33,7 +33,7 @@ export type {
 /** The default river settlement recipe. Spread it to supply any overrides. */
 export const defaultCityGrowthRecipe = defaultRecipe;
 
-const runCarrier = Symbol('city growth carrier');
+const carriers = new WeakMap<CityGrowthRun, GrowthCarrier>();
 
 /** Immutable growth history and its fixed carrier. Pass to advance or replay. */
 export type CityGrowthRun = Readonly<{
@@ -44,7 +44,6 @@ export type CityGrowthRun = Readonly<{
 	version: typeof growthVersion;
 	throughYear: number;
 	events: readonly CityGrowthEvent[];
-	[runCarrier]: GrowthCarrier;
 }>;
 
 const growthVersion = /* Exact arithmetic: initial growth ruleset version. */ 1;
@@ -63,16 +62,17 @@ export function createCityGrowth(
 	const carrier = prepareGrowth(site, recipe, seed);
 	const events: CityGrowthEvent[] = [];
 	createSettlement(carrier, recipe, Random.create({ seed }), events).found();
-	return Object.freeze({
+	const run: CityGrowthRun = Object.freeze({
 		recipe,
 		seed,
 		planScope: carrier.planScope,
 		datumZ: carrier.datumZ,
 		version: growthVersion,
 		throughYear: recipe.startYear,
-		events: Object.freeze(events),
-		[runCarrier]: carrier
+		events: Object.freeze(events)
 	});
+	carriers.set(run, carrier);
+	return run;
 }
 
 /** Advances a frozen run through the given integer calendar year, capped at the recipe end.
@@ -80,28 +80,27 @@ export function createCityGrowth(
  * Returns a new run sharing the original carrier and committed events. Invalid years throw RangeError. */
 export function advanceCityGrowth(run: CityGrowthRun, throughYear: number): CityGrowthRun {
 	if (!Number.isSafeInteger(throughYear)) throw new RangeError('Expected an integer growth year');
+	const carrier = carriers.get(run);
+	if (!carrier) throw new RangeError('City growth run is missing its internal carrier');
 	const { recipe } = run;
 	const target = Math.min(throughYear, recipe.endYear);
 	if (target <= run.throughYear) return run;
 	const events = [...run.events];
 	if (events.length) {
-		const settlement = createSettlement(
-			run[runCarrier],
-			recipe,
-			Random.create({ seed: run.seed }),
-			events
-		);
+		const settlement = createSettlement(carrier, recipe, Random.create({ seed: run.seed }), events);
 		const { startYear, stepYears } = recipe;
 		const firstStep = Math.floor((run.throughYear - startYear) / stepYears) + 1;
 		for (let year = startYear + firstStep * stepYears; year <= target; year += stepYears) {
 			if (!settlement.expand(year)) break;
 		}
 	}
-	return Object.freeze({
+	const next: CityGrowthRun = Object.freeze({
 		...run,
 		throughYear: target,
 		events: events.length === run.events.length ? run.events : Object.freeze(events)
 	});
+	carriers.set(next, carrier);
+	return next;
 }
 
 function selectPrefix(run: CityGrowthRun, cursor: CityGrowthCursor) {
@@ -153,13 +152,16 @@ export function readCitySnapshot(
 			}
 		}
 	}
+	const prefix =
+		count === run.events.length ? run.events : Object.freeze(run.events.slice(0, count));
 	return Object.freeze({
 		year,
 		datumZ: run.datumZ,
 		holdings: Object.freeze(holdings),
 		lanes: Object.freeze(lanes),
 		buildings: Object.freeze(buildings),
+		events: prefix,
 		eventCount: count,
-		lastEvent: run.events[count - 1] ?? null
+		lastEvent: prefix[count - 1] ?? null
 	});
 }

@@ -24,6 +24,16 @@ import { defaults } from '../../../config/massing';
 import { cellRoles, type CellRole } from './roles';
 import { hasCourtAccess, type HouseScale } from './scale';
 
+const occupancyDatum = new WeakMap<
+	HouseOccupancy,
+	Readonly<{ datumIndex: number; storeyCount: number }>
+>();
+
+/** Reads the source cell space's datum window recorded when an occupancy was created. */
+export function readOccupancyDatum(base: HouseOccupancy) {
+	return occupancyDatum.get(base);
+}
+
 const blockInputs = createBlockInputs();
 
 const { eavesToleranceStoreys, cornerRiseStoreys, largeStoreys } = defaults;
@@ -411,7 +421,7 @@ export function createHouseOccupancy(
 				role: 'garden',
 				storeys: /* Exact arithmetic: open garden has no built stories. */ 0
 			});
-	return Object.freeze({
+	const occupancy = Object.freeze({
 		spaceId: space.id,
 		cellIds: Object.freeze(space.cells.map(({ id }) => id)),
 		styleId,
@@ -446,4 +456,9 @@ export function createHouseOccupancy(
 			})
 		)
 	});
+	occupancyDatum.set(
+		occupancy,
+		Object.freeze({ datumIndex: space.datumIndex, storeyCount: space.storeyCount })
+	);
+	return occupancy;
 }

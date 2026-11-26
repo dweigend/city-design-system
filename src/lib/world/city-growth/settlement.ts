@@ -105,7 +105,14 @@ export function createSettlement(
 	function settle(year: number, sequence: number, reason: HoldingSettled['reason']) {
 		const available = function* () {
 			for (const access of frontier.access.values()) {
-				const path = access.path.filter(({ id }) => !frontier.lanes.has(id));
+				let lastOpen = -1;
+				for (let index = access.path.length - 1; index >= 0; index--) {
+					if (frontier.lanes.has(access.path[index].id)) {
+						lastOpen = index;
+						break;
+					}
+				}
+				const path = lastOpen === -1 ? access.path : access.path.slice(lastOpen + 1);
 				const lengthM = path.reduce((length, lane) => length + lane.lengthM, 0);
 				yield { ...access, path, lengthM };
 			}

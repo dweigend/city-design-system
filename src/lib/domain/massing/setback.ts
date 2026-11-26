@@ -34,8 +34,9 @@ export function createSetbackMassing(
 		space,
 		edgeCells.map(({ id }) => id)
 	);
-	clipColumns(columns, distance, startStorey, depth, stepStoreys);
-	pruneOverhangs(columns, startStorey);
+	const entranceCells = new Set(massing.base.entrances.flat());
+	clipColumns(columns, distance, entranceCells, startStorey, depth, stepStoreys);
+	pruneOverhangs(columns, entranceCells, startStorey);
 	return snapshot(massing, columns);
 }
 
@@ -54,6 +55,7 @@ function validateSetback(startStorey: number, depth: number, stepStoreys: number
 function clipColumns(
 	columns: Columns,
 	distance: ReadonlyMap<string, number>,
+	entranceCells: ReadonlySet<string>,
 	startStorey: number,
 	depth: number,
 	stepStoreys: number
@@ -61,13 +63,16 @@ function clipColumns(
 	for (const [id, column] of columns) {
 		const hopsToEdge = distance.get(id);
 		if (hopsToEdge === undefined) continue;
-		const cap = startStorey + Math.floor(hopsToEdge / depth) * stepStoreys;
+		const floor = entranceCells.has(id) ? column.base.fromStorey + 1 : column.base.fromStorey;
+		const cap = Math.max(floor, startStorey + Math.floor(hopsToEdge / depth) * stepStoreys);
 		for (const storey of column.occupied) if (storey >= cap) removeSlice(column, storey);
 	}
 }
 
-function pruneOverhangs(columns: Columns, startStorey: number) {
-	for (const column of columns.values())
-		for (const storey of column.occupied)
+function pruneOverhangs(columns: Columns, entranceCells: ReadonlySet<string>, startStorey: number) {
+	for (const [id, column] of columns)
+		for (const storey of column.occupied) {
+			if (entranceCells.has(id) && storey === column.base.fromStorey) continue;
 			if (storey >= startStorey && !supports(columns, column, storey)) removeSlice(column, storey);
+		}
 }

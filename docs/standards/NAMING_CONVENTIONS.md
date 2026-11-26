@@ -68,7 +68,7 @@ Existing names are not renamed solely to switch between allowed casings. No name
 | Act on members | `activate` | ask, report, forEach (in the API) | Runs a callback for each member and returns the results. |
 | Filter members | `select` | find, query, filter, with, search | A predicate goes in, members come out. |
 | Random draw | `sample` | pick, choose | Uses up draws from an explicit `Random`. |
-| Move time | `advance` | step or tick as verbs | Only `tick` and `Agenda` advance. A model's `advance(stepCount)` runs steps; it is the delivered model contract. |
+| Move time | `advance` | step or tick as verbs | Moves a simulation, queue or growth history forward in time (`advanceCityGrowth`). |
 | Execute a model | `run` | start, play, simulate | `run` is the driver; `step` and `tick` stay nouns. |
 | Start and restore | `setup`, `reset` | init, initialize | `setup` is the start procedure; `reset` is a defined restore. |
 | Spatial change | `move`, `rotate` | place, setPosition, jump | Position is a property; movement is a verb. |
@@ -78,12 +78,12 @@ A domain verb names an operation the table does not cover. Keep `validate`, `par
 
 ### Layer verb table
 
-| Layer  | Public function verbs                                                                                                    | Examples                                                                               |
-| ------ | ------------------------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------- |
-| Core   | `clip`, `create`, `define`, `draw`, `encode`, `equal`, `is`, `measure`, `move`, `read`, `resolve`                        | `measurePolygon(points)`, `encodePair(a, b)`                                           |
-| Domain | `build`, `clip`, `create`, `fit`, `has`, `lower`, `measure`, `read`, `restore`, `run`, `subdivide`, `survey`, `validate` | `createCellSpace(parcel, rounds)`, `buildSurface(family, patch, options)`              |
-| World  | `build`, `create`, `list`, `place`, `read`, `sample`, `validate`                                                         | `readCityGrid(site, citySize, variant, seed)`, `buildAsset(id, host, overrides, seed)` |
-| Scene  | `create`, `paint`, `plan`, `project`, `read`, `resolve`, `select`, `share`, `validate`                                   | `projectCityTerrain(city, grid, plan)`, `resolveSurfaces(object, surfaces)`            |
+| Layer  | Public function verbs                                                                                                    | Examples                                                                             |
+| ------ | ------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------ |
+| Core   | `clip`, `create`, `define`, `draw`, `encode`, `equal`, `is`, `measure`, `move`, `read`, `resolve`                        | `measurePolygon(points)`, `encodePair(a, b)`                                         |
+| Domain | `build`, `clip`, `create`, `fit`, `has`, `lower`, `measure`, `read`, `restore`, `run`, `subdivide`, `survey`, `validate` | `createCellSpace(parcel, rounds)`, `buildSurface(family, patch, options)`            |
+| World  | `advance`, `build`, `create`, `list`, `place`, `read`, `sample`, `validate`                                              | `readCityGrid(site, citySize, variant, seed)`, `advanceCityGrowth(run, throughYear)` |
+| Scene  | `create`, `paint`, `plan`, `project`, `read`, `resolve`, `select`, `share`, `validate`                                   | `projectCityTerrain(city, grid, plan)`, `resolveSurfaces(object, surfaces)`          |
 
 Use `build` to realize a recipe or registered asset. A computed query can use the exact name of its result, such as `cellCenter`, `latticeVolumes`, or `cityWindow`. The naming check lists these names explicitly so each new noun has a reviewable entry. `required` is the core invariant assertion.
 

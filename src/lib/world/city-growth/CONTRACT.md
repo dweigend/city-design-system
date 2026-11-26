@@ -40,8 +40,8 @@ A `holding-settled` event commits the holding, any access intervals first used i
 event, and one building. Each storey spans consecutive planes of the site recipe's storey
 stack. The first floor sits at or above the highest sampled point under the footprint.
 The foundation, when present, reaches from the lowest sampled point to that floor.
-Part IDs combine the building address, part kind and storey index at the bottom plane
-(GROW-2, GROW-3).
+Part IDs combine the building address, part kind and storey index (at the bottom plane for
+storeys, and at the supported first-floor plane for a foundation; GROW-2, GROW-3).
 
 The event stream is ordered by calendar year and then by sequence, starting at zero
 each year (GROW-1, GROW-4). An event's payload contains the geometry needed to replay it.

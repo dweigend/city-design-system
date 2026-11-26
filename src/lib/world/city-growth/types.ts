@@ -81,6 +81,7 @@ export type CityGrowthSnapshot = Readonly<{
 	holdings: readonly CityGrowthHolding[];
 	lanes: readonly CityGrowthLane[];
 	buildings: readonly SnapshotBuilding[];
+	events: readonly CityGrowthEvent[];
 	eventCount: number;
 	lastEvent: CityGrowthEvent | null;
 }>;

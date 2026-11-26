@@ -40,9 +40,45 @@ function readWater(site: CitySite, { plan, crossings }: CityGrid) {
 	return { channel, landings };
 }
 
+const waterProbeAngles = Array.from(
+	{ length: /* Exact arithmetic: eight compass directions around a candidate. */ 8 },
+	(_, index) => (index * Math.PI) / /* Exact arithmetic: eighths of a turn. */ 4
+);
+
+function probeNearbyWaterHeight(
+	site: CitySite,
+	[x, y]: Vec2,
+	waterClearance: number,
+	searchRadiusM: number
+) {
+	if (!(waterClearance < searchRadiusM)) return undefined;
+	const clearance = Math.max(0, waterClearance);
+	const radii = [
+		clearance + /* Exact arithmetic: step past the bank into a narrow channel. */ 2,
+		clearance + /* Exact arithmetic: mid-channel sample for narrow streams. */ 8,
+		(clearance + searchRadiusM) / 2,
+		searchRadiusM
+	].filter((radius) => radius <= searchRadiusM);
+	let waterHeight: number | undefined;
+	let nearestM = searchRadiusM;
+	for (const radius of radii) {
+		for (const angle of waterProbeAngles) {
+			const reading = site.sampleGround(x + Math.cos(angle) * radius, y + Math.sin(angle) * radius);
+			if (reading.waterHeight === undefined || !Number.isFinite(reading.waterHeight)) continue;
+			if (radius >= nearestM) continue;
+			nearestM = radius;
+			waterHeight = reading.waterHeight;
+		}
+		if (waterHeight !== undefined) return waterHeight;
+	}
+	return undefined;
+}
+
 function readLocalWaterHeight(
+	site: CitySite,
 	channel: ReturnType<typeof readWater>['channel'],
 	center: Vec2,
+	waterClearance: number,
 	searchRadiusM: number
 ) {
 	let waterHeight: number | undefined;
@@ -53,7 +89,7 @@ function readLocalWaterHeight(
 		nearestM = distanceM;
 		waterHeight = water.waterHeight;
 	}
-	return waterHeight;
+	return waterHeight ?? probeNearbyWaterHeight(site, center, waterClearance, searchRadiusM);
 }
 
 function readShelter(site: CitySite, recipe: CityGrowthRecipe, [x, y]: Vec2, height: number) {
@@ -64,8 +100,8 @@ function readShelter(site: CitySite, recipe: CityGrowthRecipe, [x, y]: Vec2, hei
 	const b = site.sampleGround(x - dx, y - dy);
 	const rise = Math.max(
 		0,
-		a.waterKind === null ? a.height - height : 0,
-		b.waterKind === null ? b.height - height : 0
+		a.waterKind === null && Number.isFinite(a.height) ? a.height - height : 0,
+		b.waterKind === null && Number.isFinite(b.height) ? b.height - height : 0
 	);
 	return 1 - 1 / (1 + rise / recipe.shelterRiseScaleM);
 }
@@ -86,7 +122,13 @@ function readSiteScore(
 		reading: CityTerrainReading;
 	}
 ) {
-	const waterHeight = readLocalWaterHeight(channel, center, recipe.waterSearchRadiusM);
+	const waterHeight = readLocalWaterHeight(
+		site,
+		channel,
+		center,
+		waterClearance,
+		recipe.waterSearchRadiusM
+	);
 	if (waterHeight !== undefined && lowest - waterHeight < recipe.minimumFloodFreeboardM)
 		return undefined;
 	const rise = height - (waterHeight ?? datumZ);
@@ -126,7 +168,7 @@ function readCandidate(
 	// The terrain carrier already clips for setback. Recheck water kind at the actual parcel samples.
 	if (readings.some(({ height, waterKind }) => !Number.isFinite(height) || waterKind !== null))
 		return undefined;
-	if (reading.waterClearance < cityBankSetbackM) return undefined;
+	if (!(reading.waterClearance >= cityBankSetbackM)) return undefined;
 	const heights = readings.map(({ height }) => height);
 	const lowest = Math.min(...heights);
 	const slope = (Math.max(...heights) - lowest) / Math.sqrt(parcel.areaM2);

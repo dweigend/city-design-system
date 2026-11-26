@@ -3,6 +3,7 @@ import type { Vec2 } from '../../core/geometry';
 import { required } from '../../core/invariant';
 import {
 	createCellSpace,
+	createStripSpace,
 	parcelEdgeId,
 	readStoreyElevation,
 	seamEdgeId,
@@ -267,4 +268,35 @@ test('invalid operator inputs and mismatched spaces fail before carving', () => 
 	expect(() => createPorousMassing(fixture(irregular).space, baseline, { ratio: 0.5 })).toThrow(
 		RangeError
 	);
+	const shifted = { ...space, datumIndex: space.datumIndex + 15 };
+	expect(() => createMassingParts(shifted, baseline)).toThrow(RangeError);
+	expect(() => createSetbackMassing(shifted, baseline, { startStorey: 1, depth: 1 })).toThrow(
+		RangeError
+	);
+});
+
+test('setback preserves the occupied entrance slice on a raised single-cell house', () => {
+	const space = createStripSpace({
+		id: 'lane-plot',
+		corners: [
+			{ id: 'a', position: [0, 0] },
+			{ id: 'b', position: [7, 0] },
+			{ id: 'c', position: [7, 7] },
+			{ id: 'd', position: [0, 7] }
+		],
+		frontage: [parcelEdgeId('a', 'b')],
+		baseZ: 10,
+		storeyCount: 2,
+		storeyHeightsM: [4, 3],
+		datumIndex: 5
+	});
+	const raised = example();
+	const baseline = createMassing(raised);
+	const stepped = createSetbackMassing(space, baseline, { startStorey: 1, depth: 1 });
+	const entranceCell = raised.entrances[0]?.[0];
+	expect(entranceCell).toBeDefined();
+	const run = stepped.runs.find(({ id }) => id === entranceCell);
+	expect(run).toBeDefined();
+	expect(run?.fromStorey).toBe(1);
+	expect(run?.toStorey).toBe(2);
 });

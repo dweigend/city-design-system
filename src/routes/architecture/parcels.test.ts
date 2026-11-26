@@ -23,12 +23,17 @@ test('the regular neutral specimens preserve their serialized geometry', () => {
 	}
 });
 
-test('the massing specimen uses the existing addressed neutral envelope part IDs', () => {
-	const specimen = massingSpecimen('rectangle', 3);
+test('the massing specimen uses the existing addressed envelope part IDs across styles', () => {
+	const specimen = massingSpecimen('rectangle', 'neutral', 3);
 	const { baseline, space, ground } = specimen;
 	const addressed = createHouseObject(space, baseline.base, 'block', undefined, [], true);
 	const originalIds = addressed.parts.filter(({ slot }) => slot === 'mass').map(({ id }) => id);
 	const groundIds = new Set(ground.parts.filter(({ slot }) => slot !== 'mass').map(({ id }) => id));
 	const { drawables } = massingSheet(specimen, massingVariants[0]);
 	expect(drawables.filter(({ id }) => !groundIds.has(id)).map(({ id }) => id)).toEqual(originalIds);
+
+	const memphis = massingSpecimen('rectangle', 'memphis', 3);
+	const combined = massingSheet(memphis, massingVariants[3]);
+	expect(memphis.baseline.base.styleId).toBe('memphis');
+	expect(combined.drawables.length).toBeGreaterThan(0);
 });

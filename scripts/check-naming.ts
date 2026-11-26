@@ -31,7 +31,7 @@ const verbs = {
 		'survey',
 		'validate'
 	],
-	world: ['build', 'create', 'list', 'place', 'read', 'sample', 'validate'],
+	world: ['advance', 'build', 'create', 'list', 'place', 'read', 'sample', 'validate'],
 	scene: ['create', 'paint', 'plan', 'project', 'read', 'resolve', 'select', 'share', 'validate']
 } as const;
 

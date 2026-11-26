@@ -96,7 +96,7 @@
 	const setup = $derived({ shape, style, height, width, complexity, seed, level });
 	const town = $derived(sheet === 'town' ? townStage(initial.relief) : undefined);
 	const townResult = $derived(town && townSheet(town, block, setup, townStyles, detail));
-	const specimen = $derived(sheet === 'massing' ? massingSpecimen(shape, seed) : undefined);
+	const specimen = $derived(sheet === 'massing' ? massingSpecimen(shape, style, seed) : undefined);
 	const massingResult = $derived(specimen && massingSheet(specimen, variant));
 	const frame = $derived.by(() => {
 		if (specimen)
@@ -151,6 +151,16 @@
 </svelte:head>
 
 <ChapterHeader number={chapter.number} title={chapter.title} {lead} />
+
+{#snippet styleSelect()}
+	<Select
+		label="Style"
+		items={styleItems}
+		bind:value={
+			() => style, (value) => (style = styleNames.find((name) => name === value) ?? 'memphis')
+		}
+	/>
+{/snippet}
 
 {#snippet parcelSelect()}
 	<Select
@@ -221,6 +231,7 @@
 				Setback steps the upper storeys in from the street. Porosity carves terraces and through
 				openings while keeping the ground-level route to the court.
 			</p>
+			{@render styleSelect()}
 			{@render parcelSelect()}
 			{#if variant.porosity}<Button label="New seed" onclick={drawSeed} />{/if}
 		{:else}
@@ -242,13 +253,7 @@
 				flat colour. Archigram raises a grey frame on the cell edges and plugs capsules and services
 				into it. Organic rounds every cell into a pod and steps down to a planted court.
 			</p>
-			<Select
-				label="Style"
-				items={styleItems}
-				bind:value={
-					() => style, (value) => (style = styleNames.find((name) => name === value) ?? 'memphis')
-				}
-			/>
+			{@render styleSelect()}
 			{#if townResult}
 				<Select
 					label="Block"

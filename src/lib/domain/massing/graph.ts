@@ -25,9 +25,23 @@ const onBoundary = (cell: FineCell) => cell.sides.some(({ neighbour }) => neighb
 /** Cells touching the frontage. */
 export const fronting = (cell: FineCell) => cell.sides.some(({ frontage }) => frontage);
 
+function isSeamEdge(edge: string): boolean {
+	if (!edge.startsWith('[')) return false;
+	try {
+		const parsed: unknown = JSON.parse(edge);
+		return (
+			Array.isArray(parsed) &&
+			parsed.length === /* Exact arithmetic: seam tuples have tag and two corners. */ 3 &&
+			parsed[0] === 'seam'
+		);
+	} catch {
+		return false;
+	}
+}
+
 /** An outside side of the parcel. Strip subdivisions also have internal, unmatched seam sides. */
 export function onParcelEdge({ neighbour, edge }: CellSide): boolean {
-	return neighbour === null && edge !== null && !edge.startsWith('["seam",');
+	return neighbour === null && edge !== null && !isSeamEdge(edge);
 }
 
 /** Hop depth of every cell from the parcel boundary; the deepest layer is the court. */

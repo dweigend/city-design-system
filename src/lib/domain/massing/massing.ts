@@ -1,6 +1,6 @@
 import type { Part } from '../../core/object';
 import { readStoreyElevation, type CellSpace, type FineCell } from '../cell-space';
-import type { HouseCell, HouseOccupancy } from './occupancy';
+import { readOccupancyDatum, type HouseCell, type HouseOccupancy } from './occupancy';
 
 /** A house's ground plan and its occupied runs, in cell order and then bottom to top. */
 export type Massing = Readonly<{
@@ -41,10 +41,17 @@ export function columnsOf(space: CellSpace, massing: Massing): Columns {
 }
 
 function validateSpace(space: CellSpace, base: HouseOccupancy) {
+	const sourceDatum = readOccupancyDatum(base);
 	if (
 		space.id !== base.spaceId ||
 		space.cells.length !== base.cellIds.length ||
-		space.cells.some(({ id }, index) => id !== base.cellIds[index])
+		space.cells.some(({ id }, index) => id !== base.cellIds[index]) ||
+		(sourceDatum &&
+			(space.datumIndex !== sourceDatum.datumIndex ||
+				space.storeyCount !== sourceDatum.storeyCount)) ||
+		base.cells.some(({ program }) =>
+			program?.some(({ storey, datumIndex }) => datumIndex !== space.datumIndex + storey)
+		)
 	)
 		throw new RangeError('Massing belongs to another cell space');
 }

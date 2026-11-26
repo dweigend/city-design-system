@@ -161,7 +161,35 @@ describe('dated city growth', () => {
 
 		expect(readCitySnapshot(run, { kind: 'year', year: 2100 })).toEqual(readCitySnapshot(run));
 		expect(readCitySnapshot(run, { kind: 'year', year: 1950 })).toEqual(founding);
+		expect(founding.events).toEqual(run.events.slice(0, founding.eventCount));
+		expect(readCitySnapshot(run, { kind: 'event', index: 0 }).events).toEqual(
+			run.events.slice(0, 1)
+		);
+		expect(Object.getOwnPropertySymbols(run)).toEqual([]);
 		expect(JSON.stringify(run)).toBe(saved);
+	});
+
+	test('enforces flood freeboard near a narrow river missed by plan cell centers', () => {
+		const narrowRiver = createCitySite((x) => {
+			const channelDistance = Math.abs(x) - 10;
+			if (channelDistance <= 0)
+				return { height: 0, waterClearance: channelDistance, waterHeight: 2, waterKind: 'river' };
+			return {
+				height: channelDistance < 60 ? 2.5 : 5,
+				waterClearance: channelDistance,
+				waterKind: null
+			};
+		});
+		const lowBank = createCityGrowth(
+			narrowRiver,
+			{ ...recipe, carrierSizeM: 600, minimumFloodFreeboardM: 1.5, waterSearchRadiusM: 60 },
+			seed
+		);
+		expect(lowBank.events.length).toBeGreaterThanOrEqual(recipe.minimumFoundingHoldings);
+		for (const { holding } of lowBank.events) {
+			const centerX = holding.outline.reduce((sum, [x]) => sum + x, 0) / holding.outline.length;
+			expect(Math.abs(centerX)).toBeGreaterThanOrEqual(70);
+		}
 	});
 
 	test('terrain and recipe are captured before advancing and can be regenerated on revision', () => {
