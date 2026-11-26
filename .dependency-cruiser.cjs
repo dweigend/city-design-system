@@ -21,6 +21,7 @@ const configOwners = {
 	'lib/domain/structure': 'structure',
 	'lib/domain/valley': 'hydrology',
 	'lib/world/city-site': 'city-site|lanes|parcels',
+	'lib/world/city-growth': 'city-growth',
 	'lib/world/house-site': 'house-site',
 	'lib/world/story-valley': 'story-valley',
 	'lib/world/asset-registry': 'grove|sculpture',
