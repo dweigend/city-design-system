@@ -36,7 +36,7 @@ export function readQuery(query: Pick<URLSearchParams, 'get' | 'has'>) {
 		level: pickKey<DisplayLevel>(levels, query.get('level'), 'full'),
 		seed: seed !== undefined && Number.isInteger(seed) && seed >= 0 && seed < 2 ** 32 ? seed : 3
 	};
-	const sheetNames = { one: true, town: true, ...sheets };
+	const sheetNames = { one: true, town: true, massing: true, ...sheets };
 	const scopes = { town: true, all: true, block: true, neighbour: true, merged: true } as const;
 	const relief = number(query, 'relief');
 	return {
@@ -45,7 +45,7 @@ export function readQuery(query: Pick<URLSearchParams, 'get' | 'has'>) {
 		styles: query.get('styles') === 'mixed' ? ('mixed' as const) : ('one' as const),
 		detail: query.get('detail') === 'plain' ? ('plain' as const) : ('salient' as const),
 		relief: relief !== undefined && relief >= 0 && relief <= 1 ? relief : undefined,
-		sheet: pickKey<SheetName | 'one' | 'town'>(sheetNames, query.get('sheet'), 'one'),
+		sheet: pickKey<SheetName | 'one' | 'town' | 'massing'>(sheetNames, query.get('sheet'), 'one'),
 		bearing: number(query, 'bearing') ?? 212,
 		elevation: number(query, 'elevation') ?? 36,
 		view: query.get('view') === 'plan' ? ('plan' as const) : ('iso' as const)

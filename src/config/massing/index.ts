@@ -2,6 +2,13 @@ import { defineSettings, settingValues } from '../setting';
 
 /** Numeric settings for storey limits and lane access. */
 export const settings = defineSettings({
+	setbackStepStoreys: {
+		value: 1,
+		unit: 'storeys',
+		meaning: 'Default vertical interval between horizontal setback steps',
+		bounds: { min: 1 },
+		rationale: 'A step at each storey gives a continuous stair profile at the selected cell depth.'
+	},
 	eavesToleranceStoreys: {
 		value: 1,
 		unit: 'storeys',

@@ -1,4 +1,4 @@
-/** Module: Plans cell occupancy and programs its occupied storeys. */
+/** Module: Plans cell occupancy and edits addressed upper-storey volumes. */
 
 export {
 	/** Plans ordered cell runs and entrances with resolved tendencies and a seeded input. */
@@ -39,3 +39,28 @@ export {
 
 /** Reads the first entrance path's cell and its frontage side index, if present. */
 export { readEntranceSide } from './graph';
+
+export {
+	/** Opens a house occupancy for edits to occupied runs. */
+	createMassing,
+	/** Creates closed, datum-addressed prisms in the mass slot. */
+	createMassingParts,
+	/** Original ground plan and edited occupied runs in cell and storey order. */
+	type Massing
+} from './massing';
+
+export {
+	/** Clips upper runs inward from the selected setback edge. */
+	createSetbackMassing,
+	/** Edge, start storey, depth in cells, and storeys per step. */
+	type SetbackOptions
+} from './setback';
+
+export {
+	/** Carves a seeded share of upper slices and reports their datum addresses. */
+	createPorousMassing,
+	/** The original address and kind of a carved slice. */
+	type MassingVoid,
+	/** Target fraction of upper slices and optional seed. */
+	type PorosityOptions
+} from './porosity';

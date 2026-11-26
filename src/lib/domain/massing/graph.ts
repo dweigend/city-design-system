@@ -1,5 +1,5 @@
 import { measurePointSegmentDistance, readVertexMean, type Vec2 } from '../../core/geometry';
-import { cellCenter, type CellSpace, type FineCell } from '../cell-space';
+import { cellCenter, type CellSide, type CellSpace, type FineCell } from '../cell-space';
 
 /** Breadth-first hop counts from the seed cells across shared sides, in cell order. */
 export function hops(space: CellSpace, seeds: readonly string[]): ReadonlyMap<string, number> {
@@ -24,6 +24,11 @@ export function hops(space: CellSpace, seeds: readonly string[]): ReadonlyMap<st
 const onBoundary = (cell: FineCell) => cell.sides.some(({ neighbour }) => neighbour === null);
 /** Cells touching the frontage. */
 export const fronting = (cell: FineCell) => cell.sides.some(({ frontage }) => frontage);
+
+/** An outside side of the parcel. Strip subdivisions also have internal, unmatched seam sides. */
+export function onParcelEdge({ neighbour, edge }: CellSide): boolean {
+	return neighbour === null && edge !== null && !edge.startsWith('["seam",');
+}
 
 /** Hop depth of every cell from the parcel boundary; the deepest layer is the court. */
 export function boundaryDepth(space: CellSpace): ReadonlyMap<string, number> {

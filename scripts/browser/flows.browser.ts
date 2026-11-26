@@ -169,6 +169,76 @@ for (const viewport of [
 	}
 }
 
+for (const viewport of [
+	{ width: 1440, height: 900 },
+	{ width: 390, height: 844 }
+]) {
+	for (const colorScheme of ['light', 'dark'] as const) {
+		journeys(
+			`renders the /architecture massing operators at ${viewport.width}px in ${colorScheme} mode`,
+			async ({ page }) => {
+				await page.setViewportSize(viewport);
+				await page.emulateMedia({ colorScheme });
+				const fromMenu = viewport.width === 1440 && colorScheme === 'light';
+				await open(page, fromMenu ? '/architecture' : '/architecture?sheet=massing');
+				const canvas = (await readyStages(page, 1)).first();
+				if (fromMenu) await renderedChange(canvas, () => choose(page, 'Show', 'Massing operators'));
+				await expect(canvas).toHaveAttribute('data-stage-theme', colorScheme);
+				const region = page.getByRole('region', { name: 'Massing operators' });
+				const readCount = async (label: string) =>
+					Number(
+						await region
+							.getByText(label, { exact: true })
+							.locator('xpath=following-sibling::dd')
+							.textContent()
+					);
+				const baseline = await readCount('Occupied storey cells');
+				expect(baseline).toBeGreaterThan(0);
+				await expect(canvas).toHaveAttribute('aria-label', 'Massing operators · Baseline');
+				const frameWidth = await canvas.getAttribute('data-stage-width');
+				if (fromMenu) await region.screenshot({ path: journeys.info().outputPath('baseline.png') });
+				const variants = fromMenu
+					? ['Setback', 'Porosity', 'Setback + Porosity']
+					: ['Setback + Porosity'];
+				for (const variant of variants) {
+					await renderedChange(canvas, () => choose(page, 'Variant', variant));
+					await expect(canvas).toHaveAttribute('aria-label', `Massing operators · ${variant}`);
+					await expect(canvas).toHaveAttribute('data-stage-width', frameWidth ?? '');
+					const count = await readCount('Occupied storey cells');
+					expect(count).toBeGreaterThan(0);
+					expect(count).toBeLessThan(baseline);
+					if (variant.includes('Porosity')) {
+						expect(await readCount('Terraces')).toBeGreaterThan(0);
+						expect(await readCount('Pass-through voids')).toBeGreaterThan(0);
+					}
+					await expect.poll(() => distinctPixels(canvas)).toBe(true);
+					await region.screenshot({
+						path: journeys
+							.info()
+							.outputPath(
+								(variant === 'Setback + Porosity' ? 'combined' : variant.toLowerCase()) + '.png'
+							)
+					});
+				}
+				const trigger = region.getByRole('combobox', { name: 'Variant' });
+				await trigger.press('Enter');
+				await expect(page.getByRole('listbox')).toBeVisible();
+				await page.keyboard.press('Escape');
+				await expect(page.getByRole('listbox')).toHaveCount(0);
+				await expect(trigger).toBeFocused();
+				expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(
+					viewport.width
+				);
+				await renderedChange(canvas, () => region.getByRole('radio', { name: 'Plan' }).click());
+				if (fromMenu) await renderedChange(canvas, () => choose(page, 'Parcel', 'L'));
+				await choose(page, 'Show', 'One house');
+				await expect(region).toHaveCount(0);
+				await expect(page.getByRole('combobox', { name: 'Style' })).toBeVisible();
+			}
+		);
+	}
+}
+
 async function choose(page: Page, control: string, option: string) {
 	const trigger = page.getByRole('combobox', { name: control, exact: true });
 	await trigger.click();

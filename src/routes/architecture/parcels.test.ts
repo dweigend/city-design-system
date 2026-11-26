@@ -2,6 +2,7 @@ import { expect, test } from 'bun:test';
 import { createHash } from 'node:crypto';
 import { createCellSpace } from '../../lib/domain/cell-space';
 import { createHouseCourt, createHouseObject } from '../../lib/domain/house-court';
+import { massingSheet, massingSpecimen, massingVariants } from './massing';
 import { parcelShapes } from './parcels';
 
 // Full neutral model houses (#91), including envelope, rim, opening and canopy meshes.
@@ -20,4 +21,14 @@ test('the regular neutral specimens preserve their serialized geometry', () => {
 		const object = createHouseObject(space, createHouseCourt(space, inputs), 'full');
 		expect(createHash('sha256').update(JSON.stringify(object)).digest('hex')).toBe(specimens[key]);
 	}
+});
+
+test('the massing specimen uses the existing addressed neutral envelope part IDs', () => {
+	const specimen = massingSpecimen('rectangle', 3);
+	const { baseline, space, ground } = specimen;
+	const addressed = createHouseObject(space, baseline.base, 'block', undefined, [], true);
+	const originalIds = addressed.parts.filter(({ slot }) => slot === 'mass').map(({ id }) => id);
+	const groundIds = new Set(ground.parts.filter(({ slot }) => slot !== 'mass').map(({ id }) => id));
+	const { drawables } = massingSheet(specimen, massingVariants[0]);
+	expect(drawables.filter(({ id }) => !groundIds.has(id)).map(({ id }) => id)).toEqual(originalIds);
 });
