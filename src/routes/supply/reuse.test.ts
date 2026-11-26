@@ -59,13 +59,21 @@ test('roadless transport seats the sled on the district guide rails', () => {
 		expect(shoe.center[1]).toBe(rail.center[1]);
 		expect(shoe.center[2] - shoe.size[2] / 2).toBeCloseTo(rail.center[2] + rail.size[2] / 2);
 		const rearFaceY = jamb.center[1] + jamb.size[1] / 2;
-		const meetsJambRear = brace.vertices.some(
-			([vx, vy, vz]) =>
+		let meetsJambRear = false;
+		for (let i = 0; i < brace.positions.length; i += 3) {
+			const vx = brace.positions[i];
+			const vy = brace.positions[i + 1];
+			const vz = brace.positions[i + 2];
+			if (
 				Math.abs(vx - jamb.center[0]) <= jamb.size[0] / 2 + 0.15 &&
 				Math.abs(vy - rearFaceY) <= 0.15 &&
 				vz >= jamb.center[2] - jamb.size[2] / 2 &&
 				vz <= jamb.center[2] + jamb.size[2] / 2
-		);
+			) {
+				meetsJambRear = true;
+				break;
+			}
+		}
 		expect(meetsJambRear).toBe(true);
 	}
 	expect(transport.drawables.some(({ id }) => /(^|\/)(road|truck)(\/|$)/.test(id))).toBe(false);

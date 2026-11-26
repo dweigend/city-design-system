@@ -1,5 +1,5 @@
 import { expect, test } from 'bun:test';
-import { createStoryValley, storyPrecedent, storyYears } from './index';
+import { createStoryValley, storyYears } from './index';
 
 const story = createStoryValley();
 const { snapshots } = story;
@@ -16,8 +16,21 @@ test('opens on a first settlement and grows through two visible milestones to 20
 	expect(crossing.builtYear).toBe(1985);
 	expect(crossing.headIds).toHaveLength(2);
 	expect(crossing.headIds[0]).not.toBe(crossing.headIds[1]);
-	expect(crossing.object.parts.length).toBeGreaterThan(0);
-	expect(snapshots[3].crossings).toEqual([crossing]);
+	expect(crossing.parts.map(({ part }) => part.slot)).toEqual(
+		expect.arrayContaining(['deck', 'bearing'])
+	);
+	for (const record of crossing.parts) {
+		expect(record.builtYear).toBe(1985);
+		expect(record.phase).toBe('addition');
+	}
+	for (const later of [snapshots[2], snapshots[3]]) {
+		const [retained] = later.crossings;
+		expect(retained.id).toBe(crossing.id);
+		expect(retained.headIds).toEqual(crossing.headIds);
+		expect(retained.parts).toEqual(
+			crossing.parts.map((record) => ({ ...record, phase: 'retained' }))
+		);
+	}
 });
 
 test('retains building and part identities, geometry and dates at every later event', () => {
@@ -49,14 +62,7 @@ test('dates every visible part and distinguishes additions from retained stock',
 	}
 });
 
-test('the cited precedent resolves to a retained lower storey and an added storey above it', () => {
-	expect(storyPrecedent).toMatchObject({
-		project: 'Transformation of Tour Bois-le-Prêtre',
-		architects: 'Lacaton & Vassal with Frédéric Druot',
-		year: 2011,
-		prizeYear: 2021
-	});
-	expect(new URL(storyPrecedent.prizeUrl).hostname).toBe('www.pritzkerprize.com');
+test('the valley adoption resolves to a retained lower storey and an added storey above it', () => {
 	const { buildingId, retainedPartId, additionPartId } = story.adoption;
 	const hall = snapshots[3].buildings.find(({ id }) => id === buildingId);
 	const original = hall?.parts.find(({ part }) => part.id === retainedPartId);

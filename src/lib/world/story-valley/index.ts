@@ -27,23 +27,16 @@ export type StoryPart = Readonly<{
 	use: StoreyProgram['use'];
 }>;
 
+/** A dated infrastructure segment of a river crossing and its state in the selected view. */
+export type StoryCrossingPart = Readonly<{
+	part: Part;
+	builtYear: StoryYear;
+	phase: StoreyProgram['phase'];
+}>;
+
 const [settlement, crossingYear, infill, handover] = storyYears;
 const hallId = 'riverside-hall';
 const storeyHeightM = required(riverCityRecipe.storeyHeightM, 'uniform story storey height');
-
-/** Source metadata for the architectural precedent and the valley's response to it. */
-export const storyPrecedent = Object.freeze({
-	project: 'Transformation of Tour Bois-le-Prêtre',
-	architects: 'Lacaton & Vassal with Frédéric Druot',
-	location: 'Paris',
-	year: /* Exact arithmetic: documented project completion year. */ 2011,
-	prizeYear: /* Exact arithmetic: documented prize year. */ 2021,
-	principle: 'Never demolish, never remove or replace, always add, transform, and reuse!',
-	projectUrl: 'https://www.lacatonvassal.com/index.php?idp=56',
-	prizeUrl: 'https://www.pritzkerprize.com/laureates/anne-lacaton-and-jean-philippe-vassal',
-	principleUrl:
-		'https://cooper.edu/events-and-exhibitions/events/current-work-anne-lacaton-jean-phillippe-vassal-and-frederic-druot'
-});
 
 function createStorey(
 	id: string,
@@ -141,10 +134,26 @@ export function createStoryValley() {
 			seed: random.derive(plot.id).seed
 		})
 	);
-	const crossing = { id: crossingId, headIds, builtYear: crossingYear, object: bridge };
+	const crossingParts = bridge.parts.map((part) => ({ part, builtYear: crossingYear }));
 	const snapshots = storyYears.map((year) => ({
 		year,
-		crossings: year >= crossing.builtYear ? [crossing] : [],
+		crossings:
+			year >= crossingYear
+				? [
+						{
+							id: crossingId,
+							headIds,
+							builtYear: crossingYear,
+							footprint: bridge.footprint,
+							parts: crossingParts
+								.filter(({ builtYear }) => builtYear <= year)
+								.map((record): StoryCrossingPart => ({
+									...record,
+									phase: phaseAt(record.builtYear, year)
+								}))
+						}
+					]
+				: [],
 		buildings: buildings
 			.filter(({ builtYear }) => builtYear <= year)
 			.map(({ storeys, plinth, ...building }) => ({
