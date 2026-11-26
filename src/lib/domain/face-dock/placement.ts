@@ -10,10 +10,18 @@ import {
 import { bounds, PlaceableObject } from '../../core/object';
 import { encodeKey } from '../../core/ref';
 import { extrudeRing, localMesh, meshPoints } from './mesh';
+import {
+	aabbOverlaps,
+	aabbToOrientedBox,
+	createOrientedBox,
+	orientedBoxesOverlap,
+	type OrientedBox
+} from './overlap';
 import { socketRing, type FaceSocket } from './socket';
 
 const collarSlot = 'dock-collar';
 const { dockContactToleranceM: contactToleranceM } = defaults;
+const occupiedShapes = new WeakMap<Bounds3, readonly OrientedBox[]>();
 
 export type DockModuleSpec = Readonly<{
 	id: string;
@@ -48,10 +56,15 @@ function validateBounds(occupied: Bounds3) {
 		throw new RangeError('Expected finite ordered occupancy bounds');
 }
 
-function overlaps(a: Bounds3, b: Bounds3) {
-	return a.min.every(
-		(value, axis) =>
-			Math.min(a.max[axis], b.max[axis]) - Math.max(value, b.min[axis]) > contactToleranceM
+function collides(
+	extent: Bounds3,
+	candidateBoxes: readonly OrientedBox[],
+	occupied: Bounds3
+): boolean {
+	if (!aabbOverlaps(extent, occupied, contactToleranceM)) return false;
+	const otherBoxes = occupiedShapes.get(occupied) ?? [aabbToOrientedBox(occupied)];
+	return candidateBoxes.some((box) =>
+		otherBoxes.some((other) => orientedBoxesOverlap(box, other, contactToleranceM))
 	);
 }
 
@@ -67,10 +80,21 @@ function hasMountingTriangle(points: readonly Vec3[], indices: readonly number[]
 	return false;
 }
 
+function shiftZ(
+	shape: ReturnType<typeof localMesh>,
+	offsetZ: number
+): ReturnType<typeof localMesh> {
+	return {
+		...shape,
+		positions: meshPoints(shape).flatMap(([x, y, z]) => [x, y, z + offsetZ])
+	};
+}
+
 function place(
 	socket: FaceSocket,
 	module: PlaceableObject,
-	parts: readonly { id: string; slot: string; shape: ReturnType<typeof localMesh> }[]
+	parts: readonly { id: string; slot: string; shape: ReturnType<typeof localMesh> }[],
+	collarDepth: number
 ) {
 	const { tangent, bitangent, normal, center } = socket;
 	const direction = ([x, y, z]: Vec3) =>
@@ -85,19 +109,24 @@ function place(
 			slot,
 			shape: { ...shape, positions: meshPoints(shape).flatMap(point) }
 		})),
-		anchors: module.anchors.map((anchor) => ({
-			...anchor,
-			position: point(anchor.position),
-			normal: direction(anchor.normal)
-		}))
+		anchors: module.anchors.map((anchor) => {
+			const [ax, ay, az] = anchor.position;
+			// Keep mount anchors at z = 0 flush on the host face; shift body anchors with the seated body.
+			const localPosition: Vec3 = az > 0 ? [ax, ay, az + collarDepth] : [ax, ay, az];
+			return {
+				...anchor,
+				position: point(localPosition),
+				normal: direction(anchor.normal)
+			};
+		})
 	});
 }
 
 /** Fits a local module in meters with its mounting face at z = 0 and its body at positive z.
- * Parts become world-space meshes and anchors transform with the same rigid frame. The result
- * is detached, and the object is frozen. An AABB broad phase permits touching bounds, keeps
- * input order and reports the first overlap. Invalid object data or bounds throw RangeError.
- */
+ * A FORM-5 collar seats flush on the socket plane [0, collarDepth] and supports the body at
+ * z = collarDepth without positive-volume overlap. Parts become world-space meshes and anchors
+ * transform with the same rigid frame. Collision checks use an AABB broad phase refined by
+ * exact 3D oriented-box SAT so touching or diagonally separated placements succeed. */
 export function fitDockedModule(
 	socket: FaceSocket,
 	module: PlaceableObject,
@@ -131,8 +160,8 @@ export function fitDockedModule(
 		defaults.collarDepthM,
 		depth / /* Exact arithmetic: half the module depth. */ 2
 	);
-	const object = place(socket, local, [
-		...parts,
+	const seatedParts = [
+		...parts.map((part) => ({ ...part, shape: shiftZ(part.shape, collarDepth) })),
 		{
 			id: collarSlot,
 			slot: collarSlot,
@@ -142,10 +171,22 @@ export function fitDockedModule(
 				collarDepth
 			)
 		}
-	]);
-	const extent = bounds(object);
-	const occupiedIndex = occupiedBounds.findIndex((occupied) => overlaps(extent, occupied));
+	];
+	const axes: readonly [Vec3, Vec3, Vec3] = [socket.tangent, socket.bitangent, socket.normal];
+	const candidateBoxes = seatedParts.map(({ shape }) =>
+		createOrientedBox(socket.center, axes, meshPoints(shape))
+	);
+	const object = place(socket, local, seatedParts, collarDepth);
+	const rawExtent = bounds(object);
+	const extent: Bounds3 = Object.freeze({
+		min: Object.freeze([...rawExtent.min] as Vec3),
+		max: Object.freeze([...rawExtent.max] as Vec3)
+	});
+	const occupiedIndex = occupiedBounds.findIndex((occupied) =>
+		collides(extent, candidateBoxes, occupied)
+	);
 	if (occupiedIndex >= 0) return { status: 'rejected', reason: 'occupied-overlap', occupiedIndex };
+	occupiedShapes.set(extent, Object.freeze(candidateBoxes));
 	return { status: 'docked', object, bounds: extent };
 }
 

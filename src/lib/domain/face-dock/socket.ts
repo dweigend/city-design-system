@@ -45,7 +45,9 @@ function faceFrame(polygon: readonly Vec3[]) {
 	}
 	if (length(areaVector) <= contactToleranceM * length(longest)) return;
 	const normal = unitVector(areaVector);
-	const bitangent = unitVector(crossProduct(normal, longest));
+	const rawBitangent = crossProduct(normal, longest);
+	if (length(rawBitangent) <= contactToleranceM * length(longest)) return;
+	const bitangent = unitVector(rawBitangent);
 	const tangent = crossProduct(bitangent, normal);
 	return { normal, tangent, bitangent };
 }

@@ -347,6 +347,20 @@ for (const viewport of [
 			}
 			await expect(page.locator('canvas')).toHaveCount(1);
 			expect(await canvas.evaluate((element, initial) => element === initial, original)).toBe(true);
+
+			await renderedChange(canvas, () => choose(page, 'Lattice model', 'Diagrid'));
+			await renderedChange(canvas, () => choose(page, 'Dissection', 'Section'));
+			const params = new URL(page.url()).searchParams;
+			expect(params.get('lattice')).toBe('diagrid');
+			expect(params.get('view')).toBe('section');
+			await page.reload();
+			const reloaded = (await readyStages(page, 1)).first();
+			await expect(reloaded).toHaveAttribute(
+				'aria-label',
+				'Diagrid lattice with face-docked modules · Section'
+			);
+			await expect(page.getByRole('combobox', { name: 'Lattice model' })).toContainText('Diagrid');
+			await expect(page.getByRole('combobox', { name: 'Dissection' })).toContainText('Section');
 		});
 	}
 }

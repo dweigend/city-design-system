@@ -23,12 +23,14 @@ translates positions and rotates normals. The output ID combines the socket and 
 The output keeps the source's local footprint. Its separate world AABB includes the collar.
 
 Each accepted object carries an outward-extruded inset of the socket polygon in the reserved
-`dock-collar` part and slot. The collar starts on the same contact plane and leaves positive
-module depth beyond it (FORM-5). The geometry carries slots only (MAT-1).
+`dock-collar` part and slot. The collar starts on the host contact plane (`z = 0`) and spans
+`[0, collarDepth]`, while the module body seats flush on the collar's outer plane (`z = collarDepth`),
+sharing that contact surface with zero positive-volume overlap and leaving an exposed FORM-5 joint
+even when the module spans the full socket face. The geometry carries slots only (MAT-1).
 
 Placement reports `invalid-mount`, `outside-socket` or `occupied-overlap` in that order.
-Occupied bounds are caller-supplied world AABBs. Positive overlap on all axes beyond the metric
-tolerance rejects the candidate at the first matching index, even when the meshes would clear.
-Touching bounds are allowed. Callers can pass other obstacles through the same bounds list.
+Occupied bounds use a world AABB broad phase refined by exact 3D oriented-box separation so
+diagonally adjacent or touching modules clear without false positives, while intersecting
+placements or caller-supplied world AABBs reject at the first matching index.
 Invalid dimensions, malformed object data and invalid occupied bounds throw. The module
 mutates no inputs. Returned sockets and placed objects are detached and deeply frozen.
