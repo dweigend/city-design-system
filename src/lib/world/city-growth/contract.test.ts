@@ -1,5 +1,11 @@
 import { describe, expect, test } from 'bun:test';
-import { isSimplePolygon } from '../../core/geometry';
+import {
+	isSimplePolygon,
+	isSimpleRing,
+	measurePointSegmentDistance,
+	readVertexMean
+} from '../../core/geometry';
+import { defaults } from '../../../config/city-growth';
 import { required } from '../../core/invariant';
 import { createCitySite, readCityGrid, readCityParcels, type CitySite } from '../city-site';
 import {
@@ -7,7 +13,8 @@ import {
 	createCityGrowth,
 	defaultCityGrowthRecipe,
 	readCitySnapshot,
-	type CityGrowthRecipe
+	type CityGrowthRecipe,
+	type CityGrowthSnapshot
 } from './index';
 
 const seed = 1201;
@@ -23,14 +30,21 @@ function founded(planFamily: CityGrowthRecipe['planFamily'] = 'organic') {
 	return run;
 }
 
+function settlementEvents(run: ReturnType<typeof createCityGrowth>) {
+	return run.events.map((event) => {
+		if (event.kind !== 'holding-settled') throw Error('Expected settlement-only history');
+		return event;
+	});
+}
+
 describe('dated city growth', () => {
 	test('different seeds found on different ground in the same valley', () => {
 		const first = founded();
 		const other = createCityGrowth(site, recipe, 4294967295);
 		expect(first.events).toHaveLength(recipe.minimumFoundingHoldings);
 		expect(other.events).toHaveLength(recipe.minimumFoundingHoldings);
-		expect(other.events[0].holding.portal.points).not.toEqual(
-			first.events[0].holding.portal.points
+		expect(settlementEvents(other)[0].holding.portal.points).not.toEqual(
+			settlementEvents(first)[0].holding.portal.points
 		);
 	});
 
@@ -77,8 +91,16 @@ describe('dated city growth', () => {
 			expect(initial.events).toHaveLength(recipe.minimumFoundingHoldings);
 			expect(run.events.length).toBeGreaterThan(initial.events.length);
 
-			for (const { holding, lanes: introduced, building, year, sequence, reason } of run.events) {
-				const { portal, memberCellIds, builtYear, ...parcel } = holding;
+			for (const {
+				holding,
+				lanes: introduced,
+				building,
+				year,
+				sequence,
+				reason
+			} of settlementEvents(run)) {
+				const { portal, memberCellIds, builtYear, protected: isProtected, ...parcel } = holding;
+				expect(isProtected).toBe(false);
 				expect(parcel).toEqual(required(byId.get(holding.id), 'planned parcel'));
 				expect(portal).toEqual(required(portals.get(holding.portalId), 'planned portal'));
 				expect(memberCellIds).toEqual(
@@ -143,7 +165,7 @@ describe('dated city growth', () => {
 			}
 		}
 
-		for (const [index, event] of run.events.entries()) {
+		for (const [index, event] of settlementEvents(run).entries()) {
 			const step = readCitySnapshot(run, { kind: 'event', index });
 			expect(step.eventCount).toBe(index + 1);
 			expect(step.lastEvent).toBe(event);
@@ -186,7 +208,7 @@ describe('dated city growth', () => {
 			seed
 		);
 		expect(lowBank.events.length).toBeGreaterThanOrEqual(recipe.minimumFoundingHoldings);
-		for (const { holding } of lowBank.events) {
+		for (const { holding } of settlementEvents(lowBank)) {
 			const centerX = holding.outline.reduce((sum, [x]) => sum + x, 0) / holding.outline.length;
 			expect(Math.abs(centerX)).toBeGreaterThanOrEqual(70);
 		}
@@ -214,7 +236,7 @@ describe('dated city growth', () => {
 		expect(samples).toBe(sampled);
 		expect(advanced.events.length).toBeGreaterThan(old.events.length);
 		expect(advanced.recipe.holdingsPerStep).toBe(recipe.holdingsPerStep);
-		const part = advanced.events[0].building.parts.find(({ kind }) => kind === 'storey');
+		const part = settlementEvents(advanced)[0].building.parts.find(({ kind }) => kind === 'storey');
 		expect(part?.datumIndex).toBe(1);
 		if (part?.shape.kind !== 'prism') throw Error('Expected a storey prism');
 		expect([part.shape.base, part.shape.top]).toEqual([2, 7]);
@@ -239,5 +261,342 @@ describe('dated city growth', () => {
 		const empty = advanceCityGrowth(createCityGrowth(wet, recipe, seed), 2030);
 		expect(empty.throughYear).toBe(2030);
 		expect(readCitySnapshot(empty).eventCount).toBe(0);
+	});
+});
+
+const continuityRecipe: CityGrowthRecipe = {
+	...recipe,
+	planFamily: 'square',
+	holdingsPerStep: 0,
+	stockChanges: [{ kind: 'infill', year: 1971, storeys: 2, use: 'workshop' }]
+};
+
+function burgageHolding(snapshot: CityGrowthSnapshot) {
+	return required(
+		snapshot.holdings.find(({ courtAccess }) => courtAccess),
+		'founding burgage'
+	);
+}
+
+function activeBuilding(snapshot: CityGrowthSnapshot, holdingId: string) {
+	return required(
+		snapshot.buildings.find((building) => building.holdingId === holdingId),
+		'active building'
+	);
+}
+
+function phases(run: ReturnType<typeof createCityGrowth>, ...years: number[]) {
+	return years.map((year) => readCitySnapshot(run, { kind: 'year', year }));
+}
+
+describe('stock continuity', () => {
+	test('rear infill, upper storeys and conversion keep the holding and underlying part addresses', () => {
+		const holdingId = burgageHolding(
+			readCitySnapshot(createCityGrowth(site, continuityRecipe, seed))
+		).id;
+		const input: CityGrowthRecipe = {
+			...continuityRecipe,
+			stockChanges: [
+				{ kind: 'infill', holdingId, year: 1971, storeys: 2, use: 'workshop' },
+				{ kind: 'extend', holdingId, year: 1991, storeys: 3, use: 'housing' },
+				{ kind: 'convert', holdingId, year: 2011, fromUse: 'workshop', use: 'office' }
+			]
+		};
+		const run = advanceCityGrowth(createCityGrowth(site, input, seed), 2011);
+		const [initial, withWing, taller, converted] = phases(run, 1951, 1971, 1991, 2011);
+		const holding = burgageHolding(initial);
+		const access = required(holding.courtAccess, 'reserved route');
+		const original = activeBuilding(initial, holdingId);
+		const wing = activeBuilding(withWing, holdingId);
+		const extended = activeBuilding(taller, holdingId);
+		const reused = activeBuilding(converted, holdingId);
+		for (const snapshot of [withWing, taller, converted]) {
+			const retained = burgageHolding(snapshot);
+			expect(retained).toBe(holding);
+			expect(retained.portal).toBe(holding.portal);
+			expect(retained.courtAccess).toBe(access);
+			expect(activeBuilding(snapshot, holdingId).id).toBe(original.id);
+		}
+		expect(access.cellIds.length).toBeGreaterThan(1);
+		expect(Object.isFrozen(access.polygons)).toBe(true);
+		const entrance = readVertexMean(holding.portal.points);
+		const [entry] = access.polygons;
+		expect(
+			Math.min(
+				...entry.map((a, i) =>
+					measurePointSegmentDistance(entrance, a, entry[(i + 1) % entry.length])
+				)
+			)
+		).toBeLessThan(0.001);
+		for (let i = 1; i < access.polygons.length; i++) {
+			const previous = new Set(access.polygons[i - 1].map((point) => JSON.stringify(point)));
+			const shared = access.polygons[i].filter((point) => previous.has(JSON.stringify(point)));
+			expect(shared).toHaveLength(2);
+		}
+		expect(reused.parts.slice(0, original.parts.length)).toEqual([...original.parts]);
+		const added = wing.parts.filter(({ phase }) => phase === 'addition');
+		expect(added.filter(({ kind }) => kind === 'storey')).toHaveLength(2);
+		for (const part of added) {
+			expect(part.styleId).toBe('memphis');
+			expect(part.use).toBe('workshop');
+			expect(part.builtYear).toBe(1971);
+			expect(access.cellIds).not.toContain(required(part.cellId, 'wing cell'));
+		}
+		const upper = extended.parts.filter(({ phase }) => phase === 'addition');
+		expect(upper).toHaveLength(6);
+		const roof = Math.max(...wing.parts.map(({ datumIndex }) => datumIndex));
+		expect(Math.min(...upper.map(({ datumIndex }) => datumIndex))).toBe(roof + 1);
+		for (const part of upper) {
+			expect(part.styleId).toBe('archigram');
+			expect(part.builtYear).toBe(1991);
+			expect(part.use).toBe('housing');
+		}
+		expect(new Set(reused.parts.map(({ id }) => id)).size).toBe(reused.parts.length);
+		const prior = new Map(extended.parts.map((part) => [part.id, part]));
+		for (const part of reused.parts) {
+			const earlier = required(prior.get(part.id), 'earlier dated part');
+			expect(part.shape).toBe(earlier.shape);
+			expect(part.builtYear).toBe(earlier.builtYear);
+			if (earlier.kind === 'storey' && earlier.use === 'workshop') {
+				expect(part.use).toBe('office');
+				expect(part.convertedYear).toBe(2011);
+			} else expect(part.convertedYear).toBeUndefined();
+			expect(part.phase).toBe('retained');
+		}
+	});
+
+	test('explicit retirement preserves history while a later split keeps lane access and lineage', () => {
+		const base = readCitySnapshot(founded('square'));
+		const [protectedHolding, ...otherHoldings] = base.holdings;
+		const input: CityGrowthRecipe = {
+			...continuityRecipe,
+			protectedHoldingIds: [protectedHolding.id],
+			stockChanges: [
+				{ kind: 'retire', holdingId: protectedHolding.id, year: 1961 },
+				{ kind: 'split', holdingId: protectedHolding.id, year: 1961 },
+				...otherHoldings.flatMap(({ id }): NonNullable<CityGrowthRecipe['stockChanges']> => [
+					{ kind: 'split', holdingId: id, year: 1961 },
+					{ kind: 'retire', holdingId: id, year: 1971 },
+					{ kind: 'split', holdingId: id, year: 1971 }
+				])
+			]
+		};
+		const run = advanceCityGrowth(createCityGrowth(site, input, seed), 1971);
+		const before = readCitySnapshot(run, { kind: 'year', year: 1970 });
+		const after = readCitySnapshot(run);
+		expect(before.eventCount).toBe(recipe.minimumFoundingHoldings);
+		expect(after.holdings.find(({ id }) => id === protectedHolding.id)?.protected).toBe(true);
+		expect(activeBuilding(after, protectedHolding.id).id).toBe(
+			activeBuilding(before, protectedHolding.id).id
+		);
+		expect(after.events.filter(({ kind }) => kind === 'building-retired')).toHaveLength(
+			otherHoldings.length
+		);
+		const splits = after.events.filter((event) => event.kind === 'holding-split');
+		expect(splits.length).toBeGreaterThan(0);
+		for (const { predecessorId, children, childIds } of splits) {
+			const parent = required(
+				before.holdings.find(({ id }) => id === predecessorId),
+				'predecessor'
+			);
+			const original = activeBuilding(before, predecessorId);
+			expect(after.holdings.some(({ id }) => id === predecessorId)).toBe(false);
+			expect(after.buildings.some(({ id }) => id === original.id)).toBe(false);
+			const retired = required(
+				after.retiredBuildings.find(({ id }) => id === original.id),
+				'retired stock'
+			);
+			expect(retired.retiredYear).toBe(1971);
+			expect(retired.parts.map(({ id }) => id)).toEqual(original.parts.map(({ id }) => id));
+			expect(Object.isFrozen(retired)).toBe(true);
+			expect(children.map(({ id }) => id)).toEqual([...childIds]);
+			expect(children[0].areaM2 + children[1].areaM2).toBeCloseTo(parent.areaM2);
+			for (const [index, child] of children.entries()) {
+				expect(child.parentHoldingId).toBe(parent.id);
+				expect(child.splitPath).toEqual([...parent.splitPath, index]);
+				expect(child.memberCellIds).toBe(parent.memberCellIds);
+				expect(child.areaM2).toBeGreaterThanOrEqual(defaults.minimumSplitAreaM2);
+				expect(child.portal.frontageM).toBeGreaterThanOrEqual(defaults.minimumSplitFrontageM);
+				expect(child.portal.laneId).toBe(parent.portal.laneId);
+				expect(child.portal.parcelId).toBe(child.id);
+				expect(isSimpleRing(child.outline)).toBe(true);
+				expect(Object.isFrozen(child.portal.points[0])).toBe(true);
+			}
+		}
+		expect(after.events.slice(0, before.eventCount)).toEqual([...before.events]);
+		expect(after.lanes).toEqual(before.lanes);
+		const undersized = required(
+			splits
+				.flatMap(({ children }) => [...children])
+				.find(({ areaM2 }) => areaM2 < 2 * defaults.minimumSplitAreaM2),
+			'child too small to subdivide'
+		);
+		const another = createCityGrowth(
+			site,
+			{
+				...input,
+				stockChanges: [
+					...(input.stockChanges ?? []),
+					{ kind: 'split', holdingId: undersized.id, year: 1972 }
+				]
+			},
+			seed
+		);
+		expect(advanceCityGrowth(another, 1972).events).toEqual(run.events);
+	});
+
+	test('recipe eras date new construction and massing edits touch only the new upper slices', () => {
+		const initial = createCityGrowth(site, continuityRecipe, seed);
+		const { id } = burgageHolding(readCitySnapshot(initial));
+		const stockChanges = [
+			{ kind: 'infill', holdingId: id, year: 1971, storeys: 2 },
+			{ kind: 'extend', holdingId: id, year: 1991, storeys: 4 },
+			{ kind: 'extend', holdingId: id, year: 2011, storeys: 2 }
+		] as const;
+		function withOperators(setbackDepth: number, porosityRatio: number) {
+			const run = createCityGrowth(
+				site,
+				{
+					...continuityRecipe,
+					stockChanges,
+					eras: [
+						{ fromYear: 1970, styleId: 'memphis' },
+						{ fromYear: 1990, styleId: 'archigram', setbackDepth, porosityRatio },
+						{ fromYear: 2010, styleId: 'organic' }
+					]
+				},
+				seed
+			);
+			return advanceCityGrowth(run, 2011);
+		}
+		const plain = withOperators(0, 0);
+		const stepped = withOperators(1, 0);
+		const carved = withOperators(1, 0.5);
+		const extendedAt = (run: typeof plain) => {
+			const event = run.events.find(
+				(event) => event.kind === 'building-extended' && event.year === 1991
+			);
+			if (event?.kind !== 'building-extended') throw Error('Expected dated extension');
+			return event;
+		};
+		expect(extendedAt(plain).parts).toHaveLength(8);
+		expect(extendedAt(stepped).parts.length).toBeLessThan(8);
+		expect(extendedAt(carved).parts.length).toBeLessThan(extendedAt(stepped).parts.length);
+		const [before, after] = phases(carved, 1972, 2011);
+		const original = activeBuilding(before, id);
+		const later = activeBuilding(after, id);
+		expect(later.parts.slice(0, original.parts.length)).toEqual([...original.parts]);
+		expect([...new Set(later.parts.map(({ styleId }) => styleId))]).toEqual([
+			'neutral',
+			'memphis',
+			'archigram',
+			'organic'
+		]);
+		const newStoreys = later.parts.filter(({ phase }) => phase === 'addition');
+		expect(newStoreys.length).toBeGreaterThan(0);
+		expect(
+			newStoreys.every(({ styleId, builtYear }) => styleId === 'organic' && builtYear === 2011)
+		).toBe(true);
+	});
+
+	test('all six kinds replay byte-for-byte across annual batches and exact cursors', () => {
+		const base = createCityGrowth(site, continuityRecipe, seed);
+		const { id } = burgageHolding(readCitySnapshot(base));
+		const input: CityGrowthRecipe = {
+			...continuityRecipe,
+			holdingsPerStep: 1,
+			stockChanges: [
+				{ kind: 'infill', holdingId: id, year: 1971, storeys: 2, use: 'workshop' },
+				{ kind: 'extend', holdingId: id, year: 1990, storeys: 3 },
+				{ kind: 'convert', holdingId: id, year: 1990, fromUse: 'workshop', use: 'office' },
+				{ kind: 'retire', holdingId: id, year: 2011 },
+				{ kind: 'split', holdingId: id, year: 2011 },
+				{ kind: 'extend', year: 2021, storeys: 1 }
+			]
+		};
+		const initial = createCityGrowth(site, input, seed);
+		const whole = advanceCityGrowth(initial, 2030);
+		let annual = initial;
+		for (let year = initial.throughYear + 1; year <= 2030; year++)
+			annual = advanceCityGrowth(annual, year);
+		expect(JSON.stringify(annual.events)).toBe(JSON.stringify(whole.events));
+		expect([...new Set(whole.events.map(({ kind }) => kind))]).toEqual([
+			'holding-settled',
+			'building-infill',
+			'building-extended',
+			'building-converted',
+			'building-retired',
+			'holding-split'
+		]);
+		for (const [index, event] of whole.events.entries()) {
+			const exact = readCitySnapshot(whole, { kind: 'event', index });
+			expect(exact.lastEvent).toBe(event);
+			expect(exact.eventCount).toBe(index + 1);
+			expect(Object.isFrozen(exact.buildings)).toBe(true);
+			expect(JSON.stringify(exact)).toBe(
+				JSON.stringify(readCitySnapshot(annual, { kind: 'event', index }))
+			);
+			const previous = whole.events[index - 1];
+			if (previous) expect(event.year).toBeGreaterThanOrEqual(previous.year);
+			expect(event.sequence).toBe(previous?.year === event.year ? previous.sequence + 1 : 0);
+			const additions = exact.buildings.flatMap(({ parts }) =>
+				parts.filter(({ phase }) => phase === 'addition')
+			);
+			switch (event.kind) {
+				case 'building-infill':
+				case 'building-extended':
+					expect(additions.map(({ id }) => id)).toEqual(event.parts.map(({ id }) => id));
+					break;
+				case 'holding-settled':
+					expect(additions.map(({ id }) => id)).toEqual(event.building.parts.map(({ id }) => id));
+					break;
+				default:
+					expect(additions).toEqual([]);
+			}
+			const byYear = readCitySnapshot(whole, { kind: 'year', year: event.year });
+			expect(JSON.stringify(byYear)).toBe(
+				JSON.stringify(readCitySnapshot(annual, { kind: 'year', year: event.year }))
+			);
+			if (whole.events[index + 1]?.year !== event.year) expect(byYear.lastEvent).toBe(event);
+			if (event.kind === 'building-retired') {
+				const previous = readCitySnapshot(whole, { kind: 'event', index: index - 1 });
+				const earlier = activeBuilding(previous, event.holdingId);
+				const retired = required(
+					exact.retiredBuildings.find(({ id }) => id === earlier.id),
+					'retired building'
+				);
+				expect(exact.buildings.some(({ id }) => id === retired.id)).toBe(false);
+				expect(retired.retiredYear).toBe(event.year);
+				expect(retired.parts.map((part) => ({ ...part, phase: 'retained' }))).toEqual([
+					...earlier.parts
+				]);
+			}
+		}
+	});
+
+	test('captures dated rules by value and rejects invalid dates and era order', () => {
+		const change = { kind: 'extend' as const, year: 1951, storeys: 1 };
+		const era = { fromYear: 1951, styleId: 'memphis' as const };
+		const input = { ...continuityRecipe, stockChanges: [change], eras: [era] };
+		const run = createCityGrowth(site, input, seed);
+		change.year = 2029;
+		era.fromYear = 2029;
+		const next = advanceCityGrowth(run, 1951);
+		const event = next.events.at(-1);
+		if (event?.kind !== 'building-extended') throw Error('Expected extension');
+		expect(event.parts[0].styleId).toBe('memphis');
+		expect(Object.isFrozen(run.recipe.eras?.[0])).toBe(true);
+		expect(Object.isFrozen(run.recipe.stockChanges?.[0])).toBe(true);
+		expect(() => createCityGrowth(site, { ...input, eras: [era, era] }, seed)).toThrow(RangeError);
+		expect(() =>
+			createCityGrowth(
+				site,
+				{
+					...input,
+					stockChanges: [{ ...change, year: input.startYear }]
+				},
+				seed
+			)
+		).toThrow(RangeError);
 	});
 });

@@ -1,9 +1,14 @@
 import { required } from '../../core/invariant';
+import { encodeKey } from '../../core/ref';
 import type { Random } from '../../core/random';
-import { createBuilding } from './building';
+import { createBuilding, type Construction } from './building';
 import type { GrowthCarrier, HoldingCandidate } from './carrier';
+import { createWing } from './construction';
+import { createStock } from './history';
+import { readEra } from './recipe';
+import { selectStockChange } from './stock';
 import type { LaneAccess } from './lanes';
-import type { CityGrowthEvent, CityGrowthRecipe, HoldingSettled } from './types';
+import type { CityGrowthEvent, CityGrowthRecipe, CityStockChange, HoldingSettled } from './types';
 
 function reachableSizes(carrier: GrowthCarrier) {
 	const sizes = new Map<string, number>();
@@ -26,14 +31,14 @@ function readBest(
 	recipe: CityGrowthRecipe,
 	random: Random,
 	scoreLane: (access: LaneAccess) => number,
-	activeHoldings: ReadonlySet<string>
+	settledIds: ReadonlySet<string>
 ) {
 	let best: { candidate: HoldingCandidate; access: LaneAccess; score: number } | undefined;
 	for (const access of proposals) {
 		const laneScore = scoreLane(access);
 		for (const candidate of carrier.holdingsByLane.get(access.laneId) ?? []) {
 			const { id } = candidate.parcel;
-			if (activeHoldings.has(id)) continue;
+			if (settledIds.has(id)) continue;
 			const score =
 				candidate.siteScore + laneScore + recipe.seedVariationWeight * random.derive(id).number();
 			if (!best || score > best.score || (score === best.score && id < best.candidate.parcel.id))
@@ -44,26 +49,22 @@ function readBest(
 }
 
 function createFrontier(carrier: GrowthCarrier) {
-	const holdings = new Set<string>();
+	const settledIds = new Set<string>();
 	const lanes = new Set<string>();
 	const access = new Map<string, LaneAccess>();
 	return {
-		holdings,
+		settledIds,
 		lanes,
 		access,
-		add(event: CityGrowthEvent) {
-			switch (event.kind) {
-				case 'holding-settled':
-					holdings.add(event.holding.id);
-					for (const { id } of event.lanes) {
-						lanes.add(id);
-						for (const proposal of carrier.accessByLane.get(id) ?? []) {
-							const previous = access.get(proposal.laneId);
-							if (!previous || proposal.lengthM < previous.lengthM)
-								access.set(proposal.laneId, proposal);
-						}
-					}
-					return;
+		add(event: HoldingSettled) {
+			settledIds.add(event.holding.id);
+			for (const { id } of event.lanes) {
+				lanes.add(id);
+				for (const proposal of carrier.accessByLane.get(id) ?? []) {
+					const previous = access.get(proposal.laneId);
+					if (!previous || proposal.lengthM < previous.lengthM)
+						access.set(proposal.laneId, proposal);
+				}
 			}
 		}
 	};
@@ -75,10 +76,35 @@ function createEvent(
 	{ candidate, access }: NonNullable<ReturnType<typeof readBest>>,
 	year: number,
 	sequence: number,
-	reason: HoldingSettled['reason']
+	reason: HoldingSettled['reason'],
+	random: Random
 ): HoldingSettled {
-	const { parcel, portal, memberCellIds, ground } = candidate;
-	const holding = Object.freeze({ ...parcel, portal, memberCellIds, builtYear: year });
+	const { parcel, portal, memberCellIds, ground, burgage } = candidate;
+	const holding = Object.freeze({
+		...parcel,
+		portal,
+		memberCellIds,
+		builtYear: year,
+		protected: recipe.protectedHoldingIds?.includes(parcel.id) ?? false,
+		...(burgage && { courtAccess: burgage.courtAccess })
+	});
+	const buildingId = encodeKey(['building', parcel.id]);
+	const construction: Construction = {
+		builtYear: year,
+		era: readEra(recipe, year),
+		seed: random.derive(buildingId).seed,
+		use: 'housing'
+	};
+	const parts =
+		burgage &&
+		createWing(
+			buildingId,
+			burgage,
+			burgage.frontId,
+			carrier.planes,
+			recipe.initialStoreys,
+			construction
+		);
 	return Object.freeze({
 		kind: 'holding-settled',
 		year,
@@ -86,7 +112,15 @@ function createEvent(
 		reason,
 		holding,
 		lanes: Object.freeze(access.path.map((lane) => Object.freeze({ ...lane, builtYear: year }))),
-		building: createBuilding(holding.id, year, ground, recipe.initialStoreys, carrier.planes)
+		building: createBuilding(
+			buildingId,
+			holding.id,
+			ground,
+			recipe.initialStoreys,
+			carrier.planes,
+			construction,
+			parts
+		)
 	});
 }
 
@@ -97,10 +131,15 @@ export function createSettlement(
 	events: CityGrowthEvent[]
 ) {
 	const frontier = createFrontier(carrier);
-	for (const event of events) frontier.add(event);
+	const stock = createStock();
+	function add(event: CityGrowthEvent) {
+		if (event.kind === 'holding-settled') frontier.add(event);
+		stock.add(event);
+	}
+	for (const event of events) add(event);
 	function commit(event: CityGrowthEvent) {
 		events.push(event);
-		frontier.add(event);
+		add(event);
 	}
 	function settle(year: number, sequence: number, reason: HoldingSettled['reason']) {
 		const available = function* () {
@@ -123,10 +162,10 @@ export function createSettlement(
 			recipe,
 			random.derive(JSON.stringify([reason, year, sequence])),
 			({ lengthM }) => recipe.laneAccessWeight / (1 + lengthM / recipe.accessDistanceScaleM),
-			frontier.holdings
+			frontier.settledIds
 		);
 		if (!site) return false;
-		commit(createEvent(carrier, recipe, site, year, sequence, reason));
+		commit(createEvent(carrier, recipe, site, year, sequence, reason, random));
 		return true;
 	}
 	return {
@@ -149,11 +188,13 @@ export function createSettlement(
 					);
 					return (recipe.neighborWeight * count) / (count + recipe.minimumFoundingHoldings);
 				},
-				frontier.holdings
+				frontier.settledIds
 			);
 			if (!founder) return;
 			const firstSequence = /* Exact arithmetic: sequence starts at zero each year. */ 0;
-			commit(createEvent(carrier, recipe, founder, recipe.startYear, firstSequence, 'founding'));
+			commit(
+				createEvent(carrier, recipe, founder, recipe.startYear, firstSequence, 'founding', random)
+			);
 			for (let sequence = 1; sequence < recipe.minimumFoundingHoldings; sequence++) {
 				if (!settle(recipe.startYear, sequence, 'founding'))
 					throw Error('Missing reachable founding holding');
@@ -162,12 +203,24 @@ export function createSettlement(
 		expand(year: number) {
 			const capacity = Math.min(
 				recipe.holdingsPerStep,
-				recipe.maximumActiveHoldings - frontier.holdings.size
+				recipe.maximumActiveHoldings - stock.holdings.size
 			);
-			for (let sequence = 0; sequence < capacity; sequence++) {
-				if (!settle(year, sequence, 'expansion')) return false;
-			}
-			return capacity > 0 && frontier.holdings.size < recipe.maximumActiveHoldings;
+			let sequence = 0;
+			while (sequence < capacity && settle(year, sequence, 'expansion')) sequence++;
+			return sequence;
+		},
+		change(change: CityStockChange, sequence: number, changeIndex: number) {
+			const { year, kind } = change;
+			const event = selectStockChange(
+				carrier,
+				stock,
+				recipe,
+				change,
+				{ year, sequence },
+				random.derive(encodeKey(['stock', year, changeIndex, kind]))
+			);
+			if (event) commit(event);
+			return event !== undefined;
 		}
 	};
 }

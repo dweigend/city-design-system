@@ -5,10 +5,11 @@ import {
 	type Vec2
 } from '../../core/geometry';
 import { required } from '../../core/invariant';
+import type { Part } from '../../core/object';
 import { encodeKey } from '../../core/ref';
 import type { AddressedParcel, ParcelPortal } from '../../domain/parcels';
 import type { CityVerticalRecipe } from '../city-site';
-import type { CityGrowthBuilding, CityGrowthPart } from './types';
+import type { CityConstructionEra, CityGrowthBuilding, CityGrowthPart } from './types';
 
 function boundaryDistance(point: Vec2, outline: readonly Vec2[]) {
 	return Math.min(
@@ -87,30 +88,97 @@ export type BuildingGround = Readonly<{
 	highest: number;
 }>;
 
+export type StoreyPlanes = ReturnType<typeof readStoreyPlanes>;
+
+export type Construction = Readonly<{
+	builtYear: number;
+	era: CityConstructionEra;
+	use: CityGrowthPart['use'];
+	seed: number;
+}>;
+
+export function createDatedPrism(
+	id: string,
+	kind: CityGrowthPart['kind'],
+	datumIndex: number,
+	shape: Extract<Part['shape'], { kind: 'prism' }>,
+	{ builtYear, era: { styleId }, use }: Construction,
+	cellId?: string
+): CityGrowthPart {
+	const address = cellId === undefined ? [id, kind, datumIndex] : [id, cellId, kind, datumIndex];
+	return Object.freeze({
+		id: encodeKey(address),
+		kind,
+		datumIndex,
+		builtYear,
+		styleId,
+		use,
+		...(cellId === undefined ? {} : { cellId }),
+		slot: kind,
+		shape: Object.freeze(shape)
+	});
+}
+
+export function createPrismRun(
+	id: string,
+	polygon: readonly Vec2[],
+	first: number,
+	storeys: number,
+	planes: StoreyPlanes,
+	construction: Construction
+) {
+	const parts: CityGrowthPart[] = [];
+	for (let index = first; index < first + storeys; index++)
+		parts.push(
+			createDatedPrism(
+				id,
+				'storey',
+				index,
+				{
+					kind: 'prism',
+					polygon,
+					base: planes.atIndex(index),
+					top: planes.atIndex(index + 1)
+				},
+				construction
+			)
+		);
+	return parts;
+}
+
 export function createBuilding(
+	id: string,
 	holdingId: string,
-	builtYear: number,
 	{ footprint: polygon, lowest, highest }: BuildingGround,
 	storeys: number,
-	planes: ReturnType<typeof readStoreyPlanes>
+	planes: StoreyPlanes,
+	construction: Construction,
+	cellParts?: readonly CityGrowthPart[]
 ): CityGrowthBuilding {
-	const id = encodeKey(['building', holdingId]);
+	const {
+		builtYear,
+		era: { styleId },
+		use
+	} = construction;
+	if (cellParts) return Object.freeze({ id, holdingId, builtYear, styleId, use, parts: cellParts });
 	const first = planes.indexAtOrAbove(highest);
-	const parts: CityGrowthPart[] = [];
-	const addPart = (kind: CityGrowthPart['kind'], datumIndex: number, base: number, top: number) =>
-		parts.push(
-			Object.freeze({
-				id: encodeKey([id, kind, datumIndex]),
-				kind,
-				datumIndex,
-				builtYear,
-				slot: kind,
-				shape: Object.freeze({ kind: 'prism', polygon, base, top })
-			})
-		);
 	const floorZ = planes.atIndex(first);
-	if (floorZ > lowest) addPart('foundation', first, lowest, floorZ);
-	for (let index = first; index < first + storeys; index++)
-		addPart('storey', index, planes.atIndex(index), planes.atIndex(index + 1));
-	return Object.freeze({ id, holdingId, builtYear, parts: Object.freeze(parts) });
+	const parts = [];
+	if (floorZ > lowest)
+		parts.push(
+			createDatedPrism(
+				id,
+				'foundation',
+				first,
+				{
+					kind: 'prism',
+					polygon,
+					base: lowest,
+					top: floorZ
+				},
+				construction
+			)
+		);
+	parts.push(...createPrismRun(id, polygon, first, storeys, planes, construction));
+	return Object.freeze({ id, holdingId, builtYear, styleId, use, parts: Object.freeze(parts) });
 }

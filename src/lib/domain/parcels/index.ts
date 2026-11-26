@@ -171,3 +171,9 @@ export function createParcelPlan(input: ParcelPlanInput) {
 
 /** Addresses, block reserves and lane intervals of one growth selection. */
 export type ParcelPlan = ReturnType<ReturnType<typeof createParcelPlan>['read']>;
+
+/** Bisects a private parcel inward from its portal midpoint. Returns two frozen children with
+ * direct access to the same lane, or undefined when the cut cannot meet the supplied minimum
+ * area (m²), frontage or cut depth (m). Supply the parcel plan's linear tolerance in meters.
+ * Throws RangeError when a dimension or tolerance is nonpositive or nonfinite. */
+export { subdivideParcelFrontage } from './frontage';

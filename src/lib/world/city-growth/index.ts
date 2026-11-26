@@ -1,6 +1,7 @@
 /** Module: Founds a settlement and replays dated growth on a fixed city carrier. */
 import { Random, uint32Limit } from '../../core/random';
 import type { CitySite } from '../city-site';
+import { createStock } from './history';
 import { prepareGrowth, type GrowthCarrier } from './carrier';
 import { captureRecipe, defaultRecipe } from './recipe';
 import { createSettlement } from './settlement';
@@ -14,6 +15,12 @@ import type {
 export type {
 	/** Fixed inputs for one settlement history, with distances in meters and dates in calendar years. */
 	CityGrowthRecipe,
+	/** Starts a construction style in a calendar year and supplies optional upper massing edits. */
+	CityConstructionEra,
+	/** Schedules a targeted or seeded change to existing stock. */
+	CityStockChange,
+	/** Side-connected open cells from a frontage portal to a reserved rear court. */
+	CityGrowthCourtAccess,
 	/** The entire addressed parcel, its frontage portal and its original source cells. */
 	CityGrowthHolding,
 	/** A public lane interval dated at its first use by the settlement. */
@@ -46,7 +53,7 @@ export type CityGrowthRun = Readonly<{
 	events: readonly CityGrowthEvent[];
 }>;
 
-const growthVersion = /* Exact arithmetic: initial growth ruleset version. */ 1;
+const growthVersion = /* Exact arithmetic: dated stock continuity ruleset version. */ 2;
 
 /** Reads one terrain revision, captures the recipe and founds a connected cluster at startYear.
  * Seed is an unsigned 32-bit integer. Invalid recipe values or seed throw RangeError.
@@ -88,11 +95,7 @@ export function advanceCityGrowth(run: CityGrowthRun, throughYear: number): City
 	const events = [...run.events];
 	if (events.length) {
 		const settlement = createSettlement(carrier, recipe, Random.create({ seed: run.seed }), events);
-		const { startYear, stepYears } = recipe;
-		const firstStep = Math.floor((run.throughYear - startYear) / stepYears) + 1;
-		for (let year = startYear + firstStep * stepYears; year <= target; year += stepYears) {
-			if (!settlement.expand(year)) break;
-		}
+		advanceSettlement(run, target, settlement);
 	}
 	const next: CityGrowthRun = Object.freeze({
 		...run,
@@ -101,6 +104,31 @@ export function advanceCityGrowth(run: CityGrowthRun, throughYear: number): City
 	});
 	carriers.set(next, carrier);
 	return next;
+}
+
+function advanceSettlement(
+	run: CityGrowthRun,
+	target: number,
+	settlement: ReturnType<typeof createSettlement>
+) {
+	const { startYear, stepYears, stockChanges = [] } = run.recipe;
+	const firstStep = Math.floor((run.throughYear - startYear) / stepYears) + 1;
+	let nextExpansion = startYear + firstStep * stepYears;
+	let changeIndex = stockChanges.findIndex(({ year }) => year > run.throughYear);
+	if (changeIndex === -1) changeIndex = stockChanges.length;
+	while (true) {
+		const year = Math.min(nextExpansion, stockChanges[changeIndex]?.year ?? Infinity);
+		if (year > target) return;
+		let sequence = 0;
+		if (year === nextExpansion) {
+			sequence = settlement.expand(year);
+			nextExpansion = sequence ? year + stepYears : Infinity;
+		}
+		while (stockChanges[changeIndex]?.year === year) {
+			if (settlement.change(stockChanges[changeIndex], sequence, changeIndex)) sequence++;
+			changeIndex++;
+		}
+	}
 }
 
 function selectPrefix(run: CityGrowthRun, cursor: CityGrowthCursor) {
@@ -124,44 +152,54 @@ export function readCitySnapshot(
 	cursor: CityGrowthCursor = { kind: 'year', year: run.throughYear }
 ): CityGrowthSnapshot {
 	const { count, year } = selectPrefix(run, cursor);
-	const holdings: CityGrowthSnapshot['holdings'][number][] = [];
+	const stock = createStock();
 	const lanes: CityGrowthSnapshot['lanes'][number][] = [];
-	const buildings: CityGrowthSnapshot['buildings'][number][] = [];
+	const added = new Set<string>();
 	for (let index = 0; index < count; index++) {
 		const event = run.events[index];
-		switch (event.kind) {
-			case 'holding-settled': {
-				const { holding, building } = event;
-				const isAddition = cursor.kind === 'event' ? index === cursor.index : event.year === year;
-				holdings.push(holding);
-				lanes.push(...event.lanes);
-				buildings.push(
-					Object.freeze({
-						...building,
-						parts: Object.freeze(
-							building.parts.map((part) =>
-								Object.freeze({
-									...part,
-									phase: isAddition ? 'addition' : 'retained'
-								})
-							)
-						)
-					})
-				);
-				break;
-			}
-		}
+		stock.add(event);
+		if (event.kind === 'holding-settled') lanes.push(...event.lanes);
+		const selected = cursor.kind === 'event' ? index === cursor.index : event.year === year;
+		if (!selected) continue;
+		const parts = eventParts(event);
+		for (const { id } of parts) added.add(id);
 	}
+	const buildings = [...stock.buildings.values()].map((building) =>
+		Object.freeze({
+			...building,
+			parts: Object.freeze(
+				building.parts.map((part) => {
+					const phase = added.has(part.id) ? 'addition' : 'retained';
+					return Object.freeze({ ...part, phase });
+				})
+			)
+		})
+	);
 	const prefix =
 		count === run.events.length ? run.events : Object.freeze(run.events.slice(0, count));
 	return Object.freeze({
 		year,
 		datumZ: run.datumZ,
-		holdings: Object.freeze(holdings),
+		holdings: Object.freeze([...stock.holdings.values()]),
 		lanes: Object.freeze(lanes),
 		buildings: Object.freeze(buildings),
+		retiredBuildings: Object.freeze(stock.retiredBuildings),
 		events: prefix,
 		eventCount: count,
 		lastEvent: prefix[count - 1] ?? null
 	});
+}
+
+function eventParts(event: CityGrowthEvent) {
+	switch (event.kind) {
+		case 'holding-settled':
+			return event.building.parts;
+		case 'building-infill':
+		case 'building-extended':
+			return event.parts;
+		case 'building-converted':
+		case 'building-retired':
+		case 'holding-split':
+			return [];
+	}
 }

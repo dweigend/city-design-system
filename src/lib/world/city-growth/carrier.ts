@@ -10,6 +10,7 @@ import {
 	type CitySite,
 	type CityTerrainReading
 } from '../city-site';
+import { prepareBurgage, type Burgage } from './burgage';
 import { readFootprint, readStoreyPlanes, type BuildingGround } from './building';
 import { readLaneAccess } from './lanes';
 import type { CityGrowthRecipe } from './types';
@@ -19,6 +20,7 @@ export type HoldingCandidate = Readonly<{
 	portal: ParcelPortal;
 	memberCellIds: readonly string[];
 	ground: BuildingGround;
+	burgage?: Burgage;
 	siteScore: number;
 }>;
 
@@ -108,29 +110,19 @@ function readShelter(site: CitySite, recipe: CityGrowthRecipe, [x, y]: Vec2, hei
 
 function readSiteScore(
 	site: CitySite,
-	{ channel, landings }: ReturnType<typeof readWater>,
+	landings: readonly Vec2[],
+	waterHeight: number | undefined,
 	recipe: CityGrowthRecipe,
 	datumZ: number,
 	center: Vec2,
 	{
-		lowest,
 		slope,
 		reading: { height, waterClearance }
 	}: {
-		lowest: number;
 		slope: number;
 		reading: CityTerrainReading;
 	}
 ) {
-	const waterHeight = readLocalWaterHeight(
-		site,
-		channel,
-		center,
-		waterClearance,
-		recipe.waterSearchRadiusM
-	);
-	if (waterHeight !== undefined && lowest - waterHeight < recipe.minimumFloodFreeboardM)
-		return undefined;
 	const rise = height - (waterHeight ?? datumZ);
 	const terrace =
 		1 / (1 + Math.abs(rise - recipe.preferredTerraceHeightM) / recipe.terraceHeightScaleM);
@@ -156,7 +148,8 @@ function readCandidate(
 	datumZ: number,
 	parcel: AddressedParcel,
 	portal: ParcelPortal,
-	memberCellIds: readonly string[]
+	memberCellIds: readonly string[],
+	burgageToleranceM: number | undefined
 ): HoldingCandidate | undefined {
 	if (parcel.publicUse) return undefined;
 	const footprint = readFootprint(parcel, portal, recipe.buildingRadiusShare);
@@ -172,11 +165,29 @@ function readCandidate(
 	const heights = readings.map(({ height }) => height);
 	const lowest = Math.min(...heights);
 	const slope = (Math.max(...heights) - lowest) / Math.sqrt(parcel.areaM2);
-	const siteScore = readSiteScore(site, water, recipe, datumZ, center, { lowest, slope, reading });
-	if (siteScore === undefined) return undefined;
+	const waterHeight = readLocalWaterHeight(
+		site,
+		water.channel,
+		center,
+		reading.waterClearance,
+		recipe.waterSearchRadiusM
+	);
+	const minimumGroundZ = (waterHeight ?? -Infinity) + recipe.minimumFloodFreeboardM;
+	if (lowest < minimumGroundZ) return undefined;
+	const siteScore = readSiteScore(site, water.landings, waterHeight, recipe, datumZ, center, {
+		slope,
+		reading
+	});
 	const ground = readings.slice(parcel.outline.length).map(({ height }) => height);
+	const burgage =
+		burgageToleranceM === undefined
+			? undefined
+			: prepareBurgage(parcel, portal, burgageToleranceM, (ring) =>
+					readCellGround(site, ring, minimumGroundZ)
+				);
 	return {
 		parcel,
+		burgage,
 		portal,
 		memberCellIds,
 		ground: { footprint, lowest: Math.min(...ground), highest: Math.max(...ground) },
@@ -184,19 +195,47 @@ function readCandidate(
 	};
 }
 
+function readCellGround(site: CitySite, ring: readonly Vec2[], minimumGroundZ: number) {
+	const samples = [...ring, readVertexMean(ring)].map((point) => site.sampleGround(...point));
+	if (
+		samples.some(
+			({ height, waterKind }) =>
+				!Number.isFinite(height) || waterKind !== null || height < minimumGroundZ
+		)
+	)
+		return undefined;
+	const heights = samples.map(({ height }) => height);
+	return { lowest: Math.min(...heights), highest: Math.max(...heights) };
+}
+
 export function prepareGrowth(site: CitySite, recipe: CityGrowthRecipe, seed: number) {
 	const layout = readCityGrid(site, recipe.carrierSizeM, recipe.planFamily, seed);
-	const { parcels, portals, blocks, lanes } = readCityParcels(site, layout);
+	const { parcels, portals, blocks, lanes, linearToleranceM } = readCityParcels(site, layout);
 	const { datumZ } = layout;
 	const water = readWater(site, layout);
 	const portalsById = new Map(portals.map((portal) => [portal.id, portal]));
 	const membersByBlock = new Map(blocks.map(({ id, memberCellIds }) => [id, memberCellIds]));
 	const holdingsByLane = new Map<string, HoldingCandidate[]>();
+	const useBurgage =
+		recipe.stockChanges?.some(({ kind }) => kind === 'infill') ||
+		recipe.eras?.some(({ setbackDepth, porosityRatio }) => setbackDepth || porosityRatio);
+	const burgageToleranceM = useBurgage ? linearToleranceM : undefined;
+	const burgages = new Map<string, Burgage>();
 	for (const parcel of parcels) {
 		const portal = required(portalsById.get(parcel.portalId), 'holding portal');
 		const members = required(membersByBlock.get(parcel.blockId), 'holding block cells');
-		const holding = readCandidate(site, recipe, water, datumZ, parcel, portal, members);
+		const holding = readCandidate(
+			site,
+			recipe,
+			water,
+			datumZ,
+			parcel,
+			portal,
+			members,
+			burgageToleranceM
+		);
 		if (!holding) continue;
+		if (holding.burgage) burgages.set(parcel.id, holding.burgage);
 		const holdings = holdingsByLane.get(portal.laneId) ?? [];
 		holdings.push(holding);
 		holdingsByLane.set(portal.laneId, holdings);
@@ -208,6 +247,8 @@ export function prepareGrowth(site: CitySite, recipe: CityGrowthRecipe, seed: nu
 	);
 	return {
 		datumZ,
+		linearToleranceM,
+		burgages,
 		planScope: layout.growth.planScope,
 		planes: readStoreyPlanes(datumZ, site.recipe ?? riverCityRecipe),
 		holdingsByLane,

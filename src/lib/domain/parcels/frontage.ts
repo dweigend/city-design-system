@@ -1,5 +1,5 @@
 import { encodeKey } from '../../core/ref';
-import { distance, measurePolygon, type Vec2 } from '../../core/geometry';
+import { distance, isSimpleRing, measurePolygon, type Vec2 } from '../../core/geometry';
 import { edgeFrame, lineHits } from './geometry';
 import { frontageContacts, type Frontage } from './reserve';
 import type {
@@ -122,40 +122,134 @@ export function partitionFrontage(
 				return;
 			}
 		}
-		// The published parcel address stores its split path as a nested array.
-		const id = JSON.stringify([block.id, splitPath]);
-		const { laneId, points, lengthM: frontageM, edgeIndex } = accessible[0];
-		const portalId = encodeKey([id, laneId, 'frontage']);
-		// Relative to the addressed frontage, independent of the ring's starting vertex.
-		const corners = Object.freeze(
-			ring.map((position, index) =>
-				Object.freeze({
-					id:
-						'corner/' +
-						encodeKey([portalId, ring.length, (index - edgeIndex + ring.length) % ring.length]),
-					position
-				})
-			)
+		const { parcel, portal } = addressHolding(
+			block,
+			ring,
+			splitPath,
+			areaM2,
+			accessible[0],
+			rule.publicUse ?? false
 		);
-		const side = Object.freeze([
-			corners[edgeIndex].id,
-			corners[(edgeIndex + 1) % ring.length].id
-		] as const);
-		parcels.push(
-			Object.freeze({
-				id,
-				blockId: block.id,
-				splitPath,
-				plannedKind: block.plannedKind,
-				publicUse: rule.publicUse ?? false,
-				outline: ring,
-				corners,
-				areaM2,
-				portalId
-			})
-		);
-		portals.push(Object.freeze({ id: portalId, parcelId: id, laneId, points, frontageM, side }));
+		parcels.push(parcel);
+		portals.push(portal);
 	}
 	visit(polygon[0], areaM2, root, Object.freeze([component]));
 	return { parcels, portals };
+}
+
+function addressHolding(
+	block: { id: string; plannedKind: string },
+	ring: Ring,
+	splitPath: readonly number[],
+	areaM2: number,
+	contact: Contact,
+	publicUse = false
+) {
+	// The published parcel address stores its split path as a nested array.
+	const id = JSON.stringify([block.id, splitPath]);
+	const { laneId, points, lengthM: frontageM, edgeIndex } = contact;
+	const portalId = encodeKey([id, laneId, 'frontage']);
+	// Relative to the addressed frontage, independent of the ring's starting vertex.
+	const corners = Object.freeze(
+		ring.map((position, index) =>
+			Object.freeze({
+				id:
+					'corner/' +
+					encodeKey([portalId, ring.length, (index - edgeIndex + ring.length) % ring.length]),
+				position
+			})
+		)
+	);
+	const side = Object.freeze([
+		corners[edgeIndex].id,
+		corners[(edgeIndex + 1) % ring.length].id
+	] as const);
+	const parcel = Object.freeze({
+		id,
+		blockId: block.id,
+		splitPath,
+		plannedKind: block.plannedKind,
+		publicUse,
+		outline: ring,
+		corners,
+		areaM2,
+		portalId
+	});
+	return {
+		parcel,
+		portal: Object.freeze({ id: portalId, parcelId: id, laneId, points, frontageM, side })
+	};
+}
+
+export function subdivideParcelFrontage(
+	parcel: AddressedParcel,
+	portal: ParcelPortal,
+	minimum: Readonly<{ areaM2: number; frontageM: number; depthM: number }>,
+	linearToleranceM: number
+):
+	| readonly [
+			Readonly<{ parcel: AddressedParcel; portal: ParcelPortal }>,
+			Readonly<{ parcel: AddressedParcel; portal: ParcelPortal }>
+	  ]
+	| undefined {
+	if (
+		![minimum.areaM2, minimum.frontageM, minimum.depthM, linearToleranceM].every(
+			(value) => Number.isFinite(value) && value > 0
+		)
+	)
+		throw new RangeError('Split dimensions and tolerance must be positive and finite');
+	if (parcel.publicUse || portal.parcelId !== parcel.id || portal.id !== parcel.portalId)
+		return undefined;
+	const { outline, corners } = parcel;
+	const edgeIndex = corners.findIndex(({ id }) => id === portal.side[0]);
+	if (edgeIndex < 0 || corners[(edgeIndex + 1) % corners.length].id !== portal.side[1])
+		return undefined;
+	const { laneId, points, frontageM: lengthM } = portal;
+	const halves = splitFrom(outline, { laneId, points, lengthM, edgeIndex }, linearToleranceM);
+	if (!halves || distance(halves[0][0], halves[1][0]) < minimum.depthM) return undefined;
+	const areas = halves.map((ring) => measurePolygon(ring).area);
+	// A linear displacement along the boundary bounds the first-order area error of the cut.
+	const perimeterM = outline.reduce(
+		(sum, point, i) => sum + distance(point, outline[(i + 1) % outline.length]),
+		0
+	);
+	if (
+		halves.some((ring, index) => areas[index] < minimum.areaM2 || !isSimpleRing(ring)) ||
+		Math.abs(areas[0] + areas[1] - parcel.areaM2) > linearToleranceM * perimeterM
+	)
+		return undefined;
+	const frontage = [
+		{
+			laneId,
+			frame: edgeFrame(...points),
+			depthM: /* Exact arithmetic: frame starts on the portal line. */ 0,
+			sideIndex: edgeIndex
+		}
+	];
+	const contacts = halves.map(
+		(half) => eligibleContacts(half, frontage, minimum.frontageM, linearToleranceM)[0]
+	);
+	if (!contacts[0] || !contacts[1]) return undefined;
+	const block = { id: parcel.blockId, plannedKind: parcel.plannedKind };
+	const child = (index: 0 | 1) => {
+		const ring = Object.freeze(
+			halves[index].map((point) =>
+				Object.isFrozen(point) ? point : Object.freeze<Vec2>([...point])
+			)
+		);
+		const contact = contacts[index];
+		return Object.freeze(
+			addressHolding(
+				block,
+				ring,
+				Object.freeze([...parcel.splitPath, index]),
+				areas[index],
+				contact
+			)
+		);
+	};
+	return Object.freeze([
+		child(/* Exact arithmetic: first half. */ 0),
+		child(/* Exact arithmetic: second half. */ 1)
+	] as const);
 }

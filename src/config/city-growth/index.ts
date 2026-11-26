@@ -1,6 +1,62 @@
 import { defineSettings, settingValues } from '../setting';
 
 export const settings = defineSettings({
+	memphisFromYear: {
+		value: 1970,
+		unit: 'year',
+		bounds: { min: -10000, max: 10000 },
+		meaning: 'First year of Memphis construction in the river settlement',
+		principle: 'FORM-10'
+	},
+	archigramFromYear: {
+		value: 1990,
+		unit: 'year',
+		bounds: { min: -10000, max: 10000 },
+		meaning: 'First year of Archigram construction in the river settlement',
+		principle: 'FORM-10'
+	},
+	organicFromYear: {
+		value: 2010,
+		unit: 'year',
+		bounds: { min: -10000, max: 10000 },
+		meaning: 'First year of organic construction in the river settlement',
+		principle: 'FORM-10'
+	},
+	maximumAdditionStoreys: {
+		value: 20,
+		unit: 'count',
+		bounds: { min: 1 },
+		meaning: 'Maximum requested storeys in one infill or extension',
+		rationale: 'Bounds the geometry emitted by one dated construction event'
+	},
+	maximumSetbackDepth: {
+		value: 8,
+		unit: 'count',
+		bounds: { min: 0 },
+		meaning: 'Maximum frontage cell hops removed per upper storey',
+		rationale: 'Keeps setback depth within the scale of a holding subdivision'
+	},
+	minimumSplitAreaM2: {
+		value: 60,
+		unit: 'm²',
+		bounds: { exclusiveMin: 0 },
+		meaning: 'Minimum area of each child after splitting a holding',
+		principle: 'CITY-15'
+	},
+	minimumSplitFrontageM: {
+		value: 4,
+		unit: 'm',
+		bounds: { exclusiveMin: 0 },
+		meaning: 'Minimum lane contact of each child after splitting a holding',
+		principle: 'CITY-15'
+	},
+	minimumSplitDepthM: {
+		value: 8,
+		unit: 'm',
+		bounds: { exclusiveMin: 0 },
+		meaning: 'Minimum inward cut length when splitting a holding',
+		rationale: 'Leaves shallow frontage strips intact'
+	},
 	carrierSizeM: {
 		value: 1800,
 		unit: 'm',
