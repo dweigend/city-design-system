@@ -1,5 +1,6 @@
 /** Module: Resolves sandbox addresses against a fixed city and builds registry placements. */
 import { UnknownAssetError, type Placement } from '../../core/asset-registry';
+import { isFiniteVector } from '../../core/geometry';
 import { resolveParams } from '../../core/params';
 import { readWorldReference, type ReferenceResolution } from '../../core/ref';
 import { createPolygonIndex } from '../../core/polygon-index';
@@ -7,6 +8,7 @@ import type { CityColumn } from '../../domain/city-volume';
 import type { CellStorey, FineCell } from '../../domain/cell-space';
 import { readHousePartRefs, type HousePartRef } from '../../domain/house-court';
 import type { HouseStorey } from '../../domain/massing';
+import type { ParcelPlan } from '../../domain/parcels';
 import { planEdges, type PlanEdge } from '../../domain/terrain-grid';
 import {
 	createSandboxDocument,
@@ -90,6 +92,12 @@ function snapshotColumns(columns: ReadonlyMap<string, CityColumn>) {
 	return snapshot;
 }
 
+/** Optional snapshot overrides used by dated growth handovers with split parcels or ground landmarks. */
+export type SandboxWorldOverrides = Readonly<{
+	holdings?: ParcelPlan;
+	allowGroundHosts?: boolean;
+}>;
+
 /** Indexes the supplied city's private parcels and ground movement edges.
  * Detaches the column inputs and derives the save identity from the layout and terrain. Supply a stable revision for a custom
  * terrain sampler. Give snapshots of the same custom terrain a common ID to allow replay across revisions. */
@@ -99,7 +107,8 @@ export function createSandboxWorld(
 	columns: ReadonlyMap<string, CityColumn>,
 	customTerrainRevision?: string,
 	customTerrainId?: string,
-	houseRecipe?: ParcelHouseRecipe
+	houseRecipe?: ParcelHouseRecipe,
+	overrides?: SandboxWorldOverrides
 ) {
 	const cityVertical = site.recipe ?? riverCityRecipe;
 	const vertical = houseRecipe?.vertical
@@ -122,7 +131,11 @@ export function createSandboxWorld(
 			throw new RangeError('City column belongs to a different plan');
 	}
 	const columnSnapshot = snapshotColumns(columns);
-	const holdings = readCityParcels(site, layout);
+	const baseHoldings = readCityParcels(site, layout);
+	const holdings = overrides?.holdings
+		? Object.freeze({ ...overrides.holdings, mainLanes: baseHoldings.mainLanes })
+		: baseHoldings;
+	const allowGroundHosts = overrides?.allowGroundHosts ?? false;
 	const polygons = createPolygonIndex(holdings.parcels, holdings.linearToleranceM);
 	const readParcelSite = createTownParcelSites(
 		holdings,
@@ -152,8 +165,17 @@ export function createSandboxWorld(
 		[
 			'parcel',
 			(id) => {
-				const site = readParcelSite(id);
-				return site && { kind: 'parcel', parcel: site.parcel, site };
+				const parcelSite = readParcelSite(id);
+				if (parcelSite) return { kind: 'parcel', parcel: parcelSite.parcel, site: parcelSite };
+				if (!overrides?.holdings) return undefined;
+				const parcel = holdingsById.get(id);
+				return (
+					parcel && {
+						kind: 'parcel',
+						parcel,
+						groundAt: ([x, y]) => site.sampleGround(x, y).height
+					}
+				);
 			}
 		],
 		[
@@ -166,7 +188,12 @@ export function createSandboxWorld(
 	]);
 
 	function resolveHost(host: HostAddress): CityAssetHost {
-		const value = host.kind === 'ground' ? undefined : hosts.get(host.kind)?.(host.id);
+		if (host.kind === 'ground') {
+			if (allowGroundHosts && isFiniteVector(host.point, 3))
+				return { kind: 'ground', point: host.point };
+			throw new UnavailableHostError('Unavailable city host: ' + JSON.stringify(host));
+		}
+		const value = hosts.get(host.kind)?.(host.id);
 		if (value) return value;
 		throw new UnavailableHostError('Unavailable city host: ' + JSON.stringify(host));
 	}
@@ -317,9 +344,13 @@ export function createSandboxWorld(
 		},
 		/** Offers the registry assets that accept the given host kind. */
 		listAssets: (kind: HostAddress['kind']) =>
-			kind !== 'ground' && hosts.has(kind)
-				? listAssets().filter(({ hostKinds }) => hostKinds.includes(kind))
-				: [],
+			kind === 'ground'
+				? allowGroundHosts
+					? listAssets().filter(({ hostKinds }) => hostKinds.includes(kind))
+					: []
+				: hosts.has(kind)
+					? listAssets().filter(({ hostKinds }) => hostKinds.includes(kind))
+					: [],
 		/** Resolves terrain addresses against the world and building addresses against a document. */
 		resolveReference(
 			input: unknown,

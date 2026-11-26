@@ -1,9 +1,12 @@
-import type { Vec2 } from '../../core/geometry';
+import type { Vec2, Vec3 } from '../../core/geometry';
 import type { HouseStyleName } from '../../domain/house-court';
 import type { StoreyProgram } from '../../domain/massing';
-import type { Part } from '../../core/object';
+import type { Part, PlaceableObject } from '../../core/object';
+import type { TransitLine, RailStation } from '../../domain/transit-line';
+import type { MovementEdge } from '../../domain/movement-network';
 import type { AddressedParcel, ParcelLane, ParcelPortal } from '../../domain/parcels';
-import type { CityPlanVariant } from '../city-site';
+import type { HostAddress, Placement } from '../asset-registry';
+import type { CityCrossing, CityPlanVariant } from '../city-site';
 
 /** Fixed inputs for one settlement history, with distances in meters and dates in calendar years. */
 export type CityGrowthRecipe = Readonly<{
@@ -36,6 +39,13 @@ export type CityGrowthRecipe = Readonly<{
 	eras?: readonly CityConstructionEra[];
 	stockChanges?: readonly CityStockChange[];
 	protectedHoldingIds?: readonly string[];
+	development?: CityGrowthDevelopment;
+}>;
+
+/** Enables infrastructure and the area-driven skyline. Dates are earliest eligible budget years. */
+export type CityGrowthDevelopment = Readonly<{
+	crossingFromYear?: number;
+	railFromYear?: number;
 }>;
 
 /** Calendar threshold and construction style, with optional edits to new upper storeys. */
@@ -72,6 +82,7 @@ export type CityGrowthHolding = AddressedParcel &
 		protected: boolean;
 		parentHoldingId?: string;
 		courtAccess?: CityGrowthCourtAccess;
+		centerId?: string;
 	}>;
 
 /** A public lane interval dated at its first use by the settlement. */
@@ -99,7 +110,69 @@ export type CityGrowthBuilding = Readonly<{
 	parts: readonly CityGrowthPart[];
 }>;
 
-type EventDate = Readonly<{ year: number; sequence: number }>;
+export type EventDate = Readonly<{ year: number; sequence: number }>;
+
+/** One dated physical bridge or guideway segment on the world datum. */
+export type CityInfrastructurePart = Readonly<{
+	id: string;
+	kind: 'deck' | 'bearing' | 'track' | 'platform' | 'dock';
+	datumIndex: number;
+	builtYear: number;
+	points: readonly Vec3[];
+}>;
+
+export type CrossingBuilt = EventDate &
+	Readonly<{
+		kind: 'crossing-built';
+		crossing: CityCrossing;
+		fromNodeId: string;
+		toNodeId: string;
+		parts: readonly CityInfrastructurePart[];
+		lanes: readonly CityGrowthLane[];
+		unlockedHoldingIds: readonly string[];
+	}>;
+
+export type SquareReserved = EventDate &
+	Readonly<{
+		kind: 'square-reserved';
+		holding: CityGrowthHolding;
+		nodeId: string;
+		lanes: readonly CityGrowthLane[];
+	}>;
+
+export type RailOpened = EventDate &
+	Readonly<{
+		kind: 'rail-opened';
+		id: string;
+		line: Omit<TransitLine, 'stations'>;
+		parts: readonly CityInfrastructurePart[];
+	}>;
+
+export type StationOpened = EventDate &
+	Readonly<{
+		kind: 'station-opened';
+		id: string;
+		railId: string;
+		station: RailStation;
+		dock: readonly MovementEdge[];
+		catchmentHoldingIds: readonly string[];
+		lanes: readonly CityGrowthLane[];
+		parts: readonly CityInfrastructurePart[];
+	}>;
+
+/** A registered public object placed at a physical address with a dated anchor in world meters. */
+export type CityGrowthAsset = Readonly<{
+	id: string;
+	assetId: string;
+	host: HostAddress;
+	anchor: Vec3;
+	builtYear: number;
+	seed: number;
+	params: Placement['params'];
+	object: PlaceableObject;
+}>;
+
+export type AssetPlaced = EventDate & Readonly<{ kind: 'asset-placed'; asset: CityGrowthAsset }>;
 
 export type HoldingSettled = EventDate &
 	Readonly<{
@@ -143,7 +216,12 @@ export type CityGrowthEvent =
 	| BuildingAddition<'building-extended'>
 	| BuildingConverted
 	| BuildingRetired
-	| HoldingSplit;
+	| HoldingSplit
+	| CrossingBuilt
+	| SquareReserved
+	| RailOpened
+	| StationOpened
+	| AssetPlaced;
 
 /** Inclusive end-of-year or exact event cursor. Event index -1 reads the empty prefix. */
 export type CityGrowthCursor =
@@ -162,6 +240,11 @@ export type CityGrowthSnapshot = Readonly<{
 	lanes: readonly CityGrowthLane[];
 	buildings: readonly SnapshotBuilding[];
 	retiredBuildings: readonly (CityGrowthBuilding & Readonly<{ retiredYear: number }>)[];
+	crossings: readonly CrossingBuilt[];
+	squares: readonly SquareReserved[];
+	rail: readonly RailOpened[];
+	stations: readonly StationOpened[];
+	assets: readonly CityGrowthAsset[];
 	events: readonly CityGrowthEvent[];
 	eventCount: number;
 	lastEvent: CityGrowthEvent | null;

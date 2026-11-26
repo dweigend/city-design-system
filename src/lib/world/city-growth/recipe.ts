@@ -10,6 +10,12 @@ import type {
 
 const { memphisFromYear, archigramFromYear, organicFromYear, ...numericDefaults } = defaults;
 const {
+	growthCrossingFromYear,
+	growthRailFromYear,
+	growthStationCatchmentM,
+	growthCenterSeparationM,
+	growthBridgeBearingDepthM,
+	growthBridgeApproachHops,
 	maximumAdditionStoreys,
 	maximumSetbackDepth,
 	minimumSplitAreaM2,
@@ -17,6 +23,15 @@ const {
 	minimumSplitDepthM,
 	...recipeDefaults
 } = numericDefaults;
+
+export const developmentDefaults = Object.freeze({
+	crossingFromYear: growthCrossingFromYear,
+	railFromYear: growthRailFromYear,
+	catchmentM: growthStationCatchmentM,
+	separationM: growthCenterSeparationM,
+	bearingDepthM: growthBridgeBearingDepthM,
+	bridgeApproachHops: growthBridgeApproachHops
+});
 
 export const splitMinimums = Object.freeze({
 	areaM2: minimumSplitAreaM2,
@@ -98,10 +113,23 @@ export function captureRecipe(input: CityGrowthRecipe): CityGrowthRecipe {
 		throw new RangeError('Founding cluster must fit inside the active holding limit');
 	return Object.freeze({
 		...input,
+		...(input.development && { development: captureDevelopment(input.development) }),
 		eras: captureEras(input.eras ?? defaultEras),
 		stockChanges: captureChanges(input),
 		protectedHoldingIds: Object.freeze([...(input.protectedHoldingIds ?? [])])
 	});
+}
+
+function captureDevelopment(input: NonNullable<CityGrowthRecipe['development']>) {
+	const { crossingFromYear = growthCrossingFromYear, railFromYear = growthRailFromYear } = input;
+	if (
+		!Number.isSafeInteger(crossingFromYear) ||
+		!isWithinBounds(crossingFromYear, settings.growthCrossingFromYear.bounds) ||
+		!Number.isSafeInteger(railFromYear) ||
+		!isWithinBounds(railFromYear, settings.growthRailFromYear.bounds)
+	)
+		throw new RangeError('Invalid city infrastructure year');
+	return Object.freeze({ crossingFromYear, railFromYear });
 }
 
 function captureEras(eras: readonly CityConstructionEra[]) {

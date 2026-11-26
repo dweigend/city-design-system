@@ -1,6 +1,48 @@
 import { defineSettings, settingValues } from '../setting';
 
 export const settings = defineSettings({
+	growthCrossingFromYear: {
+		value: 1960,
+		unit: 'year',
+		bounds: { min: -10000, max: 10000 },
+		meaning: 'First expansion budget eligible to fund a river crossing',
+		principle: 'GROW-1'
+	},
+	growthRailFromYear: {
+		value: 1980,
+		unit: 'year',
+		bounds: { min: -10000, max: 10000 },
+		meaning: 'First expansion budget eligible to open regional rail',
+		principle: 'CITY-6'
+	},
+	growthStationCatchmentM: {
+		value: 280,
+		unit: 'm',
+		bounds: { exclusiveMin: 0 },
+		meaning: 'Maximum distance from a station approach to its settlement frontage',
+		principle: 'CITY-13'
+	},
+	growthCenterSeparationM: {
+		value: 320,
+		unit: 'm',
+		bounds: { exclusiveMin: 0 },
+		meaning: 'Minimum distance from founding holdings and other station approaches',
+		principle: 'CITY-6'
+	},
+	growthBridgeBearingDepthM: {
+		value: 1.5,
+		unit: 'm',
+		bounds: { exclusiveMin: 0 },
+		meaning: 'Depth of a bridge abutment seat below the surveyed landing',
+		principle: 'GRID-3'
+	},
+	growthBridgeApproachHops: {
+		value: 24,
+		unit: 'count',
+		bounds: { min: 1 },
+		meaning: 'Most lane intervals that a bridge project can open on its two banks',
+		principle: 'CITY-13'
+	},
 	memphisFromYear: {
 		value: 1970,
 		unit: 'year',

@@ -5,6 +5,7 @@ import type { GrowthCarrier } from './carrier';
 import { createCellConstruction, createWing } from './construction';
 import type { createStock } from './history';
 import { readEra, splitMinimums } from './recipe';
+import { readBuildingStoreys, readStoreyCaps } from './skyline';
 import type {
 	CityGrowthBuilding,
 	CityGrowthEvent,
@@ -102,7 +103,8 @@ function createSplit(
 			memberCellIds: holding.memberCellIds,
 			builtYear: date.year,
 			protected: protectedHoldingIds.includes(parcel.id),
-			parentHoldingId: holding.id
+			parentHoldingId: holding.id,
+			...(holding.centerId && { centerId: holding.centerId })
 		});
 	const children = Object.freeze([createChild(result[0]), createChild(result[1])] as const);
 	return Object.freeze({
@@ -147,7 +149,8 @@ function proposeChange(
 	change: CityStockChange,
 	holding: CityGrowthHolding,
 	date: EventDate,
-	random: Random
+	random: Random,
+	readCap?: ReturnType<typeof readStoreyCaps>
 ): CityGrowthEvent | undefined {
 	const building = stock.buildings.get(holding.id);
 	switch (change.kind) {
@@ -169,12 +172,16 @@ function proposeChange(
 			if (building) return createConversion(building, change, date);
 			return;
 		case 'infill':
-		case 'extend':
-			if (building)
+		case 'extend': {
+			if (!building) return;
+			const cap = readCap?.(holding) ?? Infinity;
+			const existing = change.kind === 'extend' ? readBuildingStoreys(building) : 0;
+			const storeys = Math.min(change.storeys, cap - existing);
+			if (storeys > 0)
 				return createAddition(
 					carrier,
 					building,
-					change,
+					{ ...change, storeys },
 					{
 						builtYear: date.year,
 						era: readEra(recipe, date.year),
@@ -184,6 +191,7 @@ function proposeChange(
 					date
 				);
 			return;
+		}
 	}
 }
 
@@ -196,11 +204,17 @@ export function selectStockChange(
 	random: Random
 ) {
 	const { holdingId } = change;
+	const readCap =
+		recipe.development &&
+		(change.kind === 'infill' || change.kind === 'extend') &&
+		stock.buildings.size
+			? readStoreyCaps(carrier, stock)
+			: undefined;
 	if (holdingId !== undefined) {
 		const target = stock.holdings.get(holdingId);
 		return (
 			target &&
-			proposeChange(carrier, stock, recipe, change, target, date, random.derive(holdingId))
+			proposeChange(carrier, stock, recipe, change, target, date, random.derive(holdingId), readCap)
 		);
 	}
 	const ranked = [...stock.holdings.values()]
@@ -220,7 +234,8 @@ export function selectStockChange(
 			change,
 			holding,
 			date,
-			random.derive(holding.id)
+			random.derive(holding.id),
+			readCap
 		);
 		if (event) return event;
 	}

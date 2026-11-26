@@ -1,5 +1,6 @@
 import { describe, expect, test } from 'bun:test';
 import {
+	distance,
 	isSimplePolygon,
 	isSimpleRing,
 	measurePointSegmentDistance,
@@ -12,6 +13,7 @@ import { createCitySite, readCityGrid, readCityParcels, type CitySite } from '..
 import {
 	advanceCityGrowth,
 	createCityGrowth,
+	createSandboxHandover,
 	defaultCityGrowthRecipe,
 	readCitySnapshot,
 	type CityGrowthRecipe,
@@ -707,3 +709,430 @@ describe('stock continuity', () => {
 		).toThrow(RangeError);
 	});
 });
+
+const developmentRecipe: CityGrowthRecipe = { ...recipe, development: {} };
+const riverSite = () =>
+	createCitySite(
+		(x) => {
+			const clearance = Math.abs(x) - 30;
+			if (clearance < 0)
+				return { height: 1, waterClearance: clearance, waterHeight: 2, waterKind: 'river' };
+			return { height: 9, waterClearance: clearance, waterKind: null };
+		},
+		{ terrainRevision: () => 'straight-river/1' }
+	);
+const riverRecipe: CityGrowthRecipe = {
+	...developmentRecipe,
+	planFamily: 'organic',
+	development: { railFromYear: 9999 }
+};
+
+function expectFrozen(value: unknown) {
+	if (value === null || typeof value !== 'object') return;
+	expect(Object.isFrozen(value)).toBe(true);
+	for (const child of Object.values(value)) expectFrozen(child);
+}
+
+function compareGrowthBatches(make: () => ReturnType<typeof createCityGrowth>) {
+	const initial = make();
+	const whole = advanceCityGrowth(initial, 2030);
+	let annual = initial;
+	let milestones = initial;
+	for (let year = initial.throughYear + 1; year <= 2030; year++) {
+		annual = advanceCityGrowth(annual, year);
+		if ((year - initial.recipe.startYear) % initial.recipe.stepYears === 0)
+			milestones = advanceCityGrowth(milestones, year);
+	}
+	const fresh = advanceCityGrowth(make(), 2030);
+	const history = JSON.stringify(whole.events);
+	for (const result of [annual, milestones, fresh])
+		expect(JSON.stringify(result.events)).toBe(history);
+	for (const [index, event] of whole.events.entries()) {
+		const cursor = { kind: 'event', index } as const;
+		const exact = readCitySnapshot(whole, cursor);
+		expect(exact.lastEvent).toBe(event);
+		expect(JSON.stringify(exact)).toBe(JSON.stringify(readCitySnapshot(fresh, cursor)));
+		const previous = whole.events[index - 1];
+		expect(event.sequence).toBe(previous?.year === event.year ? previous.sequence + 1 : 0);
+		const byYear = { kind: 'year', year: event.year } as const;
+		expect(JSON.stringify(readCitySnapshot(whole, byYear))).toBe(
+			JSON.stringify(readCitySnapshot(annual, byYear))
+		);
+		expectFrozen(event);
+	}
+	return whole;
+}
+
+describe('crossings, station centers and the 2030 stock town', () => {
+	test('building an addressed bridge unlocks the other bank before the next private admission', () => {
+		const ground = riverSite();
+		const run = compareGrowthBatches(() => createCityGrowth(riverSite(), riverRecipe, seed));
+		const opened = required(readCitySnapshot(run).crossings[0], 'committed crossing');
+		const index = run.events.indexOf(opened);
+		const before = readCitySnapshot(run, { kind: 'event', index: index - 1 });
+		const after = readCitySnapshot(run, { kind: 'event', index });
+		expect(before.crossings).toHaveLength(0);
+		expect(after.crossings).toEqual([opened]);
+		const { crossings, grid } = readCityGrid(ground, riverRecipe.carrierSizeM, 'organic', seed);
+		expect(crossings).toContainEqual(opened.crossing);
+		expect(new Set(opened.parts.map(({ id }) => id)).size).toBe(opened.parts.length);
+		expect(opened.parts.filter(({ kind }) => kind === 'bearing')).toHaveLength(2);
+		expect(opened.parts.every(({ builtYear }) => builtYear === opened.year)).toBe(true);
+		expect(opened.parts.filter(({ kind }) => kind === 'deck')).not.toHaveLength(0);
+		const landing = required(
+			grid.vertices.find(({ id }) => id === opened.toNodeId),
+			'bank node'
+		);
+		const next = run.events.slice(index + 1).find((event) => event.kind === 'holding-settled');
+		if (next?.kind !== 'holding-settled') throw Error('Expected a new holding after construction');
+		expect(next.year).toBe(opened.year);
+		expect(opened.unlockedHoldingIds).toContain(next.holding.id);
+		expect(Math.sign(readVertexMean(next.holding.outline)[0])).toBe(Math.sign(landing.position[0]));
+
+		const deferred = advanceCityGrowth(
+			createCityGrowth(
+				ground,
+				{
+					...riverRecipe,
+					development: { crossingFromYear: opened.year + 1, railFromYear: 9999 }
+				},
+				seed
+			),
+			opened.year
+		);
+		expect(deferred.events.slice(0, index)).toEqual([...before.events]);
+		expect(readCitySnapshot(deferred).crossings).toEqual([]);
+		expect(readCitySnapshot(deferred).holdings.map(({ id }) => id)).not.toContain(next.holding.id);
+	}, 30_000);
+
+	test('reserves converging market frontage and keeps it public through later stock changes', () => {
+		const ground = riverSite();
+		const initial = createCityGrowth(ground, riverRecipe, seed);
+		const committed = advanceCityGrowth(initial, 2030);
+		const square = required(readCitySnapshot(committed).squares[0], 'market reservation');
+		const { id } = square.holding;
+		const changes: CityGrowthRecipe['stockChanges'] = [
+			{ kind: 'split', holdingId: id, year: square.year + 1 },
+			{ kind: 'infill', holdingId: id, year: square.year + 1, storeys: 1 }
+		];
+		const run = advanceCityGrowth(
+			createCityGrowth(ground, { ...riverRecipe, stockChanges: changes }, seed),
+			2030
+		);
+		const snapshot = readCitySnapshot(run);
+		expect(snapshot.holdings.find((holding) => holding.id === id)).toMatchObject({
+			publicUse: true,
+			protected: true,
+			builtYear: square.year
+		});
+		const frontageLane = required(
+			snapshot.lanes.find((lane) => lane.id === square.holding.portal.laneId),
+			'committed market frontage lane'
+		);
+		expect(frontageLane.nodeIds).toContain(square.nodeId);
+		const committedAtJunction = snapshot.lanes.filter(({ nodeIds }) =>
+			nodeIds.includes(square.nodeId)
+		);
+		const isCrossingLanding = snapshot.crossings.some(({ toNodeId }) => toNodeId === square.nodeId);
+		expect(committedAtJunction.length + (isCrossingLanding ? 1 : 0)).toBeGreaterThanOrEqual(3);
+		expect(snapshot.buildings.some(({ holdingId }) => holdingId === id)).toBe(false);
+		expect(snapshot.assets).toContainEqual(
+			expect.objectContaining({
+				assetId: 'park/grove',
+				host: { kind: 'parcel', id },
+				builtYear: square.year
+			})
+		);
+		expect(snapshot.assets.some(({ assetId }) => assetId === 'access/walkway')).toBe(true);
+	}, 30_000);
+
+	test('opens a docked secondary center with workshops, services and an outlying landmark', () => {
+		const run = compareGrowthBatches(() =>
+			createCityGrowth(
+				createCitySite(undefined, { seed }),
+				{
+					...developmentRecipe,
+					development: { crossingFromYear: 9999 }
+				},
+				seed
+			)
+		);
+		const snapshot = readCitySnapshot(run);
+		const station = required(snapshot.stations[0], 'station');
+		const line = required(
+			snapshot.rail.find(({ id }) => id === station.railId),
+			'overland line'
+		);
+		expect(line.sequence).toBeLessThan(station.sequence);
+		expect(station.dock[0].nodeIds).toContain(station.station.approachId);
+		expect(station.dock.at(-1)?.nodeIds).toContain('station/' + station.station.id);
+		const core = readCitySnapshot(run, { kind: 'year', year: run.recipe.startYear });
+		const catchment = new Set(station.catchmentHoldingIds);
+		expect(core.holdings.every(({ id }) => !catchment.has(id))).toBe(true);
+		const stationHoldings = snapshot.holdings.filter(({ centerId }) => centerId === station.id);
+		expect(stationHoldings.length).toBeGreaterThan(1);
+		expect(
+			stationHoldings.every(({ id, builtYear }) => catchment.has(id) && builtYear >= station.year)
+		).toBe(true);
+		const stationBuildings = snapshot.buildings.filter(({ holdingId }) =>
+			stationHoldings.some(({ id }) => id === holdingId)
+		);
+		expect(stationBuildings.map(({ use }) => use)).toContain('workshop');
+		expect(stationBuildings.map(({ use }) => use)).toContain('public');
+		const landmark = required(
+			snapshot.assets.find(({ assetId }) => assetId.startsWith('sculpture/')),
+			'station sculpture'
+		);
+		expect(landmark.builtYear).toBe(station.year);
+		const [x, y] = landmark.anchor;
+		expect(
+			core.holdings.every(
+				({ outline }) =>
+					distance(readVertexMean(outline), [x, y]) > defaults.growthCenterSeparationM / 2
+			)
+		).toBe(true);
+		expect(landmark.object.anchors[0].position).toEqual(landmark.anchor);
+	}, 30_000);
+
+	test('round-trips dated occupancy and addressed public stock through the sandbox world', () => {
+		const initial = createCityGrowth(riverSite(), riverRecipe, seed);
+		expect(() => createSandboxHandover(initial)).toThrow(RangeError);
+		const run = advanceCityGrowth(initial, 2030);
+		const handover = createSandboxHandover(run);
+		const { world, document, stock } = handover;
+		expect(stock.year).toBe(2030);
+		expect(stock.buildings).toEqual(readCitySnapshot(run).buildings);
+		expect(stock.assets).toEqual(readCitySnapshot(run).assets);
+		expect(stock.assets.map(({ assetId }) => assetId)).toContain('park/grove');
+		const restored = handover.restore(handover.serialize(document));
+		expect(world.restore(restored.serialize()).readPlacements()).toEqual(document.readPlacements());
+		expect(restored.readOrphans()).toEqual([]);
+		expect(restored.readHistory().strokes).toBe(0);
+		for (const building of stock.buildings) {
+			const host = { kind: 'parcel', id: building.holdingId } as const;
+			const placement = required(restored.readPlacement(host), 'restored house');
+			expect(placement.hostReference.key).toBe(building.holdingId);
+			expect(handover.readStock(restored, host)).toEqual(building);
+			expect(handover.build(restored, placement).parts).toEqual(building.parts);
+		}
+		const [placement] = restored.readPlacements();
+		restored.apply([{ kind: 'remove', id: placement.id }]);
+		const edited = handover.restore(handover.serialize(restored));
+		expect(handover.readStock(edited, placement.host)).toBeUndefined();
+		edited.undo();
+		expect(handover.readStock(edited, placement.host)).toBeDefined();
+
+		const housePlacement = required(
+			restored.readPlacements().find(({ assetId }) => assetId.startsWith('house/')),
+			'restored house placement'
+		);
+		const different = world.createDocument([
+			{
+				kind: 'place',
+				host: housePlacement.host,
+				assetId: housePlacement.assetId,
+				params: { height: 24 },
+				seed: housePlacement.seed + 1
+			}
+		]);
+		expect(handover.readStock(different, housePlacement.host)).toBeUndefined();
+		expect(() => handover.serialize(different)).toThrow();
+		const tampered = JSON.parse(handover.serialize(document)) as {
+			format: string;
+			sandbox: string;
+			stock: unknown;
+		};
+		const parsedSandbox = JSON.parse(tampered.sandbox) as { stock: unknown[] };
+		parsedSandbox.stock.push(parsedSandbox.stock[0]);
+		tampered.sandbox = JSON.stringify(parsedSandbox);
+		expect(() => handover.restore(JSON.stringify(tampered))).toThrow();
+	}, 30_000);
+
+	test('handover preserves split child parcel topology and station ground landmarks', () => {
+		const flat = createCitySite(() => ({ height: 4, waterKind: null, waterClearance: Infinity }), {
+			terrainRevision: () => 'flat-split/1'
+		});
+		const splitBase: CityGrowthRecipe = {
+			...recipe,
+			planFamily: 'square',
+			carrierSizeM: 600,
+			holdingsPerStep: 0
+		};
+		const largest = required(
+			readCitySnapshot(createCityGrowth(flat, splitBase, seed)).holdings.toSorted(
+				(a, b) => b.areaM2 - a.areaM2
+			)[0],
+			'largest founding holding'
+		);
+		const splitRun = advanceCityGrowth(
+			createCityGrowth(
+				flat,
+				{
+					...splitBase,
+					stockChanges: [
+						{ kind: 'retire', holdingId: largest.id, year: 1961 },
+						{ kind: 'split', holdingId: largest.id, year: 1961 }
+					]
+				},
+				seed
+			),
+			2030
+		);
+		const splitEvent = required(
+			splitRun.events.find((event) => event.kind === 'holding-split'),
+			'split event'
+		);
+		if (splitEvent.kind !== 'holding-split') throw Error('Expected holding split');
+		const splitHandover = createSandboxHandover(splitRun);
+		const splitRestored = splitHandover.restore(splitHandover.serialize(splitHandover.document));
+		expect(
+			splitHandover.world.resolveReference(
+				{ v: 1, world: splitHandover.world.world.id, kind: 'parcel', key: largest.id },
+				splitRestored
+			).status
+		).toBe('missing');
+		for (const childId of splitEvent.childIds) {
+			expect(
+				splitHandover.world.resolveReference(
+					{ v: 1, world: splitHandover.world.world.id, kind: 'parcel', key: childId },
+					splitRestored
+				).status
+			).toBe('resolved');
+		}
+
+		const stationRun = advanceCityGrowth(
+			createCityGrowth(
+				createCitySite(undefined, { seed }),
+				{ ...developmentRecipe, development: { crossingFromYear: 9999 } },
+				seed
+			),
+			2030
+		);
+		const stationHandover = createSandboxHandover(stationRun);
+		const sculpture = required(
+			stationHandover.stock.assets.find(({ assetId }) => assetId === 'sculpture/cantilever-totem'),
+			'station sculpture'
+		);
+		const restoredStation = stationHandover.restore(
+			stationHandover.serialize(stationHandover.document)
+		);
+		const placed = required(
+			restoredStation.readPlacement(sculpture.host),
+			'restored ground sculpture placement'
+		);
+		expect(placed.assetId).toBe('sculpture/cantilever-totem');
+		expect(stationHandover.readStock(restoredStation, sculpture.host)).toEqual(sculpture);
+		expect(stationHandover.build(restoredStation, placed).anchors[0].position).toEqual(
+			sculpture.anchor
+		);
+	}, 30_000);
+});
+
+test('low neighbor roof limits adjacent extensions to neighbor + 6 storeys while keeping existing floors', () => {
+	const flat = createCitySite(() => ({ height: 7, waterKind: null, waterClearance: Infinity }));
+	const input: CityGrowthRecipe = {
+		...developmentRecipe,
+		planFamily: 'square',
+		carrierSizeM: 2200,
+		holdingsPerStep: 5000,
+		maximumActiveHoldings: 5004,
+		development: { crossingFromYear: 9999, railFromYear: 9999 }
+	};
+	const expanded = advanceCityGrowth(createCityGrowth(flat, input, seed), 1960);
+	const town = readCitySnapshot(expanded);
+	const grid = readCityGrid(flat, input.carrierSizeM, 'square', seed).grid;
+	const neighborsByCell = new Map(grid.cells.map(({ id, neighbors }) => [id, neighbors]));
+	const byCell = new Map<string, string[]>();
+	for (const holding of town.holdings) {
+		for (const cell of holding.memberCellIds) {
+			const list = byCell.get(cell) ?? [];
+			list.push(holding.id);
+			byCell.set(cell, list);
+		}
+	}
+	const target = required(
+		town.holdings.find(({ id, memberCellIds }) =>
+			memberCellIds.some((cell) =>
+				(neighborsByCell.get(cell) ?? []).some(
+					(neighbor) =>
+						neighbor !== null &&
+						!memberCellIds.includes(neighbor) &&
+						(byCell.get(neighbor) ?? []).some((otherId) => otherId !== id)
+				)
+			)
+		),
+		'holding with an occupied neighbor cell'
+	);
+	const capped = advanceCityGrowth(
+		createCityGrowth(
+			flat,
+			{
+				...input,
+				stockChanges: [{ kind: 'extend', holdingId: target.id, year: 1961, storeys: 20 }]
+			},
+			seed
+		),
+		1961
+	);
+	const built = activeBuilding(readCitySnapshot(capped), target.id);
+	const storeys = [
+		...new Set(
+			built.parts.filter(({ kind }) => kind === 'storey').map(({ datumIndex }) => datumIndex)
+		)
+	];
+	// Neighbor stands at 2 storeys (initialStoreys); neighbor cap is 2 + 6 = 8 storeys.
+	expect(storeys.length).toBeLessThanOrEqual(8);
+	expect(storeys.length).toBeGreaterThan(2);
+}, 30_000);
+
+test('area-driven skyline caps new work and retains floors when occupied area contracts', () => {
+	const flat = createCitySite(() => ({ height: 7, waterKind: null, waterClearance: Infinity }));
+	const input: CityGrowthRecipe = {
+		...developmentRecipe,
+		planFamily: 'square',
+		carrierSizeM: 2200,
+		holdingsPerStep: 5000,
+		maximumActiveHoldings: 5004,
+		development: { crossingFromYear: 9999, railFromYear: 9999 }
+	};
+	const initial = createCityGrowth(flat, input, seed);
+	const town = readCitySnapshot(advanceCityGrowth(initial, 1960));
+	const { holdingId } = required(town.buildings[0], 'first town building');
+	const retirements = town.buildings.flatMap((building) =>
+		building.holdingId === holdingId
+			? []
+			: [{ kind: 'retire' as const, year: 1962, holdingId: building.holdingId }]
+	);
+	const run = advanceCityGrowth(
+		createCityGrowth(
+			flat,
+			{
+				...input,
+				stockChanges: [
+					{ kind: 'extend', holdingId, year: 1951, storeys: 20 },
+					{ kind: 'extend', holdingId, year: 1961, storeys: 20 },
+					...retirements,
+					{ kind: 'extend', holdingId, year: 1963, storeys: 20 }
+				]
+			},
+			seed
+		),
+		1963
+	);
+	const storeys = (year: number) => {
+		const snapshot = readCitySnapshot(run, { kind: 'year', year });
+		const building = activeBuilding(snapshot, holdingId);
+		return [
+			...new Set(
+				building.parts.filter(({ kind }) => kind === 'storey').map(({ datumIndex }) => datumIndex)
+			)
+		];
+	};
+	expect(storeys(1951)).toHaveLength(2);
+	expect(storeys(1961)).toHaveLength(6);
+	expect(storeys(1963)).toEqual(storeys(1961));
+	expect(readCitySnapshot(run).buildings).toHaveLength(1);
+	const built = activeBuilding(readCitySnapshot(run, { kind: 'year', year: 1961 }), holdingId);
+	const retained = activeBuilding(readCitySnapshot(run), holdingId);
+	expect(retained.parts).toEqual(built.parts.map((part) => ({ ...part, phase: 'retained' })));
+}, 30_000);

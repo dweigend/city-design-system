@@ -12,7 +12,11 @@ export function createStock() {
 		buildings,
 		retiredBuildings,
 		add(event: CityGrowthEvent) {
+			if (!('holding' in event || 'holdingId' in event || 'children' in event)) return;
 			switch (event.kind) {
+				case 'square-reserved':
+					holdings.set(event.holding.id, event.holding);
+					break;
 				case 'holding-settled':
 					holdings.set(event.holding.id, event.holding);
 					buildings.set(event.holding.id, event.building);
@@ -48,5 +52,17 @@ export function createStock() {
 				}
 			}
 		}
+	};
+}
+
+export function readPublicStock(events: readonly CityGrowthEvent[]) {
+	return {
+		crossings: Object.freeze(events.filter((event) => event.kind === 'crossing-built')),
+		squares: Object.freeze(events.filter((event) => event.kind === 'square-reserved')),
+		rail: Object.freeze(events.filter((event) => event.kind === 'rail-opened')),
+		stations: Object.freeze(events.filter((event) => event.kind === 'station-opened')),
+		assets: Object.freeze(
+			events.flatMap((event) => (event.kind === 'asset-placed' ? [event.asset] : []))
+		)
 	};
 }

@@ -16,6 +16,7 @@ import { createTownParcelSites } from '../house-site';
 import { prepareBurgage, type Burgage } from './burgage';
 import { readFootprint, readStoreyPlanes, type BuildingGround } from './building';
 import { readLaneAccess } from './lanes';
+import { prepareInfrastructure } from './infrastructure';
 import { readEra } from './recipe';
 import type { CityGrowthRecipe } from './types';
 
@@ -26,6 +27,8 @@ export type HoldingCandidate = Readonly<{
 	ground: BuildingGround;
 	minimumGroundZ: number;
 	siteScore: number;
+	anchor: readonly [number, number, number];
+	outlineElevationsM?: readonly number[];
 }>;
 
 function readWater(site: CitySite, { plan, crossings }: CityGrid) {
@@ -188,7 +191,9 @@ function readCandidate(
 		memberCellIds,
 		ground: { footprint, lowest: Math.min(...ground), highest: Math.max(...ground) },
 		minimumGroundZ,
-		siteScore
+		siteScore,
+		anchor: Object.freeze([center[0], center[1], reading.height] as const),
+		...(recipe.development && { outlineElevationsM: heights.slice(0, parcel.outline.length) })
 	};
 }
 
@@ -268,6 +273,22 @@ export function prepareGrowth(site: CitySite, recipe: CityGrowthRecipe, seed: nu
 		recipe.maximumLaneHops
 	);
 	return {
+		site,
+		terrainRevision: JSON.stringify(site.terrainRevision?.()),
+		layout,
+		parcelPlan,
+		columns,
+		neighborsByCell: new Map(layout.grid.cells.map(({ id, neighbors }) => [id, neighbors])),
+		infrastructure: recipe.development
+			? prepareInfrastructure(
+					site,
+					layout,
+					[...columns.values()],
+					lanes,
+					recipe.development,
+					recipe.endYear
+				)
+			: undefined,
 		datumZ,
 		linearToleranceM,
 		readBurgage,

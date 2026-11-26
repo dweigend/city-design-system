@@ -1,10 +1,11 @@
 /** Module: Founds a settlement and replays dated growth on a fixed city carrier. */
 import { Random, uint32Limit } from '../../core/random';
 import type { CitySite } from '../city-site';
-import { createStock } from './history';
+import { createStock, readPublicStock } from './history';
 import { prepareGrowth, type GrowthCarrier } from './carrier';
 import { captureRecipe, defaultRecipe } from './recipe';
 import { createSettlement } from './settlement';
+import { createHandover } from './handover';
 import type {
 	CityGrowthCursor,
 	CityGrowthEvent,
@@ -15,6 +16,12 @@ import type {
 export type {
 	/** Fixed inputs for one settlement history, with distances in meters and dates in calendar years. */
 	CityGrowthRecipe,
+	/** Enables G3 with optional earliest crossing and rail budget years. */
+	CityGrowthDevelopment,
+	/** One bridge, track or station part with its physical address and build year. */
+	CityInfrastructurePart,
+	/** A dated registry object anchored to a holding, network edge or station approach. */
+	CityGrowthAsset,
 	/** Starts a construction style in a calendar year and supplies optional upper massing edits. */
 	CityConstructionEra,
 	/** Schedules a targeted or seeded change to existing stock. */
@@ -53,7 +60,7 @@ export type CityGrowthRun = Readonly<{
 	events: readonly CityGrowthEvent[];
 }>;
 
-const growthVersion = /* Exact arithmetic: dated stock continuity ruleset version. */ 2;
+const growthVersion = /* Exact arithmetic: infrastructure and stock continuity ruleset version. */ 3;
 
 /** Reads one terrain revision, captures the recipe and founds a connected cluster at startYear.
  * Seed is an unsigned 32-bit integer. Invalid recipe values or seed throw RangeError.
@@ -122,7 +129,7 @@ function advanceSettlement(
 		let sequence = 0;
 		if (year === nextExpansion) {
 			sequence = settlement.expand(year);
-			nextExpansion = sequence ? year + stepYears : Infinity;
+			nextExpansion = year + stepYears;
 		}
 		while (stockChanges[changeIndex]?.year === year) {
 			if (settlement.change(stockChanges[changeIndex], sequence, changeIndex)) sequence++;
@@ -158,7 +165,7 @@ export function readCitySnapshot(
 	for (let index = 0; index < count; index++) {
 		const event = run.events[index];
 		stock.add(event);
-		if (event.kind === 'holding-settled') lanes.push(...event.lanes);
+		if ('lanes' in event) lanes.push(...event.lanes);
 		const selected = cursor.kind === 'event' ? index === cursor.index : event.year === year;
 		if (!selected) continue;
 		const parts = eventParts(event);
@@ -184,6 +191,7 @@ export function readCitySnapshot(
 		lanes: Object.freeze(lanes),
 		buildings: Object.freeze(buildings),
 		retiredBuildings: Object.freeze(stock.retiredBuildings),
+		...readPublicStock(prefix),
 		events: prefix,
 		eventCount: count,
 		lastEvent: prefix[count - 1] ?? null
@@ -191,15 +199,21 @@ export function readCitySnapshot(
 }
 
 function eventParts(event: CityGrowthEvent) {
-	switch (event.kind) {
-		case 'holding-settled':
-			return event.building.parts;
-		case 'building-infill':
-		case 'building-extended':
-			return event.parts;
-		case 'building-converted':
-		case 'building-retired':
-		case 'holding-split':
-			return [];
-	}
+	if (event.kind === 'holding-settled') return event.building.parts;
+	if (event.kind === 'building-infill' || event.kind === 'building-extended') return event.parts;
+	return [];
+}
+
+/** Editable sandbox world and document with a serializable dated stock baseline. */
+export type CitySandboxHandover = ReturnType<typeof createHandover>;
+
+/** Opens the inclusive 2030 prefix as an editable, same-carrier sandbox baseline.
+ * Exact committed occupancy and dates are available through the paired stock reader and save.
+ * Requires an advanced run and, for custom terrain, its original stable sampler revision. */
+export function createSandboxHandover(run: CityGrowthRun): CitySandboxHandover {
+	const year = defaultCityGrowthRecipe.endYear;
+	const carrier = carriers.get(run);
+	if (!carrier || run.throughYear < year || run.recipe.startYear > year)
+		throw new RangeError('Sandbox handover requires a recorded 2030 snapshot');
+	return createHandover(carrier, readCitySnapshot(run, { kind: 'year', year }), run.seed);
 }

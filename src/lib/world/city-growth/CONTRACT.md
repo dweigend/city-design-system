@@ -93,8 +93,8 @@ event log.
 
 ## Cursors
 
-Version 2 histories capture the stock-change rules and their event data. Each event carries
-the data needed to replay it.
+Version 3 histories include the public works rules and their event data. Each event carries
+the data needed to replay it. Infrastructure and asset parts keep their construction dates.
 
 | `readCitySnapshot` cursor  | Included events                                              | Parts marked as additions           |
 | -------------------------- | ------------------------------------------------------------ | ----------------------------------- |
@@ -109,4 +109,58 @@ captured lane graph and ground readings. Create a fresh run to use a different t
 revision. The event stream is plain data. Continuing a run also requires its in-memory
 carrier.
 
-The [example](example.ts) reads a seeded valley after scheduled infill, extension and conversion.
+The [example](example.ts) reads a seeded valley after public works, infill and conversion.
+
+## Crossings, markets and station centers
+
+Set `development: {}` to include dated public works and the area-driven skyline. Recipes
+without this option use the founding, expansion and stock rules above. The optional
+`crossingFromYear` and `railFromYear` values set the first eligible expansion budget years.
+They default to 1960 and 1980. The survey captures the carrier and its terrain at creation.
+A proposal uses the lanes and buildings committed by the time of the budget.
+
+At an eligible budget, the settlement can build one carrier crossing with a dry approach
+from the active lanes. The opposite landing must bring eligible dry land into reach or
+shorten its approach. The proposal ranks the improved parcel area per meter of access.
+`crossing-built` dates the approach lanes on both banks, deck segments and landing
+bearings. The newly accessible frontage receives the first settlement opportunity. At a
+convergent landing, `square-reserved` can reserve a whole vacant holding and its entrance for
+public use. It shares the active holding limit, and settlement leaves it free of private
+buildings (CITY-4, CITY-13, CITY-16, GRID-3, GROW-1, GROW-3).
+
+`rail-opened` dates the guideway and its supports. A `station-opened` event records the
+platform's route to a dry approach and the nearby holdings reachable by lane. A station
+needs room to settle apart from the founders and other stations. A station receives one
+settlement opportunity before general expansion on each budget date while it has room.
+Its first buildings provide a workshop and a public service, followed by housing
+(CITY-6, CITY-13).
+
+`asset-placed` records a registry asset, address, world XYZ anchor, seed and construction
+year. Market ground supports a grove, crossings carry a walkway and station approaches
+carry a sculpture. These events leave the terrain carrier intact (CITY-9, CITY-10, GRID-3).
+
+### Skyline
+
+The occupied source cells of active buildings define built-up area for the district
+model. New building work reads the most restrictive cap across its source cells and
+limits the rise over occupied neighboring cells. A village can build up to two storeys.
+An extension uses the height already committed before that event. A lower cap limits
+future work while every already committed floor keeps its address and shape (CITY-12,
+GROW-2).
+
+### The 2030 sandbox
+
+Advance the run through 2030 and call `createSandboxHandover(run)`. Its `document` is
+an editable sandbox document with baseline placements on the captured carrier and
+committed crossings. `stock` holds the exact dated geometry and addresses, including
+ground sculptures and rail infrastructure. The sandbox placement schema stores asset
+parameters and hosts. The paired stock inventory carries the dated storeys, foundations
+and civic works.
+
+Use `readStock(document, host)` to look up the dated record behind an active baseline slot
+and `build(document, placement)` to project its exact geometry. Edited placements use the
+sandbox's ordinary asset builders. `serialize(document)` saves both the editable document
+and baseline. `restore(json)` validates the baseline, then restores the editable document
+through the sandbox world. Use the same 2030 run or regenerate it from the same recipe,
+site and seed. Custom terrain needs a stable revision and the same sampler for the
+editable sandbox (GROW-4).
