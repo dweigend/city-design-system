@@ -14,16 +14,25 @@ const unclipped = [zero, zero, zero, zero] as const;
 export function sectionPlane(section: Drawable['section']) {
 	if (!section) return unclipped;
 	const { normal, constant } = section;
-	const length = Math.hypot(...normal);
-	if (!(length > 0 && Number.isFinite(length))) return unclipped;
-	const distance = Math.fround(constant / length);
-	if (!Number.isFinite(distance)) return unclipped;
 	const [x, y, z] = normal;
+	const length = Math.hypot(x, y, z);
+	if (!(length > 0 && Number.isFinite(length) && Number.isFinite(constant))) return unclipped;
+	const distance = Math.fround(constant / length);
+	if (Number.isFinite(distance))
+		return [
+			Math.fround(x / length),
+			Math.fround(y / length),
+			Math.fround(z / length),
+			distance
+		] as const;
+	// Rescale all four coefficients together when normalizing by a tiny normal would overflow float32.
+	const scale = Math.hypot(x, y, z, constant);
+	if (!(scale > 0 && Number.isFinite(scale))) return unclipped;
 	return [
-		Math.fround(x / length),
-		Math.fround(y / length),
-		Math.fround(z / length),
-		distance
+		Math.fround(x / scale),
+		Math.fround(y / scale),
+		Math.fround(z / scale),
+		Math.fround(constant / scale)
 	] as const;
 }
 

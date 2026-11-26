@@ -964,21 +964,28 @@ test('style rows retain earlier data through growth and recycle released indices
 	const first = rows.allocate();
 	rows.write(first, part, { ...appearance(part), opacity: 0.5 });
 	const before = rows.buffer.value;
+	let beforeDisposed = 0;
+	before.addEventListener('dispose', () => beforeDisposed++);
 	const rowSize = 24;
 	const snapshot = [...before.array.slice(0, rowSize)];
 	const second = rows.allocate();
-	expect(rows.buffer.value).not.toBe(before);
+	const grown = rows.buffer.value;
+	let grownDisposed = 0;
+	grown.addEventListener('dispose', () => grownDisposed++);
+	expect(grown).not.toBe(before);
+	expect(beforeDisposed).toBe(1);
 	const hidden = { ...part, visible: false };
 	rows.write(second, hidden, appearance(hidden));
-	expect([...rows.buffer.value.array.slice(0, rowSize)]).toEqual(snapshot);
-	expect(rows.buffer.value.array[rowSize + 3]).toBe(0);
-	expect(rows.buffer.value.array[rowSize + 19]).toBe(0);
+	expect([...grown.array.slice(0, rowSize)]).toEqual(snapshot);
+	expect(grown.array[rowSize + 3]).toBe(0);
+	expect(grown.array[rowSize + 19]).toBe(0);
 	rows.release(second);
 	expect(rows.allocate()).toBe(second);
 	rows.write(second, part, appearance(part));
-	expect(rows.buffer.value.array[rowSize + 19]).toBe(1);
-	expect([...rows.buffer.value.array.slice(0, rowSize)]).toEqual(snapshot);
+	expect(grown.array[rowSize + 19]).toBe(1);
+	expect([...grown.array.slice(0, rowSize)]).toEqual(snapshot);
 	rows.delete();
+	expect(grownDisposed).toBe(1);
 });
 
 test('dissection rows combine the pivot and offset and clear invalid or removed planes', () => {
@@ -997,6 +1004,10 @@ test('dissection rows combine the pivot and offset and clear invalid or removed 
 	const moved = { ...part, section: { ...part.section, constant: 4 } };
 	rows.write(id, moved, appearance(moved));
 	expect([...array.slice(20, 24)]).toEqual([0, 1, 0, 2]);
+	const tinyNormal = { ...part, section: { normal: [1e-40, 0, 0] as const, constant: 1 } };
+	rows.write(id, tinyNormal, appearance(tinyNormal));
+	expect([...array.slice(20, 24)].every(Number.isFinite)).toBe(true);
+	expect(array[23]).toBeGreaterThan(0);
 	for (const section of [
 		undefined,
 		{ normal: [0, 0, 0], constant: 1 },
