@@ -1,4 +1,5 @@
 import { expect, test } from 'bun:test';
+import { dotProduct, length, type Vec3 } from '../geometry';
 import { bounds, move, PlaceableObject, type Part, type Shape } from './index';
 import { example } from './example';
 
@@ -195,4 +196,50 @@ test('copies the validated tuple indices even when the box center has a custom i
 	center[Symbol.iterator] = iterated[Symbol.iterator].bind(iterated);
 	const shape = objectWith({ ...box, center }).parts[0].shape;
 	expect(shape).toEqual(box);
+});
+
+test('validates anchor transverses and leaves unoriented anchors in their original shape', () => {
+	const object = objectWith(box);
+	const anchor = object.anchors[0];
+	expect(Object.hasOwn(anchor, 'transverse')).toBe(false);
+	expect(Object.hasOwn(move(object, [0, 1, 0], 1).anchors[0], 'transverse')).toBe(false);
+
+	const invalid: readonly Vec3[] = [
+		[0, NaN, 1],
+		[0, 0, Infinity],
+		[0, 0, 0],
+		[0, 2, 0],
+		[1, 0, 0],
+		[0.6, 0.8, 0]
+	];
+	for (const transverse of invalid)
+		expect(() =>
+			PlaceableObject.create({ ...object, anchors: [{ ...anchor, transverse }] })
+		).toThrow(RangeError);
+	const malformed = [0, 1] as unknown as Vec3;
+	expect(() =>
+		PlaceableObject.create({ ...object, anchors: [{ ...anchor, transverse: malformed }] })
+	).toThrow(RangeError);
+});
+
+test('moves, detaches and deep-freezes the complete anchor frame', () => {
+	const object = objectWith(box);
+	const across: [number, number, number] = [0, 0.6, 0.8];
+	const oriented = PlaceableObject.create({
+		...object,
+		anchors: [{ ...object.anchors[0], transverse: across }]
+	});
+	across[1] = 0;
+	const moved = move(oriented, [11, 13, 5], Math.PI / 2);
+	const { position, normal, transverse } = moved.anchors[0];
+	if (transverse === undefined) throw Error('Expected an oriented anchor');
+	expect(position).toEqual([8, 15, 6]);
+	expect(normal[0]).toBeCloseTo(0, 12);
+	expect(normal[1]).toBeCloseTo(1, 12);
+	expect(transverse[0]).toBeCloseTo(-0.6, 12);
+	expect(transverse[1]).toBeCloseTo(0, 12);
+	expect(transverse[2]).toBe(0.8);
+	expect(length(transverse)).toBeCloseTo(1, 12);
+	expect(dotProduct(normal, transverse)).toBeCloseTo(0, 12);
+	expectFrozen(moved);
 });

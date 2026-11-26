@@ -1,6 +1,67 @@
 import { defineSettings, settingValues } from '../setting';
 
 export const settings = defineSettings({
+	projectedTubeRadialSegments: {
+		value: 24,
+		unit: 'segments',
+		meaning: 'Facets around the glazing, pipe and sleeves',
+		rationale: 'Keep the curved profile readable at close range'
+	},
+	walkableTubeRadiusM: {
+		value: 1.7,
+		unit: 'm',
+		meaning: 'Radius of the open pedestrian enclosure',
+		principle: 'CITY-5'
+	},
+	walkableTubeDeckDropM: {
+		value: 0.9,
+		unit: 'm',
+		meaning: 'Deck top below the enclosure axis',
+		rationale: 'Keep headroom over a floor inside the circular section'
+	},
+	walkableTubeDeckWidthM: {
+		value: 2.4,
+		unit: 'm',
+		meaning: 'Clear width of the floor between the glazing walls',
+		principle: 'CITY-5'
+	},
+	walkableTubeDeckThicknessM: {
+		value: 0.12,
+		unit: 'm',
+		meaning: 'Thickness of the floor in the elevated enclosure',
+		principle: 'CITY-5'
+	},
+	walkableTubeRibSpacingM: {
+		value: 3,
+		unit: 'm',
+		meaning: 'Distance between structural ribs measured along the enclosure centerline',
+		rationale: 'Repeat ribs at architectural bay spacing independently of curve sampling'
+	},
+	walkableTubeRibWidthM: {
+		value: 0.14,
+		unit: 'm',
+		meaning: 'Axial width of pedestrian enclosure ribs and collars',
+		principle: 'FORM-5'
+	},
+	servicePipeRadiusM: {
+		value: 0.18,
+		unit: 'm',
+		meaning: 'Outside radius of a building service conduit',
+		principle: 'COLOR-8'
+	},
+	servicePipeCollarWidthM: {
+		value: 0.12,
+		unit: 'm',
+		meaning: 'Axial width of a building service fitting',
+		principle: 'FORM-5'
+	},
+	projectedTubeCollarDepthRatio: {
+		value: 0.07,
+		unit: 'ratio',
+		meaning: 'Radial overlap and projection of a sleeve, each as a share of tube radius',
+		principle: 'FORM-5',
+		bounds: { exclusiveMin: 0, exclusiveMax: 1 }
+	},
 	bridgeWidthM: {
 		value: 5,
 		unit: 'm',

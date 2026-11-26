@@ -1,5 +1,5 @@
 import { createMovementNetwork } from '../../domain/movement-network';
-import { projectMovement } from './index';
+import { projectMovement, projectServicePipe, projectWalkableTube } from './index';
 
 /** Projects a short park boardwalk, with both bindings expressed as metric anchors. */
 export function pathsProjectionExample() {
@@ -31,4 +31,27 @@ export function pathsProjectionExample() {
 			footprint: { width: 12, depth: 4 }
 		}
 	);
+}
+
+/** Shows an elevated enclosure and a compact water service along fixed runs in meters. */
+export function tubeProjectionExample() {
+	return {
+		walkable: projectWalkableTube('walkway', [
+			[0, 0, 4],
+			[4, 0, 4],
+			[8, 2, 4.4]
+		]),
+		service: projectServicePipe(
+			'water',
+			[
+				[0, 0, 1],
+				[4, 0, 1],
+				[4, 0, 3]
+			],
+			'water',
+			{
+				jointIndices: [1]
+			}
+		)
+	};
 }

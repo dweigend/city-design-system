@@ -11,8 +11,8 @@ export type Shape =
 	| Readonly<{ kind: 'mesh'; positions: readonly number[]; indices: readonly number[] }>;
 /** One shape with an object-local identity and a named slot. */
 export type Part = Readonly<{ id: string; slot: string; shape: Shape }>;
-/** A named attachment in meters with a unitless outward direction. */
-export type Anchor = Readonly<{ name: string; position: Vec3; normal: Vec3 }>;
+/** A named attachment in meters. The optional unit transverse sets roll about the unit normal. */
+export type Anchor = Readonly<{ name: string; position: Vec3; normal: Vec3; transverse?: Vec3 }>;
 /** Ground dimensions in meters along the object's local axes. */
 export type Footprint = Readonly<{ width: number; depth: number }>;
 /** Placeable geometry with ordered slots, parts and anchors. */
@@ -69,7 +69,7 @@ export function bounds(object: PlaceableObject): Bounds3 {
 }
 
 /** Rotates about the world Z axis in radians, then translates in meters. Returns a detached,
- * frozen object with the same identity, order and local footprint. Normals only rotate.
+ * frozen object with the same identity, order and local footprint. Anchor directions only rotate.
  * Non-finite motion or resulting coordinates throw RangeError.
  */
 // Exact arithmetic: The translation has three coordinates.
@@ -83,10 +83,11 @@ export function move(object: PlaceableObject, translation: Vec3, radians: number
 	return create({
 		...object,
 		parts: object.parts.map((part) => ({ ...part, shape: moveShape(part.shape, point, radians) })),
-		anchors: object.anchors.map(({ name, position, normal }) => ({
+		anchors: object.anchors.map(({ name, position, normal, transverse }) => ({
 			name,
 			position: point(position),
-			normal: rotate(normal)
+			normal: rotate(normal),
+			...(transverse === undefined ? {} : { transverse: rotate(transverse) })
 		}))
 	});
 }
@@ -113,12 +114,20 @@ function copyVector<T extends Vec2 | Vec3>(value: T, arity: T['length']): T {
 	return Object.freeze(copy) as unknown as T;
 }
 
-// Exact arithmetic: An anchor position and normal both have three coordinates.
-function copyAnchor({ name, position, normal }: Anchor): Anchor {
+// Exact arithmetic: Anchor positions and directions have three coordinates.
+function copyAnchor({ name, position, normal, transverse }: Anchor): Anchor {
 	const direction = copyVector(normal, 3);
 	if (Math.abs(geometry.length(direction) - 1) > unitNormalLengthToleranceRatio)
 		throw new RangeError(`Anchor "${name}" requires a unit normal`);
-	return Object.freeze({ name, position: copyVector(position, 3), normal: direction });
+	const anchor = { name, position: copyVector(position, 3), normal: direction };
+	if (transverse === undefined) return Object.freeze(anchor);
+	const across = copyVector(transverse, 3);
+	if (
+		Math.abs(geometry.length(across) - 1) > unitNormalLengthToleranceRatio ||
+		Math.abs(geometry.dotProduct(direction, across)) > unitNormalLengthToleranceRatio
+	)
+		throw new RangeError(`Anchor "${name}" requires a unit transverse orthogonal to its normal`);
+	return Object.freeze({ ...anchor, transverse: across });
 }
 
 // Exact arithmetic: each mesh position has one component per axis.

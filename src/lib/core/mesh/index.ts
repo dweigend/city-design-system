@@ -137,3 +137,14 @@ export { drawBearing } from './bearing';
 
 /** Builds one square-profile segment along a metric span. */
 export { squareSegment } from './segment';
+
+export {
+	/** Sweeps a circular shell through metric points with optional FORM-5 collars. */
+	createSweptTube,
+	/** Circular sweep dimensions and optional endpoint orientation and sleeves. */
+	type SweptTubeOptions,
+	/** Sleeve radii, axial width and placement along the centerline in meters. */
+	type TubeCollars,
+	/** Detached swept body, optional collars and endpoint anchors. */
+	type SweptTube
+} from './tube';

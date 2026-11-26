@@ -31,3 +31,18 @@ export {
 	/** Colors and finishes of rail components by slot. */
 	railSurfaces
 } from './surfaces';
+
+export {
+	/** Projects an elevated deck with a glazed enclosure and path-colored ribs. */
+	projectWalkableTube,
+	/** Projects a compact utility run and flow-colored fittings. */
+	projectServicePipe,
+	/** Applies normal or transparency visibility without rebuilding service geometry. */
+	paintServicePipe,
+	/** Optional roll constraints and contact stations on the supplied centerline. */
+	type TubeAttachments,
+	/** Functional palette roles available to a building service pipe. */
+	type ServicePipeFlow,
+	/** Frozen slot geometry alongside the projected drawables. */
+	type TubeProjection
+} from './tubes';

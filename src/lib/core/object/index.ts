@@ -8,7 +8,7 @@ export {
 	move
 } from './object';
 export type {
-	/** A named attachment in meters with a unitless outward direction. */
+	/** A named metric attachment with a unit normal and an optional unit transverse. */
 	Anchor,
 	/** Ground dimensions in meters along the object's local axes. */
 	Footprint,
