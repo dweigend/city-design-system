@@ -13,6 +13,7 @@ import {
 	createSetbackMassing
 } from '../../lib/domain/massing';
 import { projectHouse } from '../../lib/scene/house-projection';
+import type { Drawable } from '../../lib/scene/surface';
 import { parcelShapes, type ParcelShape } from './parcels';
 
 export const massingVariants = [
@@ -24,6 +25,22 @@ export const massingVariants = [
 
 export type MassingVariant = (typeof massingVariants)[number];
 
+export const dissectionModes = [
+	{ value: 'assembled', label: 'Assembled' },
+	{ value: 'exploded', label: 'Explode' },
+	{ value: 'section', label: 'Section' }
+] as const;
+
+function storeyIndices(
+	parts: ReturnType<typeof createMassingParts>,
+	elevations: readonly number[]
+) {
+	const indices = new Map<string, number>();
+	for (const { id, shape } of parts)
+		if (shape.kind === 'prism') indices.set(id, elevations.indexOf(shape.base));
+	return indices;
+}
+
 export function massingSpecimen(shape: ParcelShape, style: HouseStyleName, seed: number) {
 	const styleRow = houseStyles[style];
 	const space = createCellSpace(parcelShapes[shape].parcel);
@@ -32,10 +49,14 @@ export function massingSpecimen(shape: ParcelShape, style: HouseStyleName, seed:
 	const baseline = createMassing(house);
 	const setback = createSetbackMassing(space, baseline, { startStorey: 3, depth: 1 });
 	const z = readStoreyElevation(space, house.storeys);
+	const northings = parcelShapes[shape].parcel.corners.map(({ position }) => position[1]);
 	return {
 		space,
 		seed,
 		style,
+		storeys: house.storeys,
+		minY: Math.min(...northings),
+		maxY: Math.max(...northings),
 		ground,
 		baseline,
 		setback,
@@ -76,10 +97,29 @@ export function massingSheet(
 	});
 	return {
 		drawables: projectHouse(object, 'full'),
+		storeys: storeyIndices(parts, space.storeyElevationsM),
 		measurements: [
 			{ label: 'Occupied storey cells', value: String(parts.length), unit: '' },
 			{ label: 'Terraces', value: String(terraces), unit: '' },
 			{ label: 'Pass-through voids', value: String(passThroughs), unit: '' }
 		]
 	};
+}
+
+export function dissectMassing(
+	massing: ReturnType<typeof massingSheet>,
+	{ gapM, cutY }: { gapM: number; cutY?: number }
+): Drawable[] {
+	if (!gapM && cutY === undefined) return massing.drawables;
+	const section = cutY === undefined ? undefined : { normal: [0, -1, 0] as const, constant: cutY };
+	return massing.drawables.map((part) => {
+		const storey = massing.storeys.get(part.id);
+		if (storey === undefined) return part;
+		return section
+			? { ...part, section }
+			: {
+					...part,
+					vertical: { scale: 1, pivot: 0, offset: storey * gapM }
+				};
+	});
 }

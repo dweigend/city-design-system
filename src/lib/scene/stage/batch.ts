@@ -28,15 +28,13 @@ type StrokeRange = {
 	source: StrokeSource;
 	start: number;
 	scale: number;
-	offset: number;
 };
 
 export function chunkKey(part: ProjectedPart) {
 	let { bounds } = part;
 	if (bounds.isEmpty()) {
 		bounds = new Box3();
-		const scratch = new Box3();
-		for (const { edges } of part.sources) bounds.union(scratch.setFromArray(edges.segments));
+		for (const source of part.sources) bounds.union(source.bounds);
 	}
 	const { min, max } = bounds;
 	const size = defaults.chunkSizeM;
@@ -57,6 +55,19 @@ export function displayedBounds(part: ProjectedPart, output: Box3, scale: number
 		if (!geometry.boundingBox) geometry.computeBoundingBox();
 		if (geometry.boundingBox) output.union(geometry.boundingBox);
 	}
+	return transformBoundsZ(output, scale, offset);
+}
+
+export function displayedStrokeBounds(
+	source: StrokeSource,
+	output: Box3,
+	scale: number,
+	offset: number
+) {
+	return transformBoundsZ(output.copy(source.bounds), scale, offset);
+}
+
+function transformBoundsZ(output: Box3, scale: number, offset: number) {
 	if (!output.isEmpty()) {
 		const low = output.min.z * scale + offset;
 		const high = output.max.z * scale + offset;
@@ -182,8 +193,7 @@ function strokeBatch(
 			part,
 			source,
 			start,
-			scale: /* Exact arithmetic: identity stroke scale. */ 1,
-			offset: /* Exact arithmetic: identity stroke translation. */ 0
+			scale: /* Exact arithmetic: identity stroke scale. */ 1
 		});
 		const next = start + source.edges.segments.length;
 		edges.segments.set(source.edges.segments, start);
@@ -194,6 +204,7 @@ function strokeBatch(
 		normal += source.edges.fronts.length;
 	}
 	const geometry = lineGeometry(edges);
+	geometry.boundingSphere = new Sphere();
 	geometry.setAttribute(
 		'aPartIndex',
 		new InstancedBufferAttribute(rows, /* Exact arithmetic: one owner index per stroke. */ 1)
@@ -216,8 +227,13 @@ function strokeBatch(
 	return { geometry, lines, ranges };
 }
 
-function refreshStrokes({ geometry, lines, ranges }: ReturnType<typeof strokeBatch>) {
+function refreshStrokes(
+	{ geometry, lines, ranges }: ReturnType<typeof strokeBatch>,
+	box: Box3,
+	scratch: Box3
+) {
 	const data = segmentData(geometry);
+	box.makeEmpty();
 	let moved = false;
 	let front = false;
 	let back = false;
@@ -231,21 +247,17 @@ function refreshStrokes({ geometry, lines, ranges }: ReturnType<typeof strokeBat
 		if (look.visible && (source.kind !== 'explicit' || look.strokeOpacity > 0)) {
 			front = true;
 			back ||= source.kind !== 'explicit' || look.hidden > 0;
+			box.union(displayedStrokeBounds(source, scratch, look.scale, look.offset));
 		}
-		if (look.scale === range.scale && look.offset === range.offset) continue;
+		if (look.scale === range.scale) continue;
 		range.scale = look.scale;
-		range.offset = look.offset;
 		const { segments } = source.edges;
-		for (let i = 2; i < segments.length; i += 3)
-			data.array[start + i] = segments[i] * look.scale + look.offset;
+		for (let i = 2; i < segments.length; i += 3) data.array[start + i] = segments[i] * look.scale;
 		data.addUpdateRange(start, segments.length);
 		moved = true;
 	}
-	if (moved) {
-		data.needsUpdate = true;
-		geometry.computeBoundingBox();
-		geometry.computeBoundingSphere();
-	}
+	if (moved) data.needsUpdate = true;
+	if (geometry.boundingSphere) box.getBoundingSphere(geometry.boundingSphere);
 	lines[0].visible = front;
 	if (lines[1]) lines[1].visible = back;
 }
@@ -452,7 +464,7 @@ export function packChunk(materials: Materials, group: Group, smooth: boolean) {
 				opaque.visible = !box.isEmpty();
 				box.getBoundingSphere(sphere);
 			}
-			for (const stroke of strokes.values()) refreshStrokes(stroke);
+			for (const stroke of strokes.values()) refreshStrokes(stroke, box, scratch);
 		},
 		delete() {
 			for (const fill of fills) if (fill) releaseFill(fill);

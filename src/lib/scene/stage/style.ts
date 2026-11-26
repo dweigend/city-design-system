@@ -2,6 +2,7 @@ import { defaults } from '../../../config/stage';
 import { Color, type Scene } from 'three/webgpu';
 import type { Drawable } from '../surface';
 import type { createContent } from './content';
+import { verticalTransform } from './dissection';
 import type { strokeMaterials } from './edges';
 import { readColors, readDisplay, readStagePresentation, type Display } from './material';
 import type { drawingPalette } from './tone';
@@ -66,7 +67,6 @@ export function createStyle(
 				tint.copy(color(drawable.color));
 				if (drawable.colorMix) tint.lerp(color(drawable.colorMix.token), drawable.colorMix.amount);
 			}
-			const scale = drawable.vertical?.scale ?? 1;
 			const stroke = drawable.stroke;
 			return {
 				color: tint,
@@ -79,8 +79,7 @@ export function createStyle(
 				recede: stroke?.recede ?? 0,
 				visible,
 				veil: opacity > 0 && opacity < 1 && drawable.occlude === true,
-				scale,
-				offset: (drawable.vertical?.pivot ?? 0) * (1 - scale)
+				...verticalTransform(drawable.vertical)
 			};
 		}, changed);
 	};

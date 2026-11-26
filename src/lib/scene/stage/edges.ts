@@ -10,6 +10,7 @@ import {
 	Vector3
 } from 'three/webgpu';
 import { LineSegmentsGeometry } from 'three/addons/lines/LineSegmentsGeometry.js';
+import { individualSectionMask } from './dissection';
 import {
 	attribute,
 	cameraFar,
@@ -249,8 +250,11 @@ export function strokeMaterials(landscape = false) {
 		linewidth: defaults.stageGridBoundaryStrokePx
 	});
 	const ground = new Line2NodeMaterial({ ...options, linewidth: defaults.stageGroundStrokePx });
-	outer.maskNode = silhouette;
-	crease.maskNode = silhouette.not();
+	const inside = individualSectionMask();
+	outer.maskNode = silhouette.and(inside);
+	crease.maskNode = silhouette.not().and(inside);
+	grid.maskNode = inside;
+	gridBoundary.maskNode = inside;
 	// Explicit strokes lie on faces; `pull` lifts them toward the eye in meters so the face in
 	// front of them decides visibility, and `near` and `far` bound the picture's view depth.
 	const depth = {

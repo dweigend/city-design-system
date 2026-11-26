@@ -15,14 +15,15 @@ import {
 	vec3,
 	varying
 } from 'three/tsl';
+import { sectionMask, sectionPlane } from './dissection';
 import { explicitStroke, type strokeMaterials } from './edges';
 import { pencilFill } from './material';
 import { levels, type drawingPalette } from './tone';
 import type { Drawable } from '../surface';
 
-// Five vec4s per part: fill RGBA, face tones and flat flag, Z transform and grain,
-// stroke RGBA, then hidden share, depth fade, hatch and visible width.
-const vectorsPerPart = /* Exact arithmetic: five packed Vec4 fields per part. */ 5;
+// Six vec4s per part: fill RGBA, face tones and flat flag, Z transform and grain,
+// stroke RGBA, hidden share, depth fade, hatch and visible width, then the section plane.
+const vectorsPerPart = /* Exact arithmetic: six packed Vec4 fields per part. */ 6;
 const components = /* Exact arithmetic: components per Vec4 field. */ 4;
 const rowSize = vectorsPerPart * components;
 
@@ -103,7 +104,8 @@ export function createRows() {
 			array[i++] = hidden;
 			array[i++] = recede;
 			array[i++] = part.hatch ?? 0;
-			array[i] = look.visible ? (part.strokeSegments ? look.width : 1) : 0;
+			array[i++] = look.visible ? (part.strokeSegments ? look.width : 1) : 0;
+			array.set(sectionPlane(part.section), i);
 			mark(base);
 		},
 		flush() {
@@ -125,10 +127,9 @@ export function batchMaterials(
 	strokes: ReturnType<typeof strokeMaterials>,
 	landscape: boolean
 ) {
-	const [fill, faces, grain, ink, flags] =
-		/* Exact arithmetic: column offsets of fill, faces, grain, ink and flags. */ [
-			0, 1, 2, 3, 4
-		].map(rows.at);
+	const [fill, faces, grain, ink, flags, plane] =
+		/* Exact arithmetic: offsets of the six packed row fields. */ [0, 1, 2, 3, 4, 5].map(rows.at);
+	const inside = sectionMask(plane);
 	const transform = rows.inVertex(/* Exact arithmetic: transform column offset. */ 2);
 	const position = vec3(positionLocal.xy, positionLocal.z.mul(transform.x).add(transform.y));
 	const scale = grain.x
@@ -164,10 +165,11 @@ export function batchMaterials(
 		});
 		material.positionNode = position;
 		material.colorNode = color;
+		material.maskNode = inside;
 		if (transparent) material.opacityNode = fill.a;
 		else
-			material.maskNode = fill.a.greaterThanEqual(
-				/* Exact arithmetic: unit opacity is opaque. */ 1
+			material.maskNode = inside.and(
+				fill.a.greaterThanEqual(/* Exact arithmetic: unit opacity is opaque. */ 1)
 			);
 		return material;
 	}
@@ -177,30 +179,43 @@ export function batchMaterials(
 	const glass = landscape ? alpha : body(true, false);
 	const veil = new MeshBasicNodeMaterial({ colorWrite: false });
 	veil.positionNode = position;
+	veil.maskNode = inside;
 	const outer = strokes.outer.clone();
 	const crease = strokes.crease.clone();
 	const grid = strokes.grid.clone();
 	const rim = strokes.gridBoundary.clone();
 	// Line2 can write RGB even at zero alpha. Discard hidden rows before they cover an alpha fill.
-	const visible = flags.w.greaterThan(/* Exact arithmetic: zero means hidden. */ 0);
+	const visible = inside.and(flags.w.greaterThan(/* Exact arithmetic: zero means hidden. */ 0));
 	outer.maskNode = strokes.silhouette.and(visible);
 	crease.maskNode = strokes.silhouette.not().and(visible);
 	for (const pencil of [grid, rim]) {
 		pencil.maskNode = visible;
 		pencil.colorNode = ink.rgb;
 	}
+	// The screen-space ribbon has already been expanded from scaled endpoints.
+	// Translating it here keeps its CSS width and avoids changing any endpoint buffer.
+	const unchanged = /* Exact arithmetic: translation leaves X and Y untouched. */ 0;
+	const translation = vec3(unchanged, unchanged, transform.y);
+	for (const pencil of [outer, crease, grid, rim])
+		pencil.positionNode = positionLocal.add(translation);
 	const front = explicitStroke(strokes.depth, false, { color: ink.rgb, recede: flags.y }).material;
 	const back = explicitStroke(strokes.depth, true, { color: ink.rgb, recede: flags.y }).material;
 	front.opacityNode = ink.a;
 	back.opacityNode = ink.a.mul(flags.x);
+	front.maskNode = visible;
+	back.maskNode = visible;
 	// Line2 expands a one-pixel ribbon around each endpoint. In an orthographic stage,
 	// scaling that offset preserves the CSS width, round caps and centerline depth.
 	const endpoint = positionGeometry.y
 		.lessThan(/* Exact arithmetic: split the normalized line at its midpoint. */ 0.5)
 		.select(attribute('instanceStart', 'vec3'), attribute('instanceEnd', 'vec3'));
 	const width = rows.inVertex(/* Exact arithmetic: flags column offset. */ 4).w;
-	front.positionNode = mix(endpoint, positionLocal, width);
-	back.positionNode = mix(endpoint, positionLocal, width.mul(defaults.stageHiddenStrokeWidthRatio));
+	front.positionNode = mix(endpoint, positionLocal, width).add(translation);
+	back.positionNode = mix(
+		endpoint,
+		positionLocal,
+		width.mul(defaults.stageHiddenStrokeWidthRatio)
+	).add(translation);
 
 	const materials = { opaque, alpha, glass, veil, outer, crease, grid, rim, front, back };
 	const unique = new Set(Object.values(materials));

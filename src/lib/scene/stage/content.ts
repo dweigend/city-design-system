@@ -1,7 +1,23 @@
-import { Box3, Group, Mesh, MeshBasicNodeMaterial, Raycaster, Sphere, Vector3 } from 'three/webgpu';
+import {
+	Box3,
+	Group,
+	Mesh,
+	MeshBasicNodeMaterial,
+	Raycaster,
+	Sphere,
+	Vector3,
+	Vector4
+} from 'three/webgpu';
 import type { Bounds3, Vec2, Vec3 } from '../../core/geometry';
 import type { Drawable } from '../surface';
-import { chunkKey, displayedBounds, packChunk, type BatchedPart } from './batch';
+import {
+	chunkKey,
+	displayedBounds,
+	displayedStrokeBounds,
+	packChunk,
+	type BatchedPart
+} from './batch';
+import { individualSectionMask, verticalTransform } from './dissection';
 import type { strokeMaterials } from './edges';
 import { projectGround } from './ground';
 import { projectPart, styleIndividual, warpPart } from './part';
@@ -58,7 +74,13 @@ function terrainIntersection(meshes: Mesh[], point: Vec3, direction: Vec3) {
 		ray.ray.direction,
 		-(origin.distanceTo(sphere.center) + sphere.radius)
 	);
-	return ray.intersectObjects(meshes, false)[0];
+	return ray.intersectObjects(meshes, false).find(({ object, point }) => {
+		const plane: unknown = object.userData.stageSection;
+		return (
+			!(plane instanceof Vector4) ||
+			point.x * plane.x + point.y * plane.y + point.z * plane.z + plane.w <= 0
+		);
+	});
 }
 
 /** The nearest point where a line through point meets one of the displayed meshes. */
@@ -123,9 +145,8 @@ export function displayTerrainAnchor(
 	drawable?: Drawable
 ): Vec3 {
 	const amount = drawable?.warp?.amount ?? 0;
-	const scale = drawable?.vertical?.scale ?? 1;
-	const pivot = drawable?.vertical?.pivot ?? 0;
-	return [x + dx * amount, y + dy * amount, z * scale + pivot * (1 - scale)];
+	const { scale, offset } = verticalTransform(drawable?.vertical);
+	return [x + dx * amount, y + dy * amount, z * scale + offset];
 }
 
 export function createContent(
@@ -139,6 +160,7 @@ export function createContent(
 	const rows = createRows();
 	const materials = batchMaterials(rows, palette, strokes, landscape);
 	const veil = new MeshBasicNodeMaterial({ colorWrite: false });
+	veil.maskNode = individualSectionMask();
 	const chunks = new Map<string, Chunk>();
 	const repack = new Set<string>();
 	const restyle = new Set<Part>();
@@ -264,12 +286,12 @@ export function createContent(
 		const clipped = new Box3();
 		for (const part of parts) {
 			const { drawable, bounds } = part;
-			if (drawable.visible === false || (bounds.isEmpty() && !part.individual.length)) continue;
+			if (drawable.visible === false) continue;
 			if (!bounds.isEmpty()) visible.union(bounds);
-			const scale = drawable.vertical?.scale ?? 1;
-			clipped.union(
-				displayedBounds(part, scratch, scale, (drawable.vertical?.pivot ?? 0) * (1 - scale))
-			);
+			const { scale, offset } = verticalTransform(drawable.vertical);
+			clipped.union(displayedBounds(part, scratch, scale, offset));
+			for (const source of part.sources)
+				clipped.union(displayedStrokeBounds(source, scratch, scale, offset));
 		}
 		frameBounds = toBounds(visible.isEmpty() ? box : visible);
 		clippingBounds =
@@ -385,7 +407,8 @@ export function createContent(
 					const part = add(drawable);
 					next.push(part);
 					groundChanged ||= !part.bounds.isEmpty();
-					boundsChanged ||= !part.bounds.isEmpty() || part.individual.length > 0;
+					boundsChanged ||=
+						!part.bounds.isEmpty() || part.individual.length > 0 || part.sources.length > 0;
 					builds++;
 				}
 			}
@@ -393,7 +416,8 @@ export function createContent(
 			for (const matches of available.values())
 				for (const part of matches) {
 					groundChanged ||= !part.bounds.isEmpty();
-					boundsChanged ||= !part.bounds.isEmpty() || part.individual.length > 0;
+					boundsChanged ||=
+						!part.bounds.isEmpty() || part.individual.length > 0 || part.sources.length > 0;
 					remove(part);
 				}
 			parts = next;

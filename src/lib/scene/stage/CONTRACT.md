@@ -34,3 +34,15 @@ their `recede` share with view depth. `hatch` adds pencil strokes on faces turne
 The shadow finish darkens the ground with the darker of shade and ground, so shadows never stack.
 A warp moves retained positions by an amount times per-vertex offsets in place; it uploads
 changed arrays, recomputes normals and bounds, and builds nothing.
+
+`vertical.offset` translates a part along Z in meters after scaling about `vertical.pivot`.
+Fills, strokes and terrain anchors follow the same transform. Offset changes update stored
+rows or individual object transforms and displayed bounds, with no geometry builds, tile
+repacks or vertex uploads. The authored bounds still determine the default camera framing
+and ground marks.
+
+`section` keeps points where `normal · displayed world position + constant <= 0`. The plane
+applies to fills, strokes, and translucent depth passes, including terrain picking. Missing,
+zero-normal or non-finite planes leave the part unclipped. Cutting exposes the existing
+surfaces without generating caps. Moving the plane updates a row or uniform and retains all
+geometry.

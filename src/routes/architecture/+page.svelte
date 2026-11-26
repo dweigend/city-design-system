@@ -6,9 +6,10 @@
 <script lang="ts">
 	import { page } from '$app/state';
 	import { Random } from '../../lib/core/random';
+	import { defaultStoreyHeightM } from '../../lib/domain/cell-space';
 	import type { HouseStyleName } from '../../lib/domain/house-court';
 	import type { DisplayLevel } from '../../lib/scene/focus';
-	import { projectFocus, type View } from '../../lib/scene/stage';
+	import { projectFocus, type Display, type View } from '../../lib/scene/stage';
 	import { StageView } from '../../lib/scene/stage-view';
 	import { Button } from '../../lib/ui/button';
 	import { Select } from '../../lib/ui/select';
@@ -16,7 +17,14 @@
 	import { ToggleGroup } from '../../lib/ui/toggle-group';
 	import ChapterHeader from '../ChapterHeader.svelte';
 	import { chapterAt } from '../chapters';
-	import { massingSheet, massingSpecimen, massingVariants, type MassingVariant } from './massing';
+	import {
+		dissectMassing,
+		dissectionModes,
+		massingSheet,
+		massingSpecimen,
+		massingVariants,
+		type MassingVariant
+	} from './massing';
 	import { parcelShapes, type ParcelShape } from './parcels';
 	import { blockInputs, readQuery } from './query';
 	import { sheets, single, styleNames } from './sheets';
@@ -67,6 +75,11 @@
 		{ value: 'iso', label: 'Iso' },
 		{ value: 'plan', label: 'Plan' }
 	];
+	const massingDisplays = [
+		{ value: 'normal', label: 'Solid' },
+		{ value: 'transparency', label: 'Transparency' }
+	];
+	const fullPercent = 100;
 	const format = new Intl.NumberFormat('en', { maximumFractionDigits: 0 });
 	// Look over the lower rear wing into the court, a little steeper than the city view.
 	const fit = {
@@ -88,6 +101,11 @@
 	let level = $state<DisplayLevel>(initial.setup.level);
 	let sheet = $state<string>(initial.sheet);
 	let variant = $state<MassingVariant>(massingVariants[0]);
+	let dissection = $state<string>('assembled');
+	let gap = $state(defaultStoreyHeightM / 2);
+	// Start inside a cell so the cut opens the envelope away from the shared center faces.
+	let cut = $state(55);
+	let massingDisplay = $state<Display>('normal');
 	let view = $state<View>(initial.view);
 	let block = $state<TownScope>(initial.block);
 	let townStyles = $state<TownStyles>(initial.styles);
@@ -98,15 +116,27 @@
 	const townResult = $derived(town && townSheet(town, block, setup, townStyles, detail));
 	const specimen = $derived(sheet === 'massing' ? massingSpecimen(shape, style, seed) : undefined);
 	const massingResult = $derived(specimen && massingSheet(specimen, variant));
+	const gapM = $derived(dissection === 'exploded' ? gap : 0);
 	const frame = $derived.by(() => {
-		if (specimen)
-			return { ...massingFit, subject: projectFocus(view, massingFit, specimen.points) };
+		if (specimen) {
+			const lift = (specimen.storeys - 1) * gapM;
+			const points = specimen.points.map(
+				([x, y, z]) => [x, y, z === specimen.space.baseZ ? z : z + lift] as const
+			);
+			return { ...massingFit, subject: projectFocus(view, massingFit, points) };
+		}
 		if (townResult)
 			return { ...fit, fill: 0.64, subject: projectFocus(view, fit, townResult.points) };
 		return fit;
 	});
 	const shown = $derived.by(() => {
-		if (massingResult) return massingResult;
+		if (specimen && massingResult) {
+			const cutY =
+				dissection === 'section'
+					? specimen.minY + ((specimen.maxY - specimen.minY) * cut) / fullPercent
+					: undefined;
+			return { ...massingResult, drawables: dissectMassing(massingResult, { gapM, cutY }) };
+		}
 		if (townResult) return townResult;
 		const house = single(setup);
 		const draw = Object.hasOwn(sheets, sheet) ? sheets[sheet as keyof typeof sheets] : undefined;
@@ -183,7 +213,7 @@
 		<StageView
 			drawables={shown.drawables}
 			{view}
-			display="normal"
+			display={specimen ? massingDisplay : 'normal'}
 			fit={frame}
 			interactive
 			landscape={Boolean(townResult)}
@@ -231,6 +261,26 @@
 				Setback steps the upper storeys in from the street. Porosity carves terraces and through
 				openings while keeping the ground-level route to the court.
 			</p>
+			<ToggleGroup label="Dissection" items={dissectionModes} bind:value={dissection} />
+			{#if dissection === 'exploded'}
+				<Slider
+					label="Storey gap (m)"
+					min={0}
+					max={defaultStoreyHeightM}
+					step={0.25}
+					bind:value={gap}
+				/>
+			{:else if dissection === 'section'}
+				<Slider label="Cut depth (%)" min={0} max={fullPercent} step={5} bind:value={cut} />
+			{/if}
+			<ToggleGroup
+				label="Fill"
+				items={massingDisplays}
+				bind:value={
+					() => massingDisplay,
+					(value) => (massingDisplay = value === 'transparency' ? 'transparency' : 'normal')
+				}
+			/>
 			{@render styleSelect()}
 			{@render parcelSelect()}
 			{#if variant.porosity}<Button label="New seed" onclick={drawSeed} />{/if}

@@ -8,11 +8,13 @@ import {
 	MinEquation,
 	NormalBlending,
 	OneFactor,
-	Vector3
+	Vector3,
+	Vector4
 } from 'three/webgpu';
 import { LineSegments2 } from 'three/addons/lines/webgpu/LineSegments2.js';
 import type { LineSegmentsGeometry } from 'three/addons/lines/LineSegmentsGeometry.js';
 import type { Drawable } from '../surface';
+import { individualSectionMask, sectionPlane } from './dissection';
 import {
 	boundaries,
 	creases,
@@ -26,8 +28,8 @@ import { fillMaterial } from './material';
 import type { PartLook } from './rows';
 import { levels, type drawingPalette } from './tone';
 
-export type StrokeSource =
-	{ kind: 'edge' | 'grid' | 'rim'; edges: Edges } | { kind: 'explicit'; edges: Edges };
+type StrokeSpec = { kind: 'edge' | 'grid' | 'rim' | 'explicit'; edges: Edges };
+export type StrokeSource = StrokeSpec & { bounds: Box3 };
 
 export function renderOrder(drawable: Drawable) {
 	if (drawable.finish === 'shadow') return 1;
@@ -60,7 +62,7 @@ function strokeSources(
 	drawable: Drawable,
 	arrays: ReturnType<typeof shapeArrays>,
 	landscape: boolean
-): StrokeSource[] {
+): StrokeSpec[] {
 	const { positions, indices } = arrays;
 	if (drawable.strokeSegments)
 		return [
@@ -125,6 +127,9 @@ function separateFill(
 	const fill = plainGeometry(arrays, landscape);
 	const drawing = fillMaterial(palette, drawable.terrainField);
 	const mesh = new Mesh(fill, drawing.material);
+	const section = new Vector4(...sectionPlane(drawable.section));
+	mesh.userData.stageSection = section;
+	drawing.material.maskNode = individualSectionMask();
 	mesh.renderOrder = renderOrder(drawable);
 	const warp = drawable.warp;
 	const warpTargets: WarpTarget[] = [];
@@ -138,6 +143,7 @@ function separateFill(
 	return {
 		mesh,
 		drawing,
+		section,
 		warpTargets,
 		warpAmount: /* Exact arithmetic: initially no warp has been applied. */ 0,
 		veil: undefined as Mesh | undefined
@@ -145,11 +151,12 @@ function separateFill(
 }
 
 function separateStrokes(
-	sources: StrokeSource[],
+	sources: StrokeSpec[],
 	strokes: ReturnType<typeof strokeMaterials>,
 	drawable: Drawable,
 	warp: NonNullable<Drawable['warp']>,
-	targets: WarpTarget[]
+	targets: WarpTarget[],
+	section: Vector4
 ) {
 	return sources.flatMap(({ kind, edges }) => {
 		const geometry = lineGeometry(edges);
@@ -177,6 +184,8 @@ function separateStrokes(
 				});
 		return painters.map(({ material, recede, owned, shared }, index) => {
 			const line = new LineSegments2(geometry, material);
+			line.userData.stageSection = section;
+			if (explicit) material.maskNode = individualSectionMask();
 			line.renderOrder = explicit
 				? defaults.stageExplicitStrokeOrder
 				: defaults.stageDerivedStrokeBaseOrder + index;
@@ -212,7 +221,7 @@ export function projectPart(
 	const fill = standalone ? separateFill(drawable, arrays, palette, landscape) : undefined;
 	const individual =
 		fill && drawable.warp
-			? separateStrokes(sources, strokes, drawable, drawable.warp, fill.warpTargets)
+			? separateStrokes(sources, strokes, drawable, drawable.warp, fill.warpTargets, fill.section)
 			: [];
 	return {
 		drawable,
@@ -222,7 +231,12 @@ export function projectPart(
 		arrays: fill ? undefined : arrays,
 		warpPositions:
 			drawable.warp && individual.some(({ faces }) => faces) ? arrays.positions : undefined,
-		sources: individual.length ? [] : sources
+		sources: individual.length
+			? []
+			: sources.map((source) => ({
+					...source,
+					bounds: new Box3().setFromArray(source.edges.segments)
+				}))
 	};
 }
 
@@ -301,6 +315,7 @@ export function styleIndividual(
 	const { fill, individual, drawable } = part;
 	if (fill) {
 		const { mesh, drawing } = fill;
+		fill.section.set(...sectionPlane(drawable.section));
 		const shade = drawable.finish === 'shadow';
 		const transparent = look.opacity < 1;
 		const polygonOffset = !landscape && drawable.finish !== 'glass';
@@ -337,6 +352,7 @@ export function styleIndividual(
 		mesh.position.z = look.offset;
 		if (look.veil && !fill.veil) {
 			fill.veil = new Mesh(mesh.geometry, veilMaterial);
+			fill.veil.userData.stageSection = fill.section;
 			fill.veil.renderOrder = defaults.stageVeilOrder;
 			mesh.add(fill.veil);
 		} else if (!look.veil && fill.veil) {

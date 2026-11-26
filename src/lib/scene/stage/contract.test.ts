@@ -14,6 +14,14 @@ import {
 import { LineSegments2 } from 'three/addons/lines/webgpu/LineSegments2.js';
 import { dotProduct, displacement, type Vec3 } from '../../core/geometry';
 import { required } from '../../core/invariant';
+import { createCellSpace, parcelEdgeId } from '../../domain/cell-space';
+import { createHouseCourt } from '../../domain/house-court';
+import {
+	createMassing,
+	createMassingParts,
+	createSetbackMassing,
+	createPorousMassing
+} from '../../domain/massing';
 import type { Drawable } from '../surface';
 import {
 	Stage,
@@ -34,7 +42,14 @@ import {
 	readView,
 	type CameraFrame
 } from './camera';
-import { createContent, detachChildren, hasSameGeometry, rayHit } from './content';
+import {
+	createContent,
+	detachChildren,
+	displayTerrainAnchor,
+	hasSameGeometry,
+	rayHit
+} from './content';
+import { verticalTransform } from './dissection';
 import { strokeMaterials } from './edges';
 import { chunkKey, sortTranslucent } from './batch';
 import { projectPart, segmentData } from './part';
@@ -618,7 +633,6 @@ test('moves warped fills with their normals and bounds', () => {
 
 const ink = new Color();
 function appearance({ vertical, fillAlpha, visible, occlude }: Drawable) {
-	const scale = vertical?.scale ?? 1;
 	return {
 		color: ink,
 		strokeColor: ink,
@@ -634,8 +648,7 @@ function appearance({ vertical, fillAlpha, visible, occlude }: Drawable) {
 			fillAlpha !== undefined &&
 			fillAlpha > 0 &&
 			fillAlpha < 1,
-		scale,
-		offset: (vertical?.pivot ?? 0) * (1 - scale)
+		...verticalTransform(vertical)
 	};
 }
 
@@ -863,7 +876,7 @@ test('restores the tie order of a released translucent range', () => {
 	content.delete();
 });
 
-test('warped and vertically scaled terrain is picked at its displayed height', () => {
+test('warped and vertically transformed terrain and its anchor agree at the displayed height', () => {
 	const { content } = contentOf();
 	const body = boxAt('body', 4);
 	const warp = { fill: [4, 0, 4, 0, 4, 0], amount: 0 };
@@ -871,6 +884,7 @@ test('warped and vertically scaled terrain is picked at its displayed height', (
 		id: 'terrain',
 		color: '--paper',
 		finish: 'terrain',
+		boundaryStroke: true,
 		shape: { kind: 'mesh', positions: [-1, -1, 2, 1, -1, 2, 0, 1, 2], indices: [0, 1, 2] },
 		warp
 	};
@@ -878,13 +892,31 @@ test('warped and vertically scaled terrain is picked at its displayed height', (
 	content.update(appearance, true);
 	const before = content.chunkBuilds;
 	expect(content.hit([4, 0, 0], [0, 0, -1])).toBeUndefined();
-	content.style([
-		{ ...terrain, warp: { ...warp, amount: 1 }, vertical: { scale: 3, pivot: 1 } },
-		body
-	]);
-	expect(content.clippingBounds.max[2]).toBe(4);
+	const moved = {
+		...terrain,
+		warp: { ...warp, amount: 1 },
+		vertical: { scale: 3, pivot: 1, offset: 5 }
+	};
+	content.style([moved, body]);
+	expect(content.clippingBounds.max[2]).toBe(9);
 	content.update(appearance, false);
-	expect(content.hit([4, 0, 0], [0, 0, -1])).toEqual([4, 0, 4]);
+	expect(content.hit([4, 0, 0], [0, 0, -1])).toEqual([4, 0, 9]);
+	const anchor = required(content.locateGround([4, 0, 0], [0, 0, -1]), 'terrain anchor');
+	expect(displayTerrainAnchor(anchor, moved)).toEqual([4, 0, 9]);
+	const part = content.parts[0];
+	const fill = required(part.fill, 'terrain fill');
+	const line = part.individual[0].line;
+	const vertices = fill.mesh.geometry.attributes.position;
+	if ('data' in vertices) throw new Error('Expected a plain terrain position attribute');
+	const endpoints = segmentData(line.geometry);
+	const versions = [vertices.version, endpoints.version];
+	content.style([{ ...moved, vertical: { ...moved.vertical, offset: 8 } }, body]);
+	content.update(appearance, false);
+	expect([fill.mesh.position.z, line.position.z]).toEqual([6, 6]);
+	expect([vertices.version, endpoints.version]).toEqual(versions);
+	content.style([{ ...moved, section: { normal: [1, 0, 0], constant: -3 } }, body]);
+	content.update(appearance, false);
+	expect(content.hit([4, 0, 0], [0, 0, -1])).toBeUndefined();
 	expect(content.chunkBuilds).toBe(before);
 	content.delete();
 });
@@ -932,20 +964,115 @@ test('style rows retain earlier data through growth and recycle released indices
 	const first = rows.allocate();
 	rows.write(first, part, { ...appearance(part), opacity: 0.5 });
 	const before = rows.buffer.value;
-	const snapshot = [...before.array.slice(0, 20)];
+	const rowSize = 24;
+	const snapshot = [...before.array.slice(0, rowSize)];
 	const second = rows.allocate();
 	expect(rows.buffer.value).not.toBe(before);
 	const hidden = { ...part, visible: false };
 	rows.write(second, hidden, appearance(hidden));
-	expect([...rows.buffer.value.array.slice(0, 20)]).toEqual(snapshot);
-	expect(rows.buffer.value.array[23]).toBe(0);
-	expect(rows.buffer.value.array[39]).toBe(0);
+	expect([...rows.buffer.value.array.slice(0, rowSize)]).toEqual(snapshot);
+	expect(rows.buffer.value.array[rowSize + 3]).toBe(0);
+	expect(rows.buffer.value.array[rowSize + 19]).toBe(0);
 	rows.release(second);
 	expect(rows.allocate()).toBe(second);
 	rows.write(second, part, appearance(part));
-	expect(rows.buffer.value.array[39]).toBe(1);
-	expect([...rows.buffer.value.array.slice(0, 20)]).toEqual(snapshot);
+	expect(rows.buffer.value.array[rowSize + 19]).toBe(1);
+	expect([...rows.buffer.value.array.slice(0, rowSize)]).toEqual(snapshot);
 	rows.delete();
+});
+
+test('dissection rows combine the pivot and offset and clear invalid or removed planes', () => {
+	const rows = createRows();
+	const id = rows.allocate();
+	const part = {
+		...boxAt('cut', 0),
+		vertical: { scale: 2, pivot: 3, offset: 5 },
+		section: { normal: [0, 2, 0], constant: -12 }
+	} as const;
+	rows.write(id, part, appearance(part));
+	const { array } = rows.buffer.value;
+	expect([...array.slice(8, 10)]).toEqual([2, 2]);
+	expect(4 * array[8] + array[9]).toBe(10);
+	expect([...array.slice(20, 24)]).toEqual([0, 1, 0, -6]);
+	const moved = { ...part, section: { ...part.section, constant: 4 } };
+	rows.write(id, moved, appearance(moved));
+	expect([...array.slice(20, 24)]).toEqual([0, 1, 0, 2]);
+	for (const section of [
+		undefined,
+		{ normal: [0, 0, 0], constant: 1 },
+		{ ...part.section, constant: NaN }
+	] as const) {
+		rows.write(id, { ...part, section }, appearance(part));
+		expect([...array.slice(20, 24)]).toEqual([0, 0, 0, 0]);
+	}
+	rows.delete();
+});
+
+test('exploding and cutting retained massing slices leave fill and stroke uploads untouched', () => {
+	const space = createCellSpace({
+		id: 'section-plot',
+		corners: [
+			{ id: 'a', position: [0, 0] },
+			{ id: 'b', position: [24, 0] },
+			{ id: 'c', position: [24, 24] },
+			{ id: 'd', position: [0, 24] }
+		],
+		frontage: [parcelEdgeId('a', 'b')],
+		baseZ: 0,
+		storeyCount: 5
+	});
+	const house = createHouseCourt(space, { height: 17.5, width: 32, complexity: 0, seed: 7 });
+	const setback = createSetbackMassing(space, createMassing(house), { startStorey: 2, depth: 1 });
+	const { massing } = createPorousMassing(space, setback, { ratio: 0.2 });
+	const drawables: Drawable[] = createMassingParts(space, massing).map(({ id, shape }, i) => ({
+		id,
+		shape,
+		color: '--paper',
+		finish: 'matte',
+		vertical: { scale: 1.5, pivot: 3 },
+		strokeSegments: i === 0 ? [0, 0, 0, 2, 0, 0] : undefined
+	}));
+	expect(drawables.length).toBeGreaterThan(1);
+	const content = createContent(strokeMaterials(), drawingPalette(), false);
+	expect(content.show(drawables)).toBe(drawables.length);
+	content.update(appearance, false);
+	const packs = content.chunkBuilds;
+	const meshes = required(content.parts[0].chunk, 'massing tile').group.children;
+	const passes = meshes.filter((mesh): mesh is Mesh => mesh instanceof Mesh);
+	expect(passes.filter((mesh) => mesh instanceof LineSegments2)).toHaveLength(4);
+	function buffers() {
+		return passes.map(({ geometry }) => ({
+			id: geometry.id,
+			versions: Object.values(geometry.attributes).map((attribute) =>
+				'data' in attribute ? attribute.data.version : attribute.version
+			),
+			index: geometry.index?.version
+		}));
+	}
+	const retained = buffers();
+	const high = content.clippingBounds.max[2];
+	const exploded = drawables.map((part) => ({
+		...part,
+		vertical: { scale: 1.5, pivot: 3, offset: 6 }
+	}));
+	for (const next of [
+		exploded,
+		...[-4, -8].map((constant) =>
+			exploded.map((part) => ({
+				...part,
+				section: { normal: [0, 1, 0] as const, constant }
+			}))
+		),
+		exploded
+	]) {
+		expect(hasSameGeometry(content.parts, next)).toBe(true);
+		expect(content.show(next)).toBe(0);
+		content.update(appearance, false);
+		expect(content.chunkBuilds).toBe(packs);
+		expect(buffers()).toEqual(retained);
+		expect(content.clippingBounds.max[2]).toBe(high + 6);
+	}
+	content.delete();
 });
 
 test('a mixed tile retains the visible stroke pass and disposes a removed veil independently', () => {

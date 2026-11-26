@@ -1,4 +1,5 @@
 import { defaults } from '../../../config/surface';
+import type { Vec3 } from '../../core/geometry';
 import { required } from '../../core/invariant';
 import type { PlaceableObject, Shape } from '../../core/object';
 
@@ -68,7 +69,10 @@ export type Drawable = Surface &
 		fillVisible?: boolean;
 		fillAlpha?: number;
 		colorMix?: Readonly<{ token: `--${string}`; amount: number }>;
-		vertical?: Readonly<{ scale: number; pivot: number }>;
+		/** Z scale about a pivot in meters, followed by an optional translation in meters. */
+		vertical?: Readonly<{ scale: number; pivot: number; offset?: number }>;
+		/** Keeps the half-space normal · displayed world position + constant <= 0. */
+		section?: Readonly<{ normal: Vec3; constant: number }>;
 		/** A translucent fill still hides what lies behind it from strokes, and only its front
 		 * layer is tinted. */
 		occlude?: boolean;

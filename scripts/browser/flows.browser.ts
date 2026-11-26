@@ -220,6 +220,38 @@ for (const viewport of [
 							)
 					});
 				}
+				const builds = await canvas.getAttribute('data-stage-drawable-builds');
+				const packs = await canvas.getAttribute('data-stage-chunk-builds');
+				const dissection = region.getByRole('radiogroup', { name: 'Dissection' });
+				await renderedChange(canvas, () =>
+					dissection.getByRole('radio', { name: 'Explode' }).click()
+				);
+				const gap = region.getByRole('slider', { name: 'Storey gap (m)' });
+				await renderedChange(canvas, () => gap.press('End'));
+				await expect(gap).toBeFocused();
+				await expect.poll(() => distinctPixels(canvas)).toBe(true);
+				await region.screenshot({ path: journeys.info().outputPath('exploded.png') });
+				await renderedChange(canvas, () =>
+					dissection.getByRole('radio', { name: 'Section' }).click()
+				);
+				await expect(canvas).toHaveAttribute('data-stage-width', frameWidth ?? '');
+				const cut = region.getByRole('slider', { name: 'Cut depth (%)' });
+				await expect.poll(() => distinctPixels(canvas)).toBe(true);
+				await region.screenshot({ path: journeys.info().outputPath('section.png') });
+				const fill = region.getByRole('radiogroup', { name: 'Fill' });
+				await renderedChange(canvas, () =>
+					fill.getByRole('radio', { name: 'Transparency' }).click()
+				);
+				await expect(canvas).toHaveAttribute('data-stage-display', 'transparency');
+				await renderedChange(canvas, () => cut.press('ArrowRight'));
+				await expect(cut).toHaveAttribute('aria-valuenow', '60');
+				await region.screenshot({ path: journeys.info().outputPath('section-transparency.png') });
+				await renderedChange(canvas, () =>
+					dissection.getByRole('radio', { name: 'Assembled' }).click()
+				);
+				await renderedChange(canvas, () => fill.getByRole('radio', { name: 'Solid' }).click());
+				await expect(canvas).toHaveAttribute('data-stage-drawable-builds', builds ?? '');
+				await expect(canvas).toHaveAttribute('data-stage-chunk-builds', packs ?? '');
 				const trigger = region.getByRole('combobox', { name: 'Variant' });
 				await trigger.press('Enter');
 				await expect(page.getByRole('listbox')).toBeVisible();
