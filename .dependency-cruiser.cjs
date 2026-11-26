@@ -18,6 +18,7 @@ const configOwners = {
 	'lib/domain/cell-space': 'cell-space',
 	'lib/domain/house-court': 'house-court',
 	'lib/domain/massing': 'massing',
+	'lib/domain/envelope': 'envelope',
 	'lib/domain/river-metrics': 'river-metrics',
 	'lib/domain/structure': 'structure',
 	'lib/domain/valley': 'hydrology',

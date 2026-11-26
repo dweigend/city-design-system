@@ -2,7 +2,8 @@ import { createBlockInputs, resolveParams } from '../../lib/core/params';
 import { houseStyles, type HouseStyleName } from '../../lib/domain/house-court';
 import { displayLevels, type DisplayLevel } from '../../lib/scene/focus';
 import { parcelShapes, type ParcelShape } from './parcels';
-import { sheets, type HouseSetup, type SheetName } from './sheets';
+import { sheets, type HouseSetup } from './sheets';
+import { studies } from './studies';
 
 export const blockInputs = createBlockInputs();
 
@@ -36,7 +37,8 @@ export function readQuery(query: Pick<URLSearchParams, 'get' | 'has'>) {
 		level: pickKey<DisplayLevel>(levels, query.get('level'), 'full'),
 		seed: seed !== undefined && Number.isInteger(seed) && seed >= 0 && seed < 2 ** 32 ? seed : 3
 	};
-	const sheetNames = { one: true, town: true, massing: true, ...sheets };
+	const sheetNames = { one: true, town: true, massing: true, ...sheets, ...studies };
+	const sheet = query.get('sheet');
 	const scopes = { town: true, all: true, block: true, neighbour: true, merged: true } as const;
 	const relief = number(query, 'relief');
 	return {
@@ -45,7 +47,7 @@ export function readQuery(query: Pick<URLSearchParams, 'get' | 'has'>) {
 		styles: query.get('styles') === 'mixed' ? ('mixed' as const) : ('one' as const),
 		detail: query.get('detail') === 'plain' ? ('plain' as const) : ('salient' as const),
 		relief: relief !== undefined && relief >= 0 && relief <= 1 ? relief : undefined,
-		sheet: pickKey<SheetName | 'one' | 'town' | 'massing'>(sheetNames, query.get('sheet'), 'one'),
+		sheet: sheet === 'house' ? 'one' : pickKey(sheetNames, sheet, 'one'),
 		bearing: number(query, 'bearing') ?? 212,
 		elevation: number(query, 'elevation') ?? 36,
 		view: query.get('view') === 'plan' ? ('plan' as const) : ('iso' as const)

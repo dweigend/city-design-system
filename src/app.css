@@ -427,6 +427,13 @@
 		background: color-mix(in oklab, var(--paper) 92%, transparent);
 	}
 	.chapter-viewer-subject { margin-inline-end: auto; }
+	.architecture-hero > .stack { min-inline-size: 0; }
+	.architecture-hero .chapter-viewer-hud { justify-content: flex-start; }
+	.architecture-hero .chapter-viewer-hud > .control-icon-button { margin-inline-start: auto; }
+	@media (max-width: 720px) {
+		.architecture-hero .chapter-viewer:not(:fullscreen) > .frame { block-size: clamp(15rem, 75vw, 26rem); }
+	}
+
 	.story-hero .chapter-viewer-hud { justify-content: flex-start; }
 	.story-date { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0 var(--space-2); }
 	@media (max-width: 720px) {

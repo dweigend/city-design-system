@@ -16,6 +16,7 @@ const routes = [
 	['/paths/valley', 1],
 	['/supply', 1],
 	['/architecture', 1],
+	['/architecture?sheet=town', 1],
 	['/architecture/structure', 1],
 	['/architecture/dock-study', 1],
 	['/surfaces', 1],
@@ -267,6 +268,88 @@ for (const viewport of [
 				await choose(page, 'Show', 'One house');
 				await expect(region).toHaveCount(0);
 				await expect(page.getByRole('combobox', { name: 'Style' })).toBeVisible();
+			}
+		);
+	}
+}
+
+for (const viewport of [
+	{ width: 1440, height: 900 },
+	{ width: 390, height: 844 }
+]) {
+	for (const colorScheme of ['light', 'dark'] as const) {
+		journeys(
+			`renders the /architecture construction sheets at ${viewport.width}px in ${colorScheme} mode`,
+			async ({ page }) => {
+				await page.setViewportSize(viewport);
+				await page.emulateMedia({ colorScheme });
+				await open(page, '/architecture?sheet=house');
+				const canvas = (await readyStages(page, 1)).first();
+				const original = await canvas.elementHandle();
+				await expect(canvas).toHaveAttribute('data-stage-theme', colorScheme);
+				await expect(page.getByRole('combobox', { name: 'Show' })).toHaveText('One house');
+				for (const [title, metric, filename] of [
+					['Face docking', 'Docked modules', 'docking'],
+					['Supported frame', 'Plug-in rooms', 'frame'],
+					['Elevated tubes', 'Walkway span', 'tubes'],
+					['Spanned envelope', 'Surveyed canopy grips', 'envelope']
+				]) {
+					const frame = Number(await canvas.getAttribute('data-stage-frames'));
+					await choose(page, 'Show', title);
+					await expect.poll(() => new URL(page.url()).searchParams.get('sheet')).toBe(filename);
+					const region = page.getByRole('region', { name: title, exact: true });
+					await expect(region.getByText(metric, { exact: true })).toBeVisible();
+					await expect
+						.poll(async () => Number(await canvas.getAttribute('data-stage-frames')))
+						.toBeGreaterThan(frame);
+					await expect(canvas).toHaveAttribute('aria-label', title);
+					await expect.poll(() => distinctPixels(canvas)).toBe(true);
+					expect(await canvas.evaluate((element, initial) => element === initial, original)).toBe(
+						true
+					);
+					expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(
+						viewport.width
+					);
+					if (filename === 'docking') {
+						await expect(region.getByRole('link', { name: 'face docking study' })).toHaveAttribute(
+							'href',
+							'/architecture/dock-study'
+						);
+					}
+					if (filename === 'frame') {
+						await expect(region.getByRole('link', { name: 'structure study' })).toHaveAttribute(
+							'href',
+							'/architecture/structure'
+						);
+					}
+					await page.screenshot({
+						fullPage: true,
+						path: journeys.info().outputPath(`${filename}.png`)
+					});
+					if (filename === 'tubes') {
+						await expect(region.getByText('Concealed')).toBeVisible();
+						const fill = region.getByRole('radiogroup', { name: 'Fill' });
+						await renderedChange(canvas, () =>
+							fill.getByRole('radio', { name: 'Transparency' }).click()
+						);
+						await expect(canvas).toHaveAttribute('data-stage-display', 'transparency');
+						await expect(region.getByText('Visible', { exact: true })).toBeVisible();
+						await page.screenshot({
+							fullPage: true,
+							path: journeys.info().outputPath('tubes-transparency.png')
+						});
+					}
+				}
+
+				if (viewport.width === 1440 && colorScheme === 'light') {
+					const play = page.getByRole('button', { name: 'Play Membrane sag' });
+					await renderedChange(canvas, () => play.click());
+					await expect(canvas).toHaveAttribute('aria-label', 'Spanned canopy at zero sag');
+					await expect(canvas).toHaveAttribute('aria-label', 'Spanned canopy with sag');
+					await expect(page.getByText('sagRatio', { exact: true })).toBeVisible();
+					await page.getByRole('button', { name: 'Stop Membrane sag' }).click();
+					await expect(canvas).toHaveAttribute('aria-label', 'Spanned envelope');
+				}
 			}
 		);
 	}

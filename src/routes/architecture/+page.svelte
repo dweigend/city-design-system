@@ -4,19 +4,22 @@
 </script>
 
 <script lang="ts">
+	import { goto } from '$app/navigation';
+	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
+	import { SvelteURLSearchParams } from 'svelte/reactivity';
 	import { Random } from '../../lib/core/random';
 	import { defaultStoreyHeightM } from '../../lib/domain/cell-space';
 	import type { HouseStyleName } from '../../lib/domain/house-court';
 	import type { DisplayLevel } from '../../lib/scene/focus';
 	import { projectFocus, type Display, type View } from '../../lib/scene/stage';
-	import { StageView } from '../../lib/scene/stage-view';
 	import { Button } from '../../lib/ui/button';
 	import { Select } from '../../lib/ui/select';
 	import { Slider } from '../../lib/ui/slider';
 	import { ToggleGroup } from '../../lib/ui/toggle-group';
 	import ChapterHeader from '../ChapterHeader.svelte';
 	import { chapterAt } from '../chapters';
+	import ChapterViewer, { type ChapterAspect } from '../ChapterViewer.svelte';
 	import {
 		dissectMassing,
 		dissectionModes,
@@ -28,6 +31,7 @@
 	import { parcelShapes, type ParcelShape } from './parcels';
 	import { blockInputs, readQuery } from './query';
 	import { sheets, single, styleNames } from './sheets';
+	import { readStudy, studies, type StudyPainter } from './studies';
 	import { townSheet, townStage, type TownDetail, type TownScope, type TownStyles } from './town';
 
 	const chapter = chapterAt('/architecture');
@@ -52,7 +56,22 @@
 		{ value: 'levels', label: 'Display levels' },
 		{ value: 'inputs', label: 'Height × complexity' },
 		{ value: 'massing', label: 'Massing operators' },
+		...Object.entries(studies).map(([value, { label }]) => ({ value, label })),
 		{ value: 'town', label: 'Town' }
+	];
+	const aspects: readonly ChapterAspect[] = [
+		{
+			title: 'Setback',
+			summary: 'Step the upper storeys back from the frontage.',
+			load: () => import('./setback-aspect'),
+			source: () => import('./setback-aspect?raw')
+		},
+		{
+			title: 'Membrane sag',
+			summary: 'Lower the fabric between fixed grips.',
+			load: () => import('./tension-aspect'),
+			source: () => import('./tension-aspect?raw')
+		}
 	];
 	const townBlocks = [
 		{ value: 'block', label: 'Perimeter block' },
@@ -110,6 +129,44 @@
 	let block = $state<TownScope>(initial.block);
 	let townStyles = $state<TownStyles>(initial.styles);
 	let detail = $state<TownDetail>(initial.detail);
+	let tubeDisplay = $state<'normal' | 'transparency'>('normal');
+	const study = $derived(readStudy(sheet));
+	let loaded = $state.raw<StudyPainter>();
+	let loadFailure = $state(false);
+	let retry = $state(0);
+	const studyResult = $derived(loaded?.(sheet === 'tubes' ? tubeDisplay : 'normal'));
+
+	$effect(() => {
+		if (!study) return;
+		void retry;
+		let active = true;
+		void study.load().then(
+			(result) => {
+				if (active) loaded = result;
+			},
+			() => {
+				if (active) loadFailure = true;
+			}
+		);
+		return () => {
+			active = false;
+		};
+	});
+
+	function setSheet(value: string) {
+		if (value === sheet) return;
+		loaded = undefined;
+		loadFailure = false;
+		sheet = value;
+		const params = new SvelteURLSearchParams((page.shallow?.url ?? page.url).search);
+		params.set('sheet', value === 'one' ? 'house' : value);
+		void goto(resolve(`/architecture?${params}`), {
+			state: page.state,
+			shallow: true,
+			replace: true,
+			reset: false
+		});
+	}
 
 	const setup = $derived({ shape, style, height, width, complexity, seed, level });
 	const town = $derived(sheet === 'town' ? townStage(initial.relief) : undefined);
@@ -127,6 +184,12 @@
 		}
 		if (townResult)
 			return { ...fit, fill: 0.64, subject: projectFocus(view, fit, townResult.points) };
+		if (study)
+			return {
+				...study.fit,
+				...(page.url.searchParams.has('bearing') ? { bearing: fit.bearing } : {}),
+				...(page.url.searchParams.has('elevation') ? { elevation: fit.elevation } : {})
+			};
 		return fit;
 	});
 	const shown = $derived.by(() => {
@@ -138,6 +201,7 @@
 			return { ...massingResult, drawables: dissectMassing(massingResult, { gapM, cutY }) };
 		}
 		if (townResult) return townResult;
+		if (study) return studyResult ?? { drawables: [], measurements: [] };
 		const house = single(setup);
 		const draw = Object.hasOwn(sheets, sheet) ? sheets[sheet as keyof typeof sheets] : undefined;
 		return { drawables: draw ? draw(setup) : house.drawables, figures: house.figures };
@@ -206,43 +270,80 @@
 {/snippet}
 
 <section
-	class="grid grid-aside"
-	aria-label={specimen ? 'Massing operators' : 'House and court on a parcel'}
+	class="chapter-hero grid grid-aside architecture-hero"
+	aria-label={specimen ? 'Massing operators' : (study?.label ?? 'House and court on a parcel')}
 >
-	<div class="city-stage">
-		<StageView
-			drawables={shown.drawables}
-			{view}
-			display={specimen ? massingDisplay : 'normal'}
-			fit={frame}
-			interactive
-			landscape={Boolean(townResult)}
-			label={specimen
-				? `Massing operators · ${variant.label}`
-				: townResult
-					? 'Parcel houses and their lanes in the default town'
-					: 'Court houses of one cell rule in neutral, Memphis, Archigram and organic styles'}
-		/>
-		<div class="cluster">
-			<ToggleGroup
-				label="View"
-				items={views}
-				bind:value={() => view, (value) => (view = value === 'plan' ? 'plan' : 'iso')}
-			/>
-			<Select label="Show" items={sheetItems} bind:value={sheet} />
-			{#if specimen}
-				<Select
-					label="Variant"
-					items={massingVariants}
-					bind:value={
-						() => variant.value,
-						(choice) =>
-							(variant =
-								massingVariants.find(({ value }) => value === choice) ?? massingVariants[0])
-					}
+	<div class="stack">
+		<!-- Landscape rendering is selected when the stage opens. Specimen sheets share one stage. -->
+		{#key Boolean(townResult)}
+			<ChapterViewer
+				stage={{
+					drawables: shown.drawables,
+					view,
+					display: specimen ? massingDisplay : sheet === 'tubes' ? tubeDisplay : 'normal',
+					fit: frame,
+					interactive: true,
+					landscape: Boolean(townResult),
+					label: specimen
+						? `Massing operators · ${variant.label}`
+						: (study?.label ??
+							(townResult
+								? 'Parcel houses and their lanes in the default town'
+								: 'Court houses of one cell rule in neutral, Memphis, Archigram and organic styles'))
+				}}
+				{aspects}
+				resetKey={sheet}
+			>
+				{#snippet controls()}
+					<Select
+						label="Show"
+						items={sheetItems}
+						bind:value={() => sheet, setSheet}
+						portalTo=".chapter-viewer"
+					/>
+					{#if specimen}
+						<Select
+							label="Variant"
+							items={massingVariants}
+							bind:value={
+								() => variant.value,
+								(choice) =>
+									(variant =
+										massingVariants.find(({ value }) => value === choice) ?? massingVariants[0])
+							}
+							portalTo=".chapter-viewer"
+						/>
+					{/if}
+					<ToggleGroup
+						label="View"
+						items={views}
+						bind:value={() => view, (value) => (view = value === 'plan' ? 'plan' : 'iso')}
+					/>
+					{#if sheet === 'tubes'}
+						<ToggleGroup
+							label="Fill"
+							items={massingDisplays}
+							bind:value={
+								() => tubeDisplay,
+								(value) => (tubeDisplay = value === 'transparency' ? 'transparency' : 'normal')
+							}
+						/>
+					{/if}
+				{/snippet}
+			</ChapterViewer>
+		{/key}
+		{#if study && !loaded}
+			<p role="status">{loadFailure ? 'Could not load this study.' : 'Loading study…'}</p>
+			{#if loadFailure}
+				<Button
+					label="Retry"
+					onclick={() => {
+						loadFailure = false;
+						retry++;
+					}}
 				/>
 			{/if}
-		</div>
+		{/if}
 		<dl class="data cluster city-measurements" aria-live={specimen ? 'polite' : undefined}>
 			{#each measurements as { label, value, unit } (label)}
 				<div>
@@ -284,6 +385,32 @@
 			{@render styleSelect()}
 			{@render parcelSelect()}
 			{#if variant.porosity}<Button label="New seed" onclick={drawSeed} />{/if}
+		{:else if study}
+			{#if sheet === 'docking'}
+				<p>
+					Rooms seat on outward-facing 3D sockets. Each collar marks where a room meets its carrier.
+					Compare the other lattices in the <a href={resolve('/architecture/dock-study')}
+						>face docking study</a
+					>.
+				</p>
+			{:else if sheet === 'frame'}
+				<p>
+					Two roofs and a pair of piers carry the frame over the court. A room plugs into the west
+					bay, leaving the east bay open. Follow the load paths in the <a
+						href={resolve('/architecture/structure')}>structure study</a
+					>.
+				</p>
+			{:else if sheet === 'tubes'}
+				<p>
+					The ribbed shell encloses a walking deck. Select Transparency to reveal the smaller water
+					pipe beneath it.
+				</p>
+			{:else}
+				<p>
+					Three facade bands leave open reveals between courses. Above, fabric spans four corner
+					grips at alternating heights and two edge grips. Orange cuffs pick out the attachments.
+				</p>
+			{/if}
 		{:else}
 			{#if townResult}
 				<p>
@@ -302,6 +429,10 @@
 				A style is a row of parameters over the same cells. Memphis stacks bold primitive solids in
 				flat colour. Archigram raises a grey frame on the cell edges and plugs capsules and services
 				into it. Organic rounds every cell into a pod and steps down to a planted court.
+			</p>
+			<p>
+				Study the <a href={resolve('/architecture/structure')}>structure</a> or compare carriers in
+				the <a href={resolve('/architecture/dock-study')}>face docking study</a>.
 			</p>
 			{@render styleSelect()}
 			{#if townResult}
