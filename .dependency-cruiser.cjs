@@ -13,6 +13,7 @@ const configOwners = {
 	'lib/core/mesh': 'mesh',
 	'lib/domain/movement-network': 'movement-network',
 	'lib/domain/city-volume': 'city-volume',
+	'lib/domain/face-dock': 'face-dock',
 	'lib/domain/terrain-grid': 'terrain-grid',
 	'lib/domain/cell-space': 'cell-space',
 	'lib/domain/house-court': 'house-court',

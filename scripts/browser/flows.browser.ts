@@ -17,6 +17,7 @@ const routes = [
 	['/supply', 1],
 	['/architecture', 1],
 	['/architecture/structure', 1],
+	['/architecture/dock-study', 1],
 	['/surfaces', 1],
 	['/interface', 0],
 	['/blocks', 1],
@@ -289,6 +290,65 @@ async function renderedChange(canvas: Locator, change: () => Promise<void>) {
 		.toBeGreaterThan(frame);
 	await expect(canvas).toHaveAttribute('data-stage-ready', 'true');
 	await expect.poll(async () => (await canvas.screenshot(hideHud)).equals(before)).toBe(false);
+}
+
+for (const viewport of [
+	{ width: 1440, height: 900 },
+	{ width: 390, height: 844 }
+]) {
+	for (const colorScheme of ['light', 'dark'] as const) {
+		journeys(`docks modules at ${viewport.width}px in ${colorScheme} mode`, async ({ page }) => {
+			await page.setViewportSize(viewport);
+			await page.emulateMedia({ colorScheme, reducedMotion: 'reduce' });
+			await open(page, '/architecture/dock-study');
+			const canvas = (await readyStages(page, 1)).first();
+			const original = await canvas.elementHandle();
+			await expect(canvas).toHaveAttribute('data-stage-theme', colorScheme);
+			const study = page.getByRole('region', { name: 'Face docking study' });
+			const measurements = study.locator('dl');
+			const model = study.getByRole('combobox', { name: 'Lattice model' });
+			await model.focus();
+			await model.press('Enter');
+			await expect(page.getByRole('listbox', { name: 'Lattice model' })).toBeVisible();
+			await page.keyboard.press('Escape');
+			await expect(model).toBeFocused();
+
+			async function studyFrame(name: string) {
+				const counts = (await measurements.locator('dd').allTextContents()).map(Number);
+				expect(counts[0]).toBeGreaterThan(0);
+				expect(counts[1]).toBeGreaterThan(0);
+				expect(counts[2]).toBe(counts[0]);
+				expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(
+					viewport.width
+				);
+				await study.screenshot({ path: journeys.info().outputPath(`${name}.png`) });
+			}
+
+			await expect(canvas).toHaveAttribute(
+				'aria-label',
+				'Prism lattice with face-docked modules · Assembled'
+			);
+			await studyFrame('prism');
+			for (const family of ['Antiprism', 'Diagrid', 'Tree']) {
+				await renderedChange(canvas, () => choose(page, 'Lattice model', family));
+				await expect(canvas).toHaveAttribute(
+					'aria-label',
+					`${family} lattice with face-docked modules · Assembled`
+				);
+				await studyFrame(family.toLowerCase());
+			}
+			for (const view of ['Section', 'Transparency', 'Assembled']) {
+				await renderedChange(canvas, () => choose(page, 'Dissection', view));
+				await expect(canvas).toHaveAttribute(
+					'aria-label',
+					`Tree lattice with face-docked modules · ${view}`
+				);
+				await studyFrame(view.toLowerCase());
+			}
+			await expect(page.locator('canvas')).toHaveCount(1);
+			expect(await canvas.evaluate((element, initial) => element === initial, original)).toBe(true);
+		});
+	}
 }
 
 for (const width of [1440, 390]) {
