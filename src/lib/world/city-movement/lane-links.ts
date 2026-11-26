@@ -60,23 +60,40 @@ export function connectLane(
 		level: 'ground',
 		position: [px, py, site.sampleGround(px, py).height]
 	});
-	const contacts = new Map<number, { portal: ParcelPortal; midpoint: Vec2; xy: Vec2 }[]>();
+	const normalizeZero = (value: number) =>
+		value === /* Exact arithmetic: collapse signed zero before position lookup. */ 0
+			? /* Exact arithmetic: canonical positive zero. */ 0
+			: value;
+	const positionKey = ([px, py]: Vec2) => JSON.stringify([normalizeZero(px), normalizeZero(py)]);
+	const fromKey = positionKey([from.position[0], from.position[1]]);
+	const toKey = positionKey([to.position[0], to.position[1]]);
+	const contacts = new Map<
+		string,
+		{ t: number; xy: Vec2; items: { portal: ParcelPortal; midpoint: Vec2 }[] }
+	>();
 	for (const portal of portals) {
 		const midpoint = frontageMidpoint(portal);
 		const t = laneParameter(midpoint, lane);
-		const xy: Vec2 = [x + (u - x) * t, y + (v - y) * t];
+		const xy: Vec2 = [normalizeZero(x + (u - x) * t), normalizeZero(y + (v - y) * t)];
 		if (!frontageClear(midpoint, xy)) continue;
-		const group = contacts.get(t);
-		const contact = { portal, midpoint, xy };
-		if (group) group.push(contact);
-		else contacts.set(t, [contact]);
+		const key = positionKey(xy);
+		const group = contacts.get(key);
+		if (group) {
+			group.t = Math.min(group.t, t);
+			group.items.push({ portal, midpoint });
+		} else contacts.set(key, { t, xy, items: [{ portal, midpoint }] });
 	}
-	for (const [t, group] of contacts) {
-		const incident = group.map(({ portal }) => portal.id).sort();
-		const tap = stops.get(t) ?? ground('lane-tap/' + JSON.stringify([id, incident]), group[0].xy);
-		stops.set(t, tap);
+	for (const [key, { t, xy, items }] of contacts) {
+		const incident = items.map(({ portal }) => portal.id).sort();
+		const tap =
+			key === fromKey
+				? from
+				: key === toKey
+					? to
+					: (stops.get(t) ?? ground('lane-tap/' + JSON.stringify([id, incident]), xy));
+		if (tap !== from && tap !== to) stops.set(t, tap);
 		nodes.set(tap.id, tap);
-		for (const { portal, midpoint } of group) {
+		for (const { portal, midpoint } of items) {
 			const entry = ground(portal.id, midpoint);
 			// A frontage can meet the lane centerline directly.
 			if (tap.position.every((value, i) => value === entry.position[i])) {
@@ -94,6 +111,7 @@ export function connectLane(
 	for (let i = 1; i < ordered.length; i++) {
 		const [, a] = ordered[i - 1];
 		const [, b] = ordered[i];
+		if (a.id === b.id || a.position.every((value, index) => value === b.position[index])) continue;
 		const key = 'lane/' + JSON.stringify([id, a.id, b.id]);
 		links.push(
 			link(key, 'lane', a, b, drape(a.position, b.position, site), undefined, {

@@ -87,7 +87,27 @@ for (const [route, count] of routes) {
 		}
 		if (route === '/town')
 			await expect(page.getByRole('status')).toHaveCount(0, { timeout: 60_000 });
+		if (route === '/story') await expect(page.getByText(/^Sandbox handover/)).toBeVisible();
 	});
+}
+
+const storyReview = process.env.CITY_STORY_REVIEW === '1';
+const storyReviewDir =
+	process.env.CITY_STORY_REVIEW_DIR ??
+	new URL('../../_lokal/story-review/', import.meta.url).pathname;
+
+async function storyShot(page: Page, name: string) {
+	if (storyReview)
+		await page.screenshot({ path: storyReviewDir + '/' + name + '.png', fullPage: true });
+}
+
+async function chooseStoryOption(page: Page, label: string, choice: string) {
+	await page.getByRole('combobox', { name: label }).click();
+	await page.getByRole('option', { name: choice, exact: true }).click();
+}
+
+async function waitForStoryFrame(canvas: Locator, previous: string | null) {
+	await expect.poll(() => canvas.getAttribute('data-stage-frames')).not.toBe(previous);
 }
 
 for (const viewport of [
@@ -104,11 +124,20 @@ for (const viewport of [
 				const canvas = (await readyStages(page, 1)).first();
 				await expect(canvas).toHaveAttribute('data-stage-theme', colorScheme);
 				const original = await canvas.elementHandle();
-				const frameWidth = await canvas.getAttribute('data-stage-width');
-				expect(frameWidth).toBeTruthy();
 				const hero = page.getByRole('region', { name: 'Valley through time' });
-				const date = hero.getByRole('status');
+				const date = hero.locator('.story-date');
 				const years = hero.getByRole('radiogroup', { name: 'Valley year' });
+				await expect(date).toHaveText('2030 Handover');
+				await expect(hero.getByText(/^Sandbox handover/)).toBeVisible();
+				await expect.poll(() => distinctPixels(canvas)).toBe(true);
+				const frameWidth = await canvas.getAttribute('data-stage-width');
+				if (viewport.width === 1440 || colorScheme === 'light') {
+					await storyShot(
+						page,
+						`story-2030-${viewport.width === 1440 ? 'desktop' : 'mobile'}-${colorScheme}`
+					);
+				}
+				let previousCount = 0;
 				for (const [year, milestone] of [
 					['1955', 'First settlement'],
 					['1985', 'Crossing and expansion'],
@@ -116,16 +145,16 @@ for (const viewport of [
 					['2030', 'Handover']
 				]) {
 					const radio = years.getByRole('radio', { name: year, exact: true });
-					const previousCount = Number(await canvas.getAttribute('data-stage-drawables'));
-					if (year !== '1955') {
-						await radio.click();
-						await expect
-							.poll(async () => Number(await canvas.getAttribute('data-stage-drawables')))
-							.toBeGreaterThan(previousCount);
-					}
+					const before = await canvas.getAttribute('data-stage-frames');
+					await radio.click();
+					await waitForStoryFrame(canvas, before);
+					const count = Number(await canvas.getAttribute('data-stage-drawables'));
+					expect(count).toBeGreaterThan(previousCount);
+					previousCount = count;
 					await expect(radio).toBeChecked();
 					expect(await canvas.getAttribute('data-stage-width')).toBe(frameWidth);
 					await expect(date).toHaveText(`${year} ${milestone}`);
+					await date.scrollIntoViewIfNeeded();
 					await expect(date).toBeInViewport({ ratio: 1 });
 					await expect(canvas).toHaveAttribute(
 						'aria-label',
@@ -138,15 +167,6 @@ for (const viewport of [
 						viewport.width
 					);
 					await expect.poll(() => distinctPixels(canvas)).toBe(true);
-					if (
-						year === '1955' ||
-						year === '2030' ||
-						(viewport.width === 1440 && colorScheme === 'light')
-					) {
-						await hero.screenshot({
-							path: journeys.info().outputPath(`story-${year}-${viewport.width}-${colorScheme}.png`)
-						});
-					}
 				}
 				await expect(page.locator('canvas')).toHaveCount(1);
 				expect(await canvas.evaluate((element, initial) => element === initial, original)).toBe(
@@ -155,14 +175,18 @@ for (const viewport of [
 				const citation = page.getByRole('region', {
 					name: 'Transformation of Tour Bois-le-Prêtre'
 				});
+				await expect(citation.getByRole('link')).toHaveCount(4);
 				await expect(
 					citation.getByRole('link', { name: '2021 Pritzker Architecture Prize' })
 				).toBeVisible();
 				await expect(citation).toContainText('Lacaton & Vassal with Frédéric Druot');
-				await expect(citation).toContainText(
-					/Retained lower storey riverside-hall\/storey\/.*1955/
-				);
-				await expect(citation).toContainText(/First added storey riverside-hall\/storey\/.*2030/);
+				const ids = citation.locator('code');
+				await expect(ids).toHaveCount(2);
+				await expect(ids.nth(0)).toContainText('"storey"');
+				await expect(ids.nth(1)).toContainText('"storey"');
+				expect(await ids.nth(0).textContent()).not.toBe(await ids.nth(1).textContent());
+				await expect(citation.locator('dd').nth(0)).toContainText('· 1955');
+				await expect(citation.locator('dd').nth(1)).toContainText('· 2030');
 				await years.getByRole('radio', { name: '2030' }).press('Home');
 				await expect(years.getByRole('radio', { name: '1955' })).toBeFocused();
 				await expect(date).toContainText('First settlement');
@@ -170,6 +194,205 @@ for (const viewport of [
 		);
 	}
 }
+
+journeys('plays and dissects the generative story on one canvas', async ({ page }) => {
+	await page.setViewportSize({ width: 1440, height: 900 });
+	await page.emulateMedia({ colorScheme: 'light' });
+	await page.addInitScript(() => {
+		let frameRequests = 0;
+		const request = window.requestAnimationFrame;
+		window.requestAnimationFrame = (callback) => {
+			frameRequests++;
+			document.documentElement.dataset.storyFrameRequests = String(frameRequests);
+			return request.call(window, callback);
+		};
+	});
+	await open(page, '/story');
+	const canvas = (await readyStages(page, 1)).first();
+	const original = await canvas.elementHandle();
+	const hero = page.getByRole('region', { name: 'Valley through time' });
+	const slider = hero.getByRole('slider', { name: 'Scrub events' });
+	const handover = hero.getByText(/^Sandbox handover/);
+	await expect(handover).toBeVisible();
+	await expect(hero.locator('.story-date')).toHaveText('2030 Handover');
+	const before = await canvas.screenshot();
+
+	const builds = await canvas.getAttribute('data-stage-builds');
+	const drawableBuilds = await canvas.getAttribute('data-stage-drawable-builds');
+	let frame = await canvas.getAttribute('data-stage-frames');
+	await chooseStoryOption(page, 'Dissection', 'Explode');
+	await waitForStoryFrame(canvas, frame);
+	await expect(canvas).toHaveAttribute('data-stage-builds', builds ?? '');
+	await expect(canvas).toHaveAttribute('data-stage-drawable-builds', drawableBuilds ?? '');
+	const exploded = await canvas.screenshot();
+	expect(exploded.equals(before)).toBe(false);
+
+	frame = await canvas.getAttribute('data-stage-frames');
+	await chooseStoryOption(page, 'Dissection', 'Section');
+	await waitForStoryFrame(canvas, frame);
+	await expect(canvas).toHaveAttribute('data-stage-drawable-builds', drawableBuilds ?? '');
+	expect((await canvas.screenshot()).equals(exploded)).toBe(false);
+	await storyShot(page, 'story-explode-section');
+	await chooseStoryOption(page, 'Dissection', 'Transparency');
+	await expect(canvas).toHaveAttribute('data-stage-display', 'transparency');
+	await expect(hero.getByText('Water service visible')).toBeVisible();
+	await storyShot(page, 'story-transparency');
+	await chooseStoryOption(page, 'Dissection', 'Assembled');
+	await expect(canvas).toHaveAttribute('data-stage-display', 'normal');
+	await expect(hero.getByText('Water service visible')).toHaveCount(0);
+
+	const max = Number(await slider.getAttribute('aria-valuemax'));
+	await hero.getByRole('button', { name: 'Step backward' }).click();
+	await expect(slider).toHaveAttribute('aria-valuenow', String(max - 1));
+	await expect(handover).toHaveCount(0);
+	await hero.getByRole('button', { name: 'Step forward' }).click();
+	await expect(slider).toHaveAttribute('aria-valuenow', String(max));
+	await expect(handover).toBeVisible();
+	await expect(hero.locator('.story-date')).toHaveText('2030 Handover');
+	expect((await canvas.screenshot()).equals(before)).toBe(true);
+	await slider.press('Home');
+	await expect(slider).toHaveAttribute('aria-valuenow', '1');
+	await hero.getByRole('button', { name: 'Play', exact: true }).click();
+	await expect
+		.poll(async () => Number(await slider.getAttribute('aria-valuenow')))
+		.toBeGreaterThan(1);
+	await hero.getByRole('button', { name: 'Pause', exact: true }).click();
+	const paused = await slider.getAttribute('aria-valuenow');
+	const observeIdle = () =>
+		page.evaluate(
+			() =>
+				new Promise<string | undefined>((resolve) => {
+					setTimeout(() => resolve(document.documentElement.dataset.storyFrameRequests), 300);
+				})
+		);
+	expect(await observeIdle()).toBe(await observeIdle());
+	await expect(slider).toHaveAttribute('aria-valuenow', paused ?? '');
+	await slider.press('End');
+	await hero.getByRole('button', { name: 'Step backward' }).click();
+	await hero.getByRole('button', { name: 'Play', exact: true }).click();
+	await expect(slider).toHaveAttribute('aria-valuenow', String(max));
+	await expect(hero.getByRole('button', { name: 'Play', exact: true })).toBeEnabled();
+
+	const seed = await hero.locator('.story-seed').textContent();
+	await hero.getByRole('button', { name: 'New City' }).click();
+	await expect(hero.locator('.story-seed')).not.toHaveText(seed ?? '');
+	await expect(hero.locator('.story-date')).toHaveText('1955 First settlement');
+	await hero.getByRole('radio', { name: '2030' }).click();
+	await expect(handover).toBeVisible();
+	expect((await canvas.screenshot()).equals(before)).toBe(false);
+	await chooseStoryOption(page, 'Scale', 'Village');
+	await chooseStoryOption(page, 'Scale', 'Metropolis');
+	await chooseStoryOption(page, 'Plan family', 'Hex');
+	await expect(handover).toBeVisible();
+	await expect(slider).toHaveAttribute(
+		'aria-valuenow',
+		(await slider.getAttribute('aria-valuemax')) ?? ''
+	);
+	await expect(canvas).toHaveAttribute('aria-label', 'River valley in 2030 · Handover');
+	await expect.poll(() => page.workers().length).toBe(0);
+	await expect(page.locator('canvas')).toHaveCount(1);
+	expect(await canvas.evaluate((element, initial) => element === initial, original)).toBe(true);
+	expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(1440);
+	await storyShot(page, 'story-new-city-metro');
+});
+
+journeys('streams the first playable story frame at every scale', async ({ page }) => {
+	await page.setViewportSize({ width: 1440, height: 900 });
+	await page.addInitScript(() => {
+		let measure = 'first';
+		let since = 0;
+		let before = '';
+		function start(name: string) {
+			measure = name;
+			since = performance.now();
+			before = document.querySelector<HTMLCanvasElement>('canvas')?.dataset.stageFrames ?? '';
+			document.documentElement.removeAttribute('data-story-timing');
+		}
+		document.addEventListener(
+			'click',
+			(event) => {
+				const target = event.target instanceof Element ? event.target : null;
+				if (target?.closest('[role="option"]')) start('first');
+				if (target?.closest('button[aria-label="Step backward"]')) start('step');
+			},
+			true
+		);
+		document.addEventListener(
+			'keydown',
+			(event) => {
+				if (
+					event.key === 'Home' &&
+					event.target instanceof Element &&
+					event.target.matches('[role="slider"]')
+				)
+					start('reverse');
+			},
+			true
+		);
+		new MutationObserver(() => {
+			const canvas = document.querySelector<HTMLCanvasElement>('canvas');
+			if (
+				!measure ||
+				!canvas ||
+				canvas.dataset.stageFrames === before ||
+				!Number(canvas.dataset.stageDrawables)
+			)
+				return;
+			if (measure === 'first' && !canvas.getAttribute('aria-label')?.includes('1955')) return;
+			document.documentElement.dataset.storyTiming =
+				measure + ':' + (performance.now() - since).toFixed(1);
+			measure = '';
+		}).observe(document, {
+			subtree: true,
+			attributes: true,
+			attributeFilter: ['data-stage-frames']
+		});
+	});
+
+	await open(page, '/story');
+	const canvas = (await readyStages(page, 1)).first();
+	const root = page.locator('html');
+	const city = page.getByRole('region', { name: 'Valley through time' });
+	const handover = city.getByText(/^Sandbox handover/);
+	const slider = city.getByRole('slider', { name: 'Scrub events' });
+
+	async function timing(key: string) {
+		await expect(root).toHaveAttribute('data-story-timing', new RegExp('^' + key + ':'));
+		return Number((await root.getAttribute('data-story-timing'))?.split(':')[1]);
+	}
+
+	for (const scale of ['2030 Handover', 'Village', 'Metropolis']) {
+		if (scale !== '2030 Handover') await chooseStoryOption(page, 'Scale', scale);
+		const firstMs = await timing('first');
+		await expect(handover).toBeVisible();
+		const max = Number(await slider.getAttribute('aria-valuemax'));
+		await expect(slider).toHaveAttribute('aria-valuenow', String(max));
+		await expect(canvas).toHaveAttribute('aria-label', 'River valley in 2030 · Handover');
+		const metrics = await canvas.evaluate((element) => {
+			const { stageDrawables, stageFrameCpuMs } = (element as HTMLCanvasElement).dataset;
+			return { drawables: Number(stageDrawables), frameCpuMs: Number(stageFrameCpuMs) };
+		});
+		const stepMs: number[] = [];
+		const reverseMs: number[] = [];
+		for (let sample = 0; sample < 3; sample++) {
+			if (sample > 0) {
+				const before = await canvas.getAttribute('data-stage-frames');
+				await slider.press('End');
+				await waitForStoryFrame(canvas, before);
+			}
+			await city.getByRole('button', { name: 'Step backward' }).click();
+			stepMs.push(await timing('step'));
+			await expect(slider).toHaveAttribute('aria-valuenow', String(max - 1));
+			await slider.press('Home');
+			reverseMs.push(await timing('reverse'));
+			await expect(slider).toHaveAttribute('aria-valuenow', '1');
+		}
+		console.log(
+			'Story timings (ms)',
+			JSON.stringify({ scale, firstMs, ...metrics, stepMs, reverseMs })
+		);
+	}
+});
 
 for (const viewport of [
 	{ width: 1440, height: 900 },
