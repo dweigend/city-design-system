@@ -1,64 +1,75 @@
 import { required } from '../../core/invariant';
 import { createCellSpaceStoreys, type CellSpace } from '../../domain/cell-space';
+import { createHouseCourt, houseStyles } from '../../domain/house-court';
 import {
 	createMassing,
 	createMassingParts,
 	createPorousMassing,
 	createSetbackMassing,
-	type HouseCell,
-	type HouseOccupancy
+	type Massing
 } from '../../domain/massing';
 import { createDatedPrism, type Construction, type StoreyPlanes } from './building';
 import type { Burgage } from './burgage';
 import type { CityGrowthPart } from './types';
 
-function readBurgageDatum({ frontId, rearId, groundByCell }: Burgage, planes: StoreyPlanes) {
+function readBurgageDatum(
+	{ placed, frontId, rearId, groundByCell }: Burgage,
+	planes: StoreyPlanes
+) {
 	const front = required(groundByCell.get(frontId), 'front wing ground');
 	const rear = required(groundByCell.get(rearId), 'rear wing ground');
-	return planes.indexAtOrAbove(Math.max(front.highest, rear.highest));
+	const requiredIndex = planes.indexAtOrAbove(Math.max(front.highest, rear.highest));
+	return Math.max(placed.space.datumIndex, requiredIndex);
 }
 
 // Each run describes only construction in this event. Retained storeys stay outside both cutters.
-function createNewOccupancy(
+function createWindowMassing(
 	space: CellSpace,
 	burgage: Burgage,
 	useByCell: ReadonlyMap<string, CityGrowthPart['use']>,
 	construction: Construction
-): HouseOccupancy {
-	const { cells, storeyCount } = space;
-	const { cellIds } = burgage.courtAccess;
-	const access = new Set(cellIds);
-	const courtId = cellIds.at(-1);
-	const firstStorey = /* Exact arithmetic: a construction window starts at local storey zero. */ 0;
-	const height = space.storeyElevationsM[storeyCount] - space.baseZ;
-	return {
-		spaceId: space.id,
-		cellIds: cells.map(({ id }) => id),
-		styleId: construction.era.styleId,
-		inputs: {
-			height,
-			width: /* Exact arithmetic: footprint is specified directly by cell IDs. */ 0,
-			complexity: /* Exact arithmetic: no occupancy style variation for fixed runs. */ 0,
-			seed: construction.seed
+): Massing {
+	const { house: placedHouse, style: placedStyle, groundZ } = burgage.placed;
+	const eraStyle = houseStyles[construction.era.styleId];
+	const windowStyle = {
+		...eraStyle,
+		occupancy: {
+			...eraStyle.occupancy,
+			groundOpenRatio: /* Exact arithmetic: dated window slices start at the window floor. */ 0
 		},
-		storeys: storeyCount,
-		cells: cells.map(({ id }): HouseCell => {
-			if (useByCell.has(id))
-				return { id, role: 'wing', fromStorey: firstStorey, toStorey: storeyCount };
-			let role: HouseCell['role'] = 'garden';
-			if (id === courtId) role = 'court';
-			else if (access.has(id)) role = 'passage';
-			return { id, role, fromStorey: firstStorey, toStorey: firstStorey };
-		}),
-		entrances: [cellIds],
-		scale: 'regular',
-		courtAccess: true,
-		site: {
-			entranceRiseM: /* Exact arithmetic: massing does not model entrance stairs. */ 0,
-			corner: false,
-			groundZ: null
+		large: {
+			...eraStyle.large,
+			// Reservation-time court topology stays invariant across later construction eras (CITY-15).
+			court: placedHouse.scale === 'large' ? placedStyle.large.court : eraStyle.large.court
 		}
 	};
+	const house = createHouseCourt(
+		space,
+		{
+			height: space.storeyElevationsM[space.storeyCount] - space.baseZ,
+			width: placedHouse.inputs.width,
+			complexity: placedHouse.inputs.complexity,
+			seed: construction.seed
+		},
+		windowStyle,
+		{
+			scale: placedHouse.scale,
+			corner: placedHouse.site.corner,
+			groundZ,
+			entranceRiseM: placedHouse.site.entranceRiseM
+		}
+	);
+	const baseMassing = createMassing(house);
+	const runs = house.cells
+		.filter(({ id, fromStorey }) => useByCell.has(id) && fromStorey < space.storeyCount)
+		.map((cell) =>
+			Object.freeze({
+				...cell,
+				role: 'wing' as const,
+				toStorey: space.storeyCount
+			})
+		);
+	return Object.freeze({ base: baseMassing.base, runs: Object.freeze(runs) });
 }
 
 export function createCellConstruction(
@@ -73,15 +84,14 @@ export function createCellConstruction(
 	const elevations = Array.from({ length: storeyCount + 1 }, (_, i) =>
 		planes.atIndex(datumIndex + i)
 	);
-	const space = createCellSpaceStoreys(burgage.space, {
+	const space = createCellSpaceStoreys(burgage.placed.space, {
 		baseZ: elevations[0],
 		datumIndex,
 		storeyCount,
 		storeyElevationsM: elevations,
 		storeyHeightsM: elevations.slice(1).map((top, i) => top - elevations[i])
 	});
-	const base = createNewOccupancy(space, burgage, useByCell, construction);
-	const massing = createMassing(base);
+	const massing = createWindowMassing(space, burgage, useByCell, construction);
 	const setback = createSetbackMassing(space, massing, {
 		startStorey: /* Exact arithmetic: keep the first new storey before cutting above it. */ 1,
 		depth: construction.era.setbackDepth ?? 0

@@ -1,8 +1,10 @@
 import { distance, readVertexMean, type Vec2 } from '../../core/geometry';
 import { required } from '../../core/invariant';
+import { readCityColumns } from '../../domain/city-volume';
 import type { AddressedParcel, ParcelPortal } from '../../domain/parcels';
 import {
 	cityBankSetbackM,
+	readCityDistricts,
 	readCityGrid,
 	readCityParcels,
 	riverCityRecipe,
@@ -10,9 +12,11 @@ import {
 	type CitySite,
 	type CityTerrainReading
 } from '../city-site';
+import { createTownParcelSites } from '../house-site';
 import { prepareBurgage, type Burgage } from './burgage';
 import { readFootprint, readStoreyPlanes, type BuildingGround } from './building';
 import { readLaneAccess } from './lanes';
+import { readEra } from './recipe';
 import type { CityGrowthRecipe } from './types';
 
 export type HoldingCandidate = Readonly<{
@@ -20,7 +24,7 @@ export type HoldingCandidate = Readonly<{
 	portal: ParcelPortal;
 	memberCellIds: readonly string[];
 	ground: BuildingGround;
-	burgage?: Burgage;
+	minimumGroundZ: number;
 	siteScore: number;
 }>;
 
@@ -148,8 +152,7 @@ function readCandidate(
 	datumZ: number,
 	parcel: AddressedParcel,
 	portal: ParcelPortal,
-	memberCellIds: readonly string[],
-	burgageToleranceM: number | undefined
+	memberCellIds: readonly string[]
 ): HoldingCandidate | undefined {
 	if (parcel.publicUse) return undefined;
 	const footprint = readFootprint(parcel, portal, recipe.buildingRadiusShare);
@@ -179,18 +182,12 @@ function readCandidate(
 		reading
 	});
 	const ground = readings.slice(parcel.outline.length).map(({ height }) => height);
-	const burgage =
-		burgageToleranceM === undefined
-			? undefined
-			: prepareBurgage(parcel, portal, burgageToleranceM, (ring) =>
-					readCellGround(site, ring, minimumGroundZ)
-				);
 	return {
 		parcel,
-		burgage,
 		portal,
 		memberCellIds,
 		ground: { footprint, lowest: Math.min(...ground), highest: Math.max(...ground) },
+		minimumGroundZ,
 		siteScore
 	};
 }
@@ -210,35 +207,60 @@ function readCellGround(site: CitySite, ring: readonly Vec2[], minimumGroundZ: n
 
 export function prepareGrowth(site: CitySite, recipe: CityGrowthRecipe, seed: number) {
 	const layout = readCityGrid(site, recipe.carrierSizeM, recipe.planFamily, seed);
-	const { parcels, portals, blocks, lanes, linearToleranceM } = readCityParcels(site, layout);
+	const parcelPlan = readCityParcels(site, layout);
+	const { parcels, portals, blocks, lanes, linearToleranceM } = parcelPlan;
+	const columns = new Map(
+		readCityColumns(layout.grid, readCityDistricts(site, layout, seed)).map((column) => [
+			column.planCellId,
+			column
+		])
+	);
 	const { datumZ } = layout;
+	const vertical = site.recipe ?? riverCityRecipe;
+	const planes = readStoreyPlanes(datumZ, vertical);
+	const parcelSites = createTownParcelSites(
+		parcelPlan,
+		columns,
+		datumZ,
+		([x, y]) => site.sampleGround(x, y).height,
+		site.recipe ? { vertical: site.recipe } : undefined
+	);
+	const foundingEra = readEra(recipe, recipe.startYear);
+	const initialHeightM =
+		planes.atIndex(recipe.initialStoreys) -
+		planes.atIndex(/* Exact arithmetic: measure initial height from datum index zero. */ 0);
 	const water = readWater(site, layout);
 	const portalsById = new Map(portals.map((portal) => [portal.id, portal]));
 	const membersByBlock = new Map(blocks.map(({ id, memberCellIds }) => [id, memberCellIds]));
 	const holdingsByLane = new Map<string, HoldingCandidate[]>();
-	const useBurgage =
-		recipe.stockChanges?.some(({ kind }) => kind === 'infill') ||
-		recipe.eras?.some(({ setbackDepth, porosityRatio }) => setbackDepth || porosityRatio);
-	const burgageToleranceM = useBurgage ? linearToleranceM : undefined;
-	const burgages = new Map<string, Burgage>();
+	const minimumGroundByParcel = new Map<string, number>();
 	for (const parcel of parcels) {
 		const portal = required(portalsById.get(parcel.portalId), 'holding portal');
 		const members = required(membersByBlock.get(parcel.blockId), 'holding block cells');
-		const holding = readCandidate(
-			site,
-			recipe,
-			water,
-			datumZ,
-			parcel,
-			portal,
-			members,
-			burgageToleranceM
-		);
+		const holding = readCandidate(site, recipe, water, datumZ, parcel, portal, members);
 		if (!holding) continue;
-		if (holding.burgage) burgages.set(parcel.id, holding.burgage);
+		minimumGroundByParcel.set(parcel.id, holding.minimumGroundZ);
 		const holdings = holdingsByLane.get(portal.laneId) ?? [];
 		holdings.push(holding);
 		holdingsByLane.set(portal.laneId, holdings);
+	}
+	const burgages = new Map<string, Burgage | undefined>();
+	function readBurgage(parcelId: string): Burgage | undefined {
+		if (burgages.has(parcelId)) return burgages.get(parcelId);
+		const minimumGroundZ = minimumGroundByParcel.get(parcelId);
+		const parcelSite = minimumGroundZ === undefined ? undefined : parcelSites(parcelId);
+		const burgage =
+			parcelSite === undefined || minimumGroundZ === undefined
+				? undefined
+				: prepareBurgage(parcelSite, foundingEra, initialHeightM, seed, (ring) =>
+						readCellGround(site, ring, minimumGroundZ)
+					);
+		burgages.set(parcelId, burgage);
+		return burgage;
+	}
+	// Mutable caller samplers must be captured completely before advanceCityGrowth runs.
+	if (site.terrainRevision) {
+		for (const parcelId of minimumGroundByParcel.keys()) readBurgage(parcelId);
 	}
 	const accessByLane = readLaneAccess(
 		lanes,
@@ -248,9 +270,9 @@ export function prepareGrowth(site: CitySite, recipe: CityGrowthRecipe, seed: nu
 	return {
 		datumZ,
 		linearToleranceM,
-		burgages,
+		readBurgage,
 		planScope: layout.growth.planScope,
-		planes: readStoreyPlanes(datumZ, site.recipe ?? riverCityRecipe),
+		planes,
 		holdingsByLane,
 		accessByLane,
 		lanesById: new Map(lanes.map((lane) => [lane.id, lane]))

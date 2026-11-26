@@ -1,9 +1,9 @@
 import { expect, test } from 'bun:test';
-import type { Vec2 } from '../../core/geometry';
+import { isSimpleRing, type Vec2 } from '../../core/geometry';
 import { required } from '../../core/invariant';
 import { dryPlanEdges, type TerrainGrid } from '../terrain-grid';
 import { exampleGround, parcelExample } from './example';
-import { createParcelPlan } from './index';
+import { createParcelPlan, subdivideParcelFrontage } from './index';
 
 test('reserves half a 3 m walkway on each 60 m block at a four-way junction', () => {
 	const input = exampleGround();
@@ -221,4 +221,65 @@ test('Q-05 rejects a self-crossing caller-supplied block outline', () => {
 	const [a, b, c, d] = cell.vertexIds;
 	const grid = { ...input.grid, cells: [{ ...cell, vertexIds: [a, c, b, d] }] };
 	expect(() => createParcelPlan({ ...input, lanes: [], grid })).toThrow(/simple ring/);
+});
+
+test('subdivideParcelFrontage bisects a private parcel and enforces dimension and guard contracts', () => {
+	const plan = createParcelPlan(exampleGround()).read();
+	const parcel = required(
+		plan.parcels.find(({ publicUse }) => !publicUse),
+		'private parcel'
+	);
+	const portal = required(
+		plan.portals.find(({ id }) => id === parcel.portalId),
+		'parcel portal'
+	);
+	const minimum = { areaM2: 100, frontageM: 5, depthM: 10 };
+	const children = subdivideParcelFrontage(parcel, portal, minimum, plan.linearToleranceM);
+	expect(children).toBeDefined();
+	if (!children) return;
+	expect(Object.isFrozen(children)).toBe(true);
+	expect(children[0].parcel.areaM2 + children[1].parcel.areaM2).toBeCloseTo(parcel.areaM2);
+	for (const [index, child] of children.entries()) {
+		expect(child.parcel.splitPath).toEqual([...parcel.splitPath, index]);
+		expect(child.parcel.blockId).toBe(parcel.blockId);
+		expect(child.parcel.publicUse).toBe(false);
+		expect(child.portal.laneId).toBe(portal.laneId);
+		expect(child.portal.parcelId).toBe(child.parcel.id);
+		expect(child.portal.frontageM).toBeGreaterThanOrEqual(minimum.frontageM);
+		expect(isSimpleRing(child.parcel.outline)).toBe(true);
+	}
+
+	expect(
+		subdivideParcelFrontage({ ...parcel, publicUse: true }, portal, minimum, plan.linearToleranceM)
+	).toBeUndefined();
+	expect(
+		subdivideParcelFrontage(
+			parcel,
+			{ ...portal, parcelId: 'other-parcel' },
+			minimum,
+			plan.linearToleranceM
+		)
+	).toBeUndefined();
+	expect(
+		subdivideParcelFrontage(
+			parcel,
+			{ ...portal, id: 'other-portal' },
+			minimum,
+			plan.linearToleranceM
+		)
+	).toBeUndefined();
+	expect(
+		subdivideParcelFrontage(parcel, portal, { ...minimum, depthM: 1000 }, plan.linearToleranceM)
+	).toBeUndefined();
+
+	for (const [label, args] of [
+		['zero area', [{ ...minimum, areaM2: 0 }, plan.linearToleranceM]],
+		['negative frontage', [{ ...minimum, frontageM: -1 }, plan.linearToleranceM]],
+		['NaN depth', [{ ...minimum, depthM: NaN }, plan.linearToleranceM]],
+		['infinite tolerance', [minimum, Infinity]]
+	] as const) {
+		expect(() => subdivideParcelFrontage(parcel, portal, args[0], args[1]), label).toThrow(
+			RangeError
+		);
+	}
 });

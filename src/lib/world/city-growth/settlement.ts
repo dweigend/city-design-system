@@ -79,7 +79,8 @@ function createEvent(
 	reason: HoldingSettled['reason'],
 	random: Random
 ): HoldingSettled {
-	const { parcel, portal, memberCellIds, ground, burgage } = candidate;
+	const { parcel, portal, memberCellIds, ground } = candidate;
+	const burgage = carrier.readBurgage(parcel.id);
 	const holding = Object.freeze({
 		...parcel,
 		portal,

@@ -27,7 +27,7 @@ function createExtension(
 	const storeyParts = building.parts.filter(({ kind }) => kind === 'storey');
 	const roof = Math.max(...storeyParts.map(({ datumIndex }) => datumIndex));
 	const roofParts = storeyParts.filter(({ datumIndex }) => datumIndex === roof);
-	const burgage = carrier.burgages.get(building.holdingId);
+	const burgage = carrier.readBurgage(building.holdingId);
 	if (burgage) {
 		const useByCell = new Map(
 			roofParts.flatMap(({ cellId, use }) =>
@@ -68,7 +68,7 @@ function createAddition(
 			return Object.freeze({ kind: 'building-extended', ...date, buildingId, holdingId, parts });
 		return;
 	}
-	const burgage = carrier.burgages.get(holdingId);
+	const burgage = carrier.readBurgage(holdingId);
 	if (!burgage || building.parts.some(({ cellId }) => cellId === burgage.rearId)) return;
 	const parts = createWing(
 		buildingId,

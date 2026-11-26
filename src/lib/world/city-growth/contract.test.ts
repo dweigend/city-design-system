@@ -3,7 +3,8 @@ import {
 	isSimplePolygon,
 	isSimpleRing,
 	measurePointSegmentDistance,
-	readVertexMean
+	readVertexMean,
+	type Vec2
 } from '../../core/geometry';
 import { defaults } from '../../../config/city-growth';
 import { required } from '../../core/invariant';
@@ -99,8 +100,16 @@ describe('dated city growth', () => {
 				sequence,
 				reason
 			} of settlementEvents(run)) {
-				const { portal, memberCellIds, builtYear, protected: isProtected, ...parcel } = holding;
+				const {
+					portal,
+					memberCellIds,
+					builtYear,
+					protected: isProtected,
+					courtAccess,
+					...parcel
+				} = holding;
 				expect(isProtected).toBe(false);
+				if (courtAccess) expect(courtAccess.cellIds.length).toBeGreaterThan(1);
 				expect(parcel).toEqual(required(byId.get(holding.id), 'planned parcel'));
 				expect(portal).toEqual(required(portals.get(holding.portalId), 'planned portal'));
 				expect(memberCellIds).toEqual(
@@ -132,7 +141,13 @@ describe('dated city growth', () => {
 				for (const part of building.parts) {
 					if (part.shape.kind !== 'prism') throw Error('Expected a datum-indexed prism');
 					expect(part.shape.top).toBeGreaterThan(part.shape.base);
-					expect(isSimplePolygon(holding.outline, [part.shape.polygon])).toBe(true);
+					expect(isSimpleRing(part.shape.polygon)).toBe(true);
+					const [cx, cy] = readVertexMean(part.shape.polygon);
+					const inset = part.shape.polygon.map(([x, y]): Vec2 => [
+						cx + (x - cx) * 0.99,
+						cy + (y - cy) * 0.99
+					]);
+					expect(isSimplePolygon(holding.outline, [inset])).toBe(true);
 				}
 			}
 			expect([...growthCounts.keys()]).toEqual([1950, 1960, 1970, 1980]);
@@ -443,6 +458,98 @@ describe('stock continuity', () => {
 			seed
 		);
 		expect(advanceCityGrowth(another, 1972).events).toEqual(run.events);
+	});
+
+	test('protection blocks splitting an otherwise splittable vacant child holding', () => {
+		const flat = createCitySite(() => ({ height: 4, waterKind: null, waterClearance: Infinity }));
+		const baseRecipe: CityGrowthRecipe = {
+			...recipe,
+			planFamily: 'square',
+			carrierSizeM: 600,
+			holdingsPerStep: 0
+		};
+		const foundedRun = createCityGrowth(flat, baseRecipe, seed);
+		const target = required(
+			readCitySnapshot(foundedRun).holdings.toSorted((a, b) => b.areaM2 - a.areaM2)[0],
+			'largest founding holding'
+		);
+		const firstSplit = advanceCityGrowth(
+			createCityGrowth(
+				flat,
+				{
+					...baseRecipe,
+					stockChanges: [
+						{ kind: 'retire', holdingId: target.id, year: 1961 },
+						{ kind: 'split', holdingId: target.id, year: 1961 }
+					]
+				},
+				seed
+			),
+			1961
+		);
+		const splitEvent = required(
+			firstSplit.events.find((event) => event.kind === 'holding-split'),
+			'initial parent split'
+		);
+		if (splitEvent.kind !== 'holding-split') throw Error('Expected holding split');
+		const vacantChild = required(
+			splitEvent.children.find(({ areaM2 }) => areaM2 >= 2 * defaults.minimumSplitAreaM2),
+			'splittable vacant child'
+		);
+		const childSplitChanges = [
+			{ kind: 'retire' as const, holdingId: target.id, year: 1961 },
+			{ kind: 'split' as const, holdingId: target.id, year: 1961 },
+			{ kind: 'split' as const, holdingId: vacantChild.id, year: 1971 }
+		];
+		const allowed = advanceCityGrowth(
+			createCityGrowth(flat, { ...baseRecipe, stockChanges: childSplitChanges }, seed),
+			1971
+		);
+		expect(
+			allowed.events.some(
+				(event) => event.kind === 'holding-split' && event.predecessorId === vacantChild.id
+			)
+		).toBe(true);
+
+		const blocked = advanceCityGrowth(
+			createCityGrowth(
+				flat,
+				{
+					...baseRecipe,
+					protectedHoldingIds: [vacantChild.id],
+					stockChanges: childSplitChanges
+				},
+				seed
+			),
+			1971
+		);
+		expect(
+			blocked.events.some(
+				(event) => event.kind === 'holding-split' && event.predecessorId === vacantChild.id
+			)
+		).toBe(false);
+		expect(
+			readCitySnapshot(blocked).holdings.find(({ id }) => id === vacantChild.id)?.protected
+		).toBe(true);
+	});
+
+	test('founding events depend only on reservation-time inputs, never future stock changes', () => {
+		const plain = createCityGrowth(
+			site,
+			{ ...recipe, planFamily: 'square', holdingsPerStep: 0 },
+			seed
+		);
+		const withUnreachable = createCityGrowth(
+			site,
+			{
+				...recipe,
+				planFamily: 'square',
+				holdingsPerStep: 0,
+				stockChanges: [{ kind: 'infill', holdingId: 'missing-holding', year: 2029, storeys: 1 }]
+			},
+			seed
+		);
+		expect(JSON.stringify(withUnreachable.events)).toBe(JSON.stringify(plain.events));
 	});
 
 	test('recipe eras date new construction and massing edits touch only the new upper slices', () => {

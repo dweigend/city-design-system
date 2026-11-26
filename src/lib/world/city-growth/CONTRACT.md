@@ -68,14 +68,16 @@ takes the next sequence number for that year, starting at zero (GROW-1, GROW-4).
 | `retire`    | `building-retired`   | Closes the active interval of an unprotected building. The holding and its lane stay active. The retired building and its last parts are available in `snapshot.retiredBuildings`.                                                                |
 | `split`     | `holding-split`      | Divides a vacant, unprotected holding inward from the portal midpoint if there is room for one more active holding. Each child needs the configured minimum area and direct frontage on the original lane. The cut must meet the minimum depth.   |
 
-The recipe opts into the frontage-strip cell plan by scheduling infill or giving an era
-a positive `setbackDepth` or `porosityRatio`. At creation, a fitting plan reserves a
-dry, side-connected route from the portal midpoint to the rear court. The front wing
-and its available rear neighbor both border the route. The base floor clears the
-sampled terrain under both wings. A holding where the plan cannot fit uses the compact
-single-footprint building and remains eligible for plain vertical extensions. Terrain
-samples for both plans are captured before advance. The stock-change events preserve
-earlier parts and the reserved open cells (CITY-3, CITY-15, FORM-1, GROW-2, GROW-3).
+At creation, each eligible dry holding establishes its parcel cell space, scale, entrance
+and court occupancy through the shared `world/house-site` and `domain/house-court` placement
+rules using reservation-time inputs only (independent of future `stockChanges` or later eras).
+When a fitting burgage layout exists, it reserves a dry, side-connected route from the portal
+midpoint to the rear court, with the front wing and its available rear neighbor both bordering
+the route. The base floor clears the sampled terrain under the parcel and wings. A holding
+where parcel house placement or a burgage court route cannot fit falls back to the compact
+single-footprint building and remains eligible for plain vertical extensions. Terrain samples
+for both plans are captured before advance. The stock-change events preserve earlier parts and
+the reserved open cells (CITY-3, CITY-15, FORM-1, GROW-2, GROW-3).
 
 Setback and porosity shape new upper slices on the cell plan. Both keep each occupied
 column's first slice for that construction event. Setback removes upper slices by cell
