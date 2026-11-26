@@ -1,7 +1,7 @@
 import type { Vec3 } from '../../lib/core/geometry';
 import { projectFocus, type ViewFit } from '../../lib/scene/stage';
 import { rectangle } from './district';
-import { bayJoints, box, member } from './reuse-bay';
+import { bayDepth, bayHalfSpan, bayJoints, box, member } from './reuse-bay';
 
 const yardHalfWidth = 10.5;
 const yardHalfDepth = 6.4;
@@ -110,7 +110,7 @@ export function railSled([x, , z]: Vec3) {
 			member(
 				`rail-sled/brace/${side}`,
 				[x + offset, railY + 1.28, 0.84],
-				[x + offset, railY + 0.28, z + 1.35],
+				[x + Math.sign(offset) * bayHalfSpan, railY + bayDepth / 2, z + 1.35],
 				0.19,
 				'hardware'
 			)

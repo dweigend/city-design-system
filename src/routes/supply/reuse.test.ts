@@ -45,9 +45,28 @@ test('roadless transport seats the sled on the district guide rails', () => {
 	for (const side of [0, 1]) {
 		const rail = transport.drawables.find(({ id }) => id === `guide-rail/rail/${side}`)?.shape;
 		const shoe = transport.drawables.find(({ id }) => id === `rail-sled/guide-shoe/${side}`)?.shape;
-		if (rail?.kind !== 'box' || shoe?.kind !== 'box') throw new Error('Missing rail or guide shoe');
+		const jamb = transport.drawables.find(
+			({ id }) => id === `${transport.component.id}/jamb/${side}`
+		)?.shape;
+		const brace = transport.drawables.find(({ id }) => id === `rail-sled/brace/${side}`)?.shape;
+		if (
+			rail?.kind !== 'box' ||
+			shoe?.kind !== 'box' ||
+			jamb?.kind !== 'box' ||
+			brace?.kind !== 'mesh'
+		)
+			throw new Error('Missing rail, guide shoe, jamb or sled brace');
 		expect(shoe.center[1]).toBe(rail.center[1]);
 		expect(shoe.center[2] - shoe.size[2] / 2).toBeCloseTo(rail.center[2] + rail.size[2] / 2);
+		const rearFaceY = jamb.center[1] + jamb.size[1] / 2;
+		const meetsJambRear = brace.vertices.some(
+			([vx, vy, vz]) =>
+				Math.abs(vx - jamb.center[0]) <= jamb.size[0] / 2 + 0.15 &&
+				Math.abs(vy - rearFaceY) <= 0.15 &&
+				vz >= jamb.center[2] - jamb.size[2] / 2 &&
+				vz <= jamb.center[2] + jamb.size[2] / 2
+		);
+		expect(meetsJambRear).toBe(true);
 	}
 	expect(transport.drawables.some(({ id }) => /(^|\/)(road|truck)(\/|$)/.test(id))).toBe(false);
 });
