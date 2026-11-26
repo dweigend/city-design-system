@@ -180,6 +180,77 @@ for (const width of [1440, 390]) {
 	});
 }
 
+for (const width of [1440, 390]) {
+	journeys(`tracks supply component reuse at ${width}px`, async ({ page }) => {
+		await page.setViewportSize({ width, height: width === 390 ? 844 : 900 });
+		await open(page, '/supply');
+		const canvas = (await readyStages(page, 1)).first();
+		const original = await canvas.elementHandle();
+		const pictures = page.getByRole('radiogroup', { name: 'Picture', exact: true });
+		const sponge = pictures.getByRole('radio', { name: 'Sponge city', exact: true });
+		const reuse = pictures.getByRole('radio', { name: 'Component reuse', exact: true });
+		const hero = page.getByRole('region', { name: 'Component reuse chain' });
+		const selector = hero.getByRole('radiogroup', { name: 'Reuse step' });
+		const states = [
+			['Deconstruction', 'Detached · Old shims exposed'],
+			['Storage', 'Inspected · Tagged in the depot'],
+			['Roadless transport', 'Secured in a rail cradle'],
+			['Reinstallation', 'Seated · Flanges joined'],
+			['Rejected', 'Fractured joint · Unsuitable for reinstallation · Raw material recovery']
+		] as const;
+
+		for (const theme of ['Light', 'Dark']) {
+			await page.getByRole('radio', { name: theme, exact: true }).click();
+			await expect(canvas).toHaveAttribute('data-stage-theme', theme.toLowerCase());
+			await expect(sponge).toBeChecked();
+			await renderedChange(canvas, () => reuse.click());
+			await expect(reuse).toBeChecked();
+
+			for (const [index, [step, condition]] of states.entries()) {
+				const radio = selector.getByRole('radio', { name: step, exact: true });
+				if (step === 'Storage') {
+					await renderedChange(canvas, async () => {
+						await selector.getByRole('radio', { name: 'Deconstruction' }).focus();
+						await page.keyboard.press('ArrowRight');
+					});
+					await expect(radio).toBeFocused();
+				} else if (index > 0) {
+					await renderedChange(canvas, () => radio.click());
+				}
+
+				const component =
+					step === 'Rejected' ? 'component/bay-09 · 1,380 kg' : 'component/bay-04 · 1,420 kg';
+				const metadata = `${component} · ${condition} · ${step}`;
+				await expect(radio).toBeChecked();
+				await expect(hero.getByRole('status')).toHaveText(metadata);
+				await expect(canvas).toHaveAttribute('aria-label', `Precast façade bay · ${metadata}`);
+				await expect(page.locator('canvas')).toHaveCount(1);
+				expect(await canvas.evaluate((element, initial) => element === initial, original)).toBe(
+					true
+				);
+				expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(width);
+				await hero.screenshot({
+					path: journeys
+						.info()
+						.outputPath(`${theme}-${step.toLowerCase().replaceAll(' ', '-')}.png`)
+				});
+			}
+
+			await selector.getByRole('radio', { name: 'Deconstruction' }).click();
+			await renderedChange(canvas, () => sponge.click());
+			await expect(page.getByRole('status')).toHaveText('Cistern · Shortage');
+		}
+	});
+}
+
+journeys('opens the supply reuse picture directly', async ({ page }) => {
+	await open(page, '/supply?picture=reuse');
+	await readyStages(page, 1);
+	const hero = page.getByRole('region', { name: 'Component reuse chain' });
+	await expect(hero.getByRole('radio', { name: 'Component reuse' })).toBeChecked();
+	await expect(hero.getByRole('radio', { name: 'Deconstruction' })).toBeChecked();
+});
+
 async function expectStageIdle(page: Page, canvas: Locator) {
 	const framesAtIdle = Number(await canvas.getAttribute('data-stage-frames'));
 	const idleRafs = await page.evaluate(

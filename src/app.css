@@ -466,8 +466,16 @@
 		--water: var(--cat-health);
 		--energy: var(--cat-mobility);
 	}
-	.supply-hero .chapter-viewer-hud { align-items: start; }
-	.supply-controls { flex: 1 1 22rem; min-inline-size: 0; }
+	.supply-hero .chapter-viewer-hud {
+		display: grid;
+		grid-template-columns: minmax(0, 1fr) auto;
+		align-items: start;
+	}
+	.supply-picture { grid-column: 1; }
+	.supply-hero .chapter-viewer-hud > .control-icon-button { grid-area: 1 / 2; }
+	.supply-controls, .supply-status { grid-column: 1 / -1; min-inline-size: 0; }
+	.supply-reuse .control-segments { flex-wrap: wrap; gap: var(--space-1); }
+	.supply-reuse .control-segments > .control + .control { margin-inline-start: 0; }
 	.supply-options {
 		display: flex;
 		flex-wrap: wrap;
@@ -487,7 +495,6 @@
 			block-size: auto;
 			aspect-ratio: 4 / 3;
 		}
-		.supply-hero .chapter-viewer-hud { justify-content: space-between; }
 	}
 
 	.paths-hero { --water: var(--river-water); }

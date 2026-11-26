@@ -4,16 +4,23 @@
 </script>
 
 <script lang="ts">
+	import { page } from '$app/state';
 	import { Switch } from '../../lib/ui/switch';
 	import { ToggleGroup } from '../../lib/ui/toggle-group';
 	import ChapterHeader from '../ChapterHeader.svelte';
 	import ChapterViewer from '../ChapterViewer.svelte';
 	import { chapterAt } from '../chapters';
 	import { houseUses } from '../house-uses';
+	import { reuseOptions, reusePicture, reuseSteps, type ReuseStep } from './reuse';
 	import { spongePicture } from './sponge';
 	import type { Condition, Measures } from './waterworks';
 
 	const chapter = chapterAt('/supply');
+	const pictures = [
+		{ value: 'sponge', label: 'Sponge city' },
+		{ value: 'reuse', label: 'Component reuse' }
+	];
+	const massFormat = new Intl.NumberFormat('en');
 	const conditions = [
 		{ value: 'dry', label: 'Dry' },
 		{ value: 'wet', label: 'Wet' }
@@ -27,7 +34,16 @@
 	let condition = $state<Condition>('dry');
 	let measures = $state<Measures>('baseline');
 	let transparent = $state(false);
-	const picture = $derived(spongePicture(condition, measures));
+	let selectedPicture = $derived(
+		page.url.searchParams.get('picture') === 'reuse' ? 'reuse' : 'sponge'
+	);
+	let step = $state<ReuseStep>('deconstruction');
+	const isReuse = $derived(selectedPicture === 'reuse');
+	const sponge = $derived(spongePicture(condition, measures));
+	const reuse = $derived(reusePicture(step));
+	const reuseDetails = $derived(
+		`${massFormat.format(reuse.component.massKg)} kg · ${reuse.condition} · ${reuse.label}`
+	);
 </script>
 
 <svelte:head>
@@ -36,21 +52,53 @@
 
 <ChapterHeader number={chapter.number} title={chapter.title} />
 
-<section class="chapter-hero supply-hero" aria-label="Sponge city comparison">
+<section
+	class="chapter-hero supply-hero"
+	aria-label={isReuse ? 'Component reuse chain' : 'Sponge city comparison'}
+>
 	<ChapterViewer
-		stage={{
-			drawables: transparent ? picture.transparent : picture.drawables,
-			view: picture.view,
-			display: transparent ? 'transparency' : 'normal',
-			fit: picture.fit,
-			label:
-				measures === 'sponge'
-					? 'Two mixed-use houses with green roofs and a planted retention basin, each connected to water from the cistern and power from the cabinet'
-					: 'Two mixed-use houses with bare roofs and a concrete swale, each connected to water from the cistern and power from the cabinet'
-		}}
+		stage={isReuse
+			? {
+					drawables: reuse.drawables,
+					view: reuse.view,
+					display: 'normal',
+					fit: reuse.fit,
+					label: `Precast façade bay · ${reuse.component.id} · ${reuseDetails}`
+				}
+			: {
+					drawables: transparent ? sponge.transparent : sponge.drawables,
+					view: sponge.view,
+					display: transparent ? 'transparency' : 'normal',
+					fit: sponge.fit,
+					label:
+						measures === 'sponge'
+							? 'Two mixed-use houses with green roofs and a planted retention basin, each connected to water from the cistern and power from the cabinet'
+							: 'Two mixed-use houses with bare roofs and a concrete swale, each connected to water from the cistern and power from the cabinet'
+				}}
 	>
 		{#snippet controls()}
-			<details class="supply-controls" open>
+			<div class="supply-picture">
+				<ToggleGroup
+					label="Picture"
+					items={pictures}
+					bind:value={
+						() => selectedPicture,
+						(value) => (selectedPicture = value === 'reuse' ? 'reuse' : 'sponge')
+					}
+				/>
+			</div>
+			{#if isReuse}
+				<div class="supply-controls supply-reuse">
+					<ToggleGroup
+						label="Reuse step"
+						items={reuseOptions}
+						bind:value={
+							() => step, (value) => (step = reuseSteps.find((item) => item === value) ?? step)
+						}
+					/>
+				</div>
+			{/if}
+			<details class="supply-controls" hidden={isReuse} open>
 				<summary class="label">Comparison controls</summary>
 				<div class="supply-options">
 					<div class="control-choice">
@@ -86,7 +134,13 @@
 					</ul>
 				</details>
 			</details>
-			<p class="small data supply-status" role="status">Cistern · {picture.storage}</p>
+			<p class="small data supply-status" role="status">
+				{#if isReuse}
+					<span translate="no">{reuse.component.id}</span> · {reuseDetails}
+				{:else}
+					Cistern · {sponge.storage}
+				{/if}
+			</p>
 		{/snippet}
 	</ChapterViewer>
 </section>
