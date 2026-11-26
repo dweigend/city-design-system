@@ -21,3 +21,16 @@ Geometry names slots. `buildAssetResult` returns each slot’s material family a
 The portal frames an opening like Siah Armajani’s [Bridge Over Tree](https://www.publicartfund.org/exhibitions/view/siah-armajani-bridge-over-tree/).
 The totem stacks opposing cantilevers after Ettore Sottsass’s [Carlton Room Divider](https://www.metmuseum.org/art/collection/search/486989).
 The canopy turns the angular planes of Toyo Ito and Cecil Balmond’s [2002 Serpentine Pavilion](https://www.serpentinegalleries.org/about/press/serpentine-pavilion-2002/) into a pitched roof on four piers (CITY-1, CITY-9, FORM-11).
+
+## Plug-in rooms
+
+`plug-in/room` builds a replaceable room on a supported frame bay. Use the bay socket ID as
+the `frame` host address and supply the frame containing that socket when resolving it. The
+room uses the bay's clear dimensions, seats on the exposed docking collar, and occupies only
+the bay above the deck. The host may carry existing occupancy bounds for collision checks.
+The object has `body` and `dock-collar` slots. Project it with `projectHouse`.
+
+Use `listAssets({ kind: 'plug-in' })` or `listAssets({ includeContextual: true })` to discover
+socket-dependent assets. The default list remains the Blocks specimen catalogue. Records
+for the existing builders retain the `city-assets/4` revision. This host is resolved by the
+caller using a supported frame. The current sandbox resolves parcel and graph-edge hosts.

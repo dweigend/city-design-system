@@ -1,8 +1,11 @@
 import { describe, expect, test } from 'bun:test';
+import { supportedFrameExample } from './example';
 import { defaults } from '../../../config/structure';
+import { encodeKey } from '../../core/ref';
 import {
 	createFrameBayObject,
 	createMemberGraph,
+	createSupportedFrame,
 	gravityBalanceTolerance,
 	memberSections,
 	portalExample,
@@ -266,4 +269,173 @@ test('R15-06 detached structural definitions provide widths, areas, roles and re
 	]);
 	expect(runGravity(graph, [{ joint: 'head', forceKN: 10 }]).members[0].utilization).toBe(2);
 	expect(runGravity(graph, load).members[0].utilization).toBe(1);
+});
+
+test('spans two grounded stock roofs and transfers the middle bay to terrain piers', () => {
+	const frame = supportedFrameExample();
+	expect(frame).toEqual(supportedFrameExample());
+	if (frame.status === 'rejected') throw new Error(frame.reason);
+	expect(
+		frame.bearings.map(({ support }) => (support.kind === 'roof' ? support.hostId : 'pier'))
+	).toEqual(['west', 'west', 'pier', 'pier', 'east', 'east']);
+	const groundAt = (x: number, y: number) => x / 20 + y / 10;
+	for (const {
+		id,
+		ground: [x, y, z],
+		foundation,
+		seat,
+		at,
+		support
+	} of frame.bearings) {
+		expect(z).toBe(groundAt(x, y));
+		expect(foundation[2]).toBeLessThanOrEqual(z);
+		if (support.kind === 'pier') expect(seat[2]).toBeLessThan(z);
+		const findBox = (role: string) => {
+			const shape = frame.object.parts.find((part) => part.id === encodeKey([id, role]))?.shape;
+			if (shape?.kind !== 'box') throw new Error('Missing bearing ' + role);
+			return shape;
+		};
+		const foot = findBox('foot');
+		const stem = findBox('stem');
+		const capital = findBox('capital');
+		expect(foot.center[2] - foot.size[2] / 2).toBeCloseTo(seat[2]);
+		expect(foot.center[2] + foot.size[2] / 2).toBeCloseTo(stem.center[2] - stem.size[2] / 2);
+		expect(stem.center[2] + stem.size[2] / 2).toBeCloseTo(capital.center[2] - capital.size[2] / 2);
+		expect(capital.center[2] + capital.size[2] / 2).toBeCloseTo(at[2]);
+		expect(
+			frame.graph.joints.some(
+				({ support, position }) =>
+					support === 'pinned' && position.every((value, i) => value === seat[i])
+			)
+		).toBe(true);
+	}
+	const loads = frame.graph.joints
+		.filter(({ support }) => support === 'free')
+		.map(({ id }) => ({ joint: id, forceKN: 1 }));
+	expect(runGravity(frame.graph, loads)).toMatchObject({
+		status: 'routed',
+		unsupported: [],
+		reactedKN: loads.length,
+		unreactedKN: 0
+	});
+	expect(frame.object.slots).toEqual(['deck', 'frame', 'joint', 'pier']);
+	expect(frame.sockets.map(({ socket }) => socket.normal)).toEqual([
+		[0, 0, 1],
+		[0, 0, 1]
+	]);
+	for (const [i, { socket }] of frame.sockets.entries()) {
+		expect(socket.center[0]).toBeCloseTo(5 + 10 * i);
+		expect(socket.center[1]).toBeCloseTo(0);
+		expect(socket.center[2]).toBe(8);
+	}
+	expect(frame.object.anchors.map(({ name }) => name)).toEqual(
+		frame.sockets.map(({ socket }) => socket.id)
+	);
+});
+
+const shortSpan = {
+	id: 'short',
+	start: [0, 0],
+	end: [8, 0],
+	widthM: 4,
+	deckZ: 7,
+	groundAt: () => 0,
+	allowPiers: false
+} as const;
+
+test('rejects ungrounded and insufficiently wide roof pads without falling through to floating geometry', () => {
+	const seat = {
+		id: 'roof',
+		hostId: 'a',
+		roofZ: 5,
+		outline: [
+			[-2, -2],
+			[10, -2],
+			[10, 2],
+			[-2, 2]
+		] as const,
+		foundationZ: -1
+	};
+	const valid = {
+		...shortSpan,
+		roofs: [
+			{
+				...seat,
+				outline: [
+					[-2, -3],
+					[10, -3],
+					[10, 3],
+					[-2, 3]
+				] as const
+			}
+		]
+	};
+	expect(createSupportedFrame(valid).status).toBe('supported');
+	for (const roof of [
+		seat,
+		{ ...valid.roofs[0], foundationZ: 1 },
+		{ ...valid.roofs[0], foundationZ: null }
+	]) {
+		expect(createSupportedFrame({ ...shortSpan, roofs: [roof], allowPiers: true })).toEqual({
+			status: 'rejected',
+			reason: 'no-grounded-bearing',
+			side: 'right',
+			stationId: 'start'
+		});
+	}
+});
+
+test('rejects a long span, obstructed run and missing terrain beneath piers', () => {
+	expect(createSupportedFrame({ ...shortSpan, end: [20, 0] })).toEqual({
+		status: 'rejected',
+		reason: 'span-limit',
+		from: 'start',
+		to: 'end'
+	});
+	expect(
+		createSupportedFrame({
+			...shortSpan,
+			obstructions: [
+				{
+					outline: [
+						[2, -1],
+						[4, -1],
+						[4, 1],
+						[2, 1]
+					],
+					baseZ: 0,
+					topZ: 9
+				}
+			]
+		})
+	).toEqual({ status: 'rejected', reason: 'obstructed' });
+	expect(
+		createSupportedFrame({ ...shortSpan, allowPiers: true, groundAt: () => -100 })
+	).toMatchObject({
+		status: 'rejected',
+		reason: 'no-grounded-bearing'
+	});
+	expect(
+		createSupportedFrame({
+			...shortSpan,
+			end: [8, 0],
+			deckZ: 5,
+			allowPiers: true,
+			groundAt: ([x]) => (x > 3 && x < 5 ? 12 : 0)
+		})
+	).toEqual({ status: 'rejected', reason: 'obstructed' });
+});
+
+test('validates the metric and addressed frame inputs', () => {
+	expect(() => createSupportedFrame({ ...shortSpan, widthM: 0 })).toThrow(RangeError);
+	expect(() => createSupportedFrame({ ...shortSpan, end: [NaN, 0] })).toThrow(RangeError);
+	expect(() =>
+		createSupportedFrame({
+			...shortSpan,
+			stations: [{ id: 'end', offsetM: 4 }]
+		})
+	).toThrow(RangeError);
+	expect(() => createSupportedFrame({ ...shortSpan, groundAt: () => Infinity })).toThrow(
+		RangeError
+	);
 });

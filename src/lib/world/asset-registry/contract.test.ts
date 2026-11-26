@@ -8,9 +8,12 @@ import {
 	type CellSubgridGenerator,
 	type Parcel
 } from '../../domain/cell-space';
+import { createSupportedFrame } from '../../domain/structure';
 import {
 	buildAsset,
 	buildAssetResult,
+	cityAssetRegistryRevision,
+	type Placement,
 	InvalidAssetParamsError,
 	listAssets,
 	readAsset,
@@ -18,7 +21,7 @@ import {
 	validateAssetHost,
 	WrongAssetHostError
 } from './index';
-import { placementsExample } from './example';
+import { placementsExample, plugInExample } from './example';
 
 const parcel: Parcel = {
 	id: 'metric-plot',
@@ -403,4 +406,77 @@ test('clamps and snaps sculpture inputs and validates hosts, overrides and seed'
 			({ hostKinds, kind }) => hostKinds.includes('parcel') && kind === 'sculpture'
 		)
 	).toEqual([]);
+});
+
+test('replays a plug-in room from its frame socket and preserves the city-assets/4 catalogue', () => {
+	const { host, record, room, socket } = plugInExample();
+	expect(cityAssetRegistryRevision).toBe('city-assets/4');
+	expect(listAssets()).toHaveLength(27);
+	expect(listAssets({ kind: 'plug-in' })).toEqual([readAsset(record.assetId)]);
+	expect(listAssets({ includeContextual: true })).toContain(readAsset(record.assetId));
+	const saved = JSON.parse(JSON.stringify(record)) as Placement;
+	expect(saved.host).toEqual({ kind: 'frame', id: host.id });
+	expect(buildAsset(saved.assetId, host, saved.params, saved.seed)).toEqual(room);
+	expect(buildAsset('structure/frame-bay', host, {}, saved.seed)).toBe(host.frame.object);
+	expect(room.slots).toEqual(['body', 'dock-collar']);
+	expect(room.anchors).toHaveLength(1);
+	const [mount] = room.anchors;
+	expect(mount).toMatchObject({ name: 'mount', position: socket.center });
+	expect(mount.normal[0]).toBeCloseTo(0);
+	expect(mount.normal[1]).toBeCloseTo(0);
+	expect(mount.normal[2]).toBeCloseTo(-1);
+	const [body, collar] = room.parts;
+	const clearance = bounds({ ...room, parts: [body] }).min[2];
+	const collarExtent = bounds({ ...room, parts: [collar] });
+	expect(collarExtent.min[2]).toBe(socket.center[2]);
+	expect(collarExtent.max[2]).toBeGreaterThan(collarExtent.min[2]);
+	expect(clearance).toBe(collarExtent.max[2]);
+	expect(bounds(room).max[2]).toBeLessThan(socket.center[2] + host.frame.sockets[0].clearHeightM);
+	expect(JSON.stringify(room)).not.toMatch(/"(?:colou?r|material|finish|token)"|#[a-f\d]{3,8}\b/i);
+});
+
+test('rejects a missing or occupied socket and preserves oriented docking bounds on diagonal frames', () => {
+	const { host, record, room } = plugInExample();
+	expect(() => validateAssetHost(record.assetId, { ...host, id: 'missing' })).toThrow(
+		/Unknown plug-in socket/
+	);
+	expect(() =>
+		buildAsset(record.assetId, { ...host, occupiedBounds: [bounds(room)] }, {}, 37)
+	).toThrow(/occupied-overlap/);
+
+	const diagonal = createSupportedFrame({
+		id: 'diagonal-frame',
+		start: [0, 0],
+		end: [8, 8],
+		widthM: 8,
+		deckZ: 5,
+		allowPiers: true,
+		groundAt: () => 0,
+		stations: [{ id: 'mid', offsetM: Math.hypot(8, 8) / 2 }]
+	});
+	if (diagonal.status !== 'supported') throw new Error(diagonal.reason);
+	expect(diagonal.sockets).toHaveLength(2);
+	const first = buildAssetResult(
+		'plug-in/room',
+		{ kind: 'frame', id: diagonal.sockets[0].socket.id, frame: diagonal },
+		{},
+		11
+	);
+	if (!first.bounds) throw new Error('Expected plug-in docking bounds');
+	const occupiedBounds = [first.bounds];
+	const second = buildAssetResult(
+		'plug-in/room',
+		{ kind: 'frame', id: diagonal.sockets[1].socket.id, frame: diagonal, occupiedBounds },
+		{},
+		12
+	);
+	expect(second.object.slots).toEqual(['body', 'dock-collar']);
+	expect(() =>
+		buildAssetResult(
+			'plug-in/room',
+			{ kind: 'frame', id: diagonal.sockets[0].socket.id, frame: diagonal, occupiedBounds },
+			{},
+			13
+		)
+	).toThrow(/occupied-overlap/);
 });

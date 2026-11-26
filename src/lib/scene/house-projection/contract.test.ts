@@ -15,7 +15,7 @@ import {
 } from '../../domain/house-court';
 import { createClad } from '../../domain/material';
 import { paintClad } from '../surface';
-import { example } from './example';
+import { example, frameRoomExample } from './example';
 import { fullSurfaces } from './surfaces';
 import {
 	readHouseDetail,
@@ -201,4 +201,17 @@ test('programmed plain LOD suppresses surface grain even without a tone override
 	);
 	expect(plain.drawables.some(({ useColor }) => useColor === houseUseColors.housing)).toBe(true);
 	expect(plain.drawables.every(({ grain }) => !grain)).toBe(true);
+});
+
+test('draws the frame and replaceable room with house display levels and visible joints', () => {
+	const { frame, room } = frameRoomExample();
+	for (const level of ['full', 'silhouette', 'transparent', 'pencil'] as const) {
+		const structure = projectHouse(frame, level);
+		expect(structure).toHaveLength(frame.parts.length);
+		const plugIn = projectHouse(room, level);
+		expect(plugIn.map(({ id }) => id)).toEqual(['body', 'dock-collar']);
+		expect(plugIn[1].color).toBe(houseLevels[level].surfaces['dock-collar'].color);
+		expect(plugIn[1].shape).toBe(room.parts[1].shape);
+	}
+	expect(projectHouse(room, 'hidden')).toEqual([]);
 });

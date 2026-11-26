@@ -1,4 +1,5 @@
 import { resolveParams } from '../../core/params';
+import { createSupportedFrame } from '../../domain/structure';
 import { createCellSpace, parcelEdgeId, type Parcel } from '../../domain/cell-space';
 import {
 	buildAsset,
@@ -59,4 +60,31 @@ export function placementsExample() {
 		buildAssetResult(id, ground, { scale: 1.25, rotation: Math.PI / 2 }, 37)
 	);
 	return { records, original, json, restored, rebuilt: restored.map(build), sculptures };
+}
+
+/** Seats a replaceable room on a diagonal supported frame at a fixed world address. */
+export function plugInExample() {
+	const frame = createSupportedFrame({
+		id: 'diagonal-frame',
+		start: [2, 3],
+		end: [8, 11],
+		widthM: 4,
+		deckZ: 6,
+		groundAt: () => 1
+	});
+	if (frame.status === 'rejected') throw new Error(frame.reason);
+	const [{ socket }] = frame.sockets;
+	const host = { kind: 'frame', id: socket.id, frame } as const;
+	const record: Placement = {
+		assetId: 'plug-in/room',
+		host: { kind: 'frame', id: socket.id },
+		params: {},
+		seed: 37
+	};
+	return {
+		host,
+		record,
+		socket,
+		room: buildAsset(record.assetId, host, record.params, record.seed)
+	};
 }

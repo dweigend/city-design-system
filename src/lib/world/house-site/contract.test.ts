@@ -11,7 +11,7 @@ import {
 } from '../../domain/cell-space';
 import { columnRoof, levelHeight } from '../../domain/city-volume';
 import { houseFigures, houseStyles } from '../../domain/house-court';
-import { example } from './example';
+import { example, parcelFrameExample } from './example';
 import {
 	createParcelHouse,
 	createParcelHouseObject,
@@ -323,4 +323,21 @@ test('exposes a parcel cell space with valid storeys even when house occupancy i
 	expect(space).toBeDefined();
 	expect(space?.cells.length).toBeGreaterThan(0);
 	expect(space?.storeys.length).toBeGreaterThan(0);
+});
+
+test('uses the actual placed roof and plinth chain for two house bearings', () => {
+	const frame = parcelFrameExample();
+	if (frame.status === 'rejected') throw new Error(frame.reason);
+	expect(frame.bearings.map(({ support }) => support.kind === 'roof' && support.hostId)).toEqual([
+		'west-house',
+		'west-house',
+		'east-house',
+		'east-house'
+	]);
+	expect(frame.bearings.map(({ seat }) => seat[2])).toEqual([7, 7, 7, 7]);
+	expect(frame.object.slots).not.toContain('pier');
+	expect(parcelFrameExample(() => -5)).toMatchObject({
+		status: 'rejected',
+		reason: 'no-grounded-bearing'
+	});
 });

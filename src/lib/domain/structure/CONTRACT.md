@@ -29,3 +29,29 @@ in member order while conserving the applied force. This is a
 vertical routing model. It omits stiffness, horizontal equilibrium, moments, buckling, joint
 behavior and the distinction between pinned and fixed restraints. A routed result certifies
 reachability and vertical accounting only.
+
+## Supported frame
+
+`createSupportedFrame` builds a straight frame between two plan points in world meters. Both
+points mark bearing lines. Add intermediate lines in increasing distance from the start, with
+unique keys. A span must fit the limits in `config/structure` in both directions. Each bearing
+line has a pad at each edge. The terminal pads sit under the deck ends, and the crossheads and
+girders carry the deck between them (CITY-7, CITY-8, FORM-6).
+
+A roof seat is a level convex CCW polygon, an elevation, and a foundation elevation, or
+`null` for stock without a verified foundation. Extra bearing outlines can narrow the
+continuous stock column below the roof. The full pad plus clearance must fit each outline.
+The sampler checks the center and four corners of every pad. Stock foundations must reach
+those samples. Where a roof qualifies, the highest clear seat wins, with host and seat
+addresses breaking ties. A terrain pier may take the load at an otherwise empty pad. Its foot
+reaches the lowest of the five samples. Set `allowPiers: false` to require roof bearings at
+both edges of every line (CITY-3, FORM-7, FORM-8).
+
+Roof volumes and optional obstruction volumes reserve clearance. An obstructed frame, span
+outside its limits, or station with no grounded bearing returns a named rejection before any
+geometry is built. Invalid inputs throw `RangeError`. The result is detached and frozen. Each
+bearing records its soffit point, seat, sampled center ground, and foundation. The graph
+ends at pinned roof or pier seats. Bearings on stock record the continuation from the roof
+to its foundation. The object emits deck, frame, joint, and any pier parts. Each bay has an
+upward-facing socket on the deck inside the post collars. Addresses derive from the frame
+and stations, so they survive a dimension change that preserves those stations (FORM-5, MAT-1).

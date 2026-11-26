@@ -36,7 +36,9 @@ const frame: AssetEntry<CityAssetHost> = {
 	hostKinds: ['frame', 'lattice-bay'],
 	build(host) {
 		if (host.kind === 'frame')
-			return createFrameBayObject(host.id, host.graph, { memberIds: host.memberIds });
+			return 'frame' in host
+				? host.frame.object
+				: createFrameBayObject(host.id, host.graph, { memberIds: host.memberIds });
 		if (host.kind !== 'lattice-bay') throw new RangeError('Expected a frame or lattice bay');
 		const lattice = host.readLattice(host.model);
 		const levelHeightM = host.levelHeightM ?? levelHeight;

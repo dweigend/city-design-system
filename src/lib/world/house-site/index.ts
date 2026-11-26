@@ -41,3 +41,10 @@ export {
 } from './parcel-town';
 /** Builds the mixed-use town house recipe within the site's coarse spacing. */
 export { townHouseRecipe } from './town-program';
+
+export {
+	/** Places a grounded spanning frame on parcel-house roofs or dedicated terrain piers. */
+	createParcelHouseFrame,
+	/** A world-meter frame baseline, placed houses, and the terrain under their bearings. */
+	type ParcelFrameSpec
+} from './parcel-frame';

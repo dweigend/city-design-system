@@ -14,3 +14,7 @@ default, and a style specimen or sandbox house may supply a tint from the model 
 Salience grants `mid` or `near` as appropriate. Pencil is a separate display;
 `flat` and `relief` are aliases of `plain` and `near`. Builds are cached by geometry
 and cladding inputs. Patches and translations are in meters, and rotations are in radians.
+
+`projectHouse` also draws supported frames and plug-in rooms from their declared role slots.
+Full, silhouette, transparent, and pencil levels use the same placed geometry. The frame
+joint and dock collar retain their own surfaces.

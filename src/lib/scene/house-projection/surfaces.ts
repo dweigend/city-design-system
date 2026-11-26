@@ -44,6 +44,10 @@ export const fullSurfaces = Object.freeze({
 	'body-main': surface('--model-blue', '--ink', true),
 	'body-second': surface('--model-cork', '--ink', true),
 	collar: surface('--model-white', '--ink-2', false),
+	body: surface('--model-cream', '--ink', true),
+	'dock-collar': surface('--model-white', '--ink-2', false),
+	joint: surface('--model-white', '--ink-2', false),
+	pier: surface('--ink-3', '--ink-2', true),
 	capsule: surface('--model-white', '--ink-2', true),
 	'capsule-accent': surface('--model-yellow', '--ink-2', true),
 	frame: surface('--ink-3', '--ink-2', false),
@@ -60,6 +64,11 @@ export const fullSurfaces = Object.freeze({
 export const blockSurfaces = Object.freeze({
 	...ground,
 	frame: fullSurfaces.frame,
+	deck: fullSurfaces.deck,
+	pier: fullSurfaces.pier,
+	joint: fullSurfaces.joint,
+	body: fullSurfaces.body,
+	'dock-collar': fullSurfaces['dock-collar'],
 	mass: surface('--paper', '--ink', true)
 } satisfies SurfaceAssignment);
 
@@ -68,11 +77,17 @@ export const pencilSurfaces = Object.freeze({
 	plot: surface('--paper-2', '--stock-line', false),
 	court: surface('--paper-2', '--stock-line', false),
 	frame: surface('--stock-pencil', '--stock-line', false),
+	deck: surface('--stock-pencil', '--stock-line', true),
+	pier: surface('--stock-pencil', '--stock-line', true),
+	joint: surface('--stock-pencil', '--stock-line', false),
+	body: surface('--stock-pencil', '--stock-line', true),
+	'dock-collar': surface('--stock-pencil', '--stock-line', false),
 	mass: surface('--stock-pencil', '--stock-line', true)
 } satisfies SurfaceAssignment);
 
 /** See-through drawing: veiled masses with graphite stock lines (COLOR-6). */
 export const veilSurfaces = Object.freeze({
 	...pencilSurfaces,
+	body: surface('--stock-veil', '--stock-line', true),
 	mass: surface('--stock-veil', '--stock-line', true)
 } satisfies SurfaceAssignment);

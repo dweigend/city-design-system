@@ -49,3 +49,26 @@ export {
 	/** An optional addressed subset and coordinate mapping for a frame object. */
 	type FrameBayOptions
 } from './frame-object';
+
+export type {
+	/** A keyed, level stock roof with a continuous support footprint and foundation elevation. */
+	FrameRoofSeat,
+	/** A reserved volume over a convex plan outline between two elevations in meters. */
+	FrameObstruction,
+	/** Baseline, ordered bearing stations, stock and terrain for a frame in world meters. */
+	SupportedFrameSpec
+} from './frame-input';
+export type {
+	/** One bearing's seat, terrain point and support provenance in world meters. */
+	FrameBearing,
+	/** A structurally infeasible span, obstruction or missing bearing. */
+	FrameRejection
+} from './frame-plan';
+export {
+	/** Builds a grounded spanning frame with exposed docking sockets. */
+	createSupportedFrame,
+	/** A seat in one frame bay, with usable height above the socket in meters. */
+	type FrameBaySocket,
+	/** The accepted frame geometry, member graph, bearings and docking sockets. */
+	type SupportedFrame
+} from './supported-frame';

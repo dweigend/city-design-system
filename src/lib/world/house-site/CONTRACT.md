@@ -29,3 +29,12 @@ storey heights change within a band.
 The resolver checks the triangulated floor and ceiling over each quad. It emits a whole storey
 prism when the combined model fill covers it, including any wedges addressed to neighboring
 bays. The example reads the shared side of two adjacent bays with mixed-height storeys.
+
+## Stock frames
+
+`createParcelHouseFrame` takes the existing placed houses, frame baseline, and terrain sampler.
+A level roof qualifies where its addressed storey bodies connect through to a ground plate
+under the full bearing pad. The sampler checks that the plate still reaches terrain. This
+keeps a detached upper house volume from taking a bearing. Volumes under the placed house parts' upper faces
+reserve clearance conservatively. The result uses the structural frame contract and carries
+one stable dock address per bay.
